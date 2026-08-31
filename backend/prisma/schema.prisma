@@ -1,0 +1,282 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sede {
+  sedeId    Int       @id @default(autoincrement())
+  nombre    String    @db.VarChar(150)
+  direccion String?   @db.VarChar(255)
+  telefono  String?   @db.VarChar(20)
+  activo    Boolean   @default(true)
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  usuarios  Usuario[]
+  secciones Seccion[]
+  eventos   Evento[]
+}
+
+model Rol {
+  rolId    Int       @id @default(autoincrement())
+  nombre   String    @unique @db.VarChar(50)
+  usuarios Usuario[]
+}
+
+model Usuario {
+  usuarioId    Int       @id @default(autoincrement())
+  nombres      String    @db.VarChar(100)
+  apellidos    String    @db.VarChar(100)
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @db.VarChar(255)
+  rolId        Int
+  sedeId       Int?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  rol            Rol            @relation(fields: [rolId], references: [rolId])
+  sede           Sede?          @relation(fields: [sedeId], references: [sedeId])
+  catedratico    Catedratico?
+  encargado      Encargado?
+  alumno         Alumno?
+  notificaciones Notificacion[]
+}
+
+model Catedratico {
+  catedraticoId Int     @id
+  especialidad  String? @db.VarChar(100)
+  usuario       Usuario @relation(fields: [catedraticoId], references: [usuarioId])
+
+  cursosSeccion CursoSeccion[]
+}
+
+model Encargado {
+  encargadoId Int     @id
+  parentesco  String? @db.VarChar(50)
+  usuario     Usuario @relation(fields: [encargadoId], references: [usuarioId])
+
+  alumnosEncargado AlumnoEncargado[]
+  matriculas       Matricula[]
+}
+
+model Alumno {
+  alumnoId        Int       @id
+  fechaNacimiento DateTime? @db.Date
+  seccionId       Int
+
+  usuario Usuario @relation(fields: [alumnoId], references: [usuarioId])
+  seccion Seccion @relation(fields: [seccionId], references: [seccionId])
+
+  encargados  AlumnoEncargado[]
+  matriculas  Matricula[]
+  notas       Nota[]
+  asistencias Asistencia[]
+  becas       Beca[]
+  pagos       Pago[]
+}
+
+model AlumnoEncargado {
+  alumnoId    Int
+  encargadoId Int
+  esPrincipal Boolean @default(false)
+
+  alumno    Alumno    @relation(fields: [alumnoId], references: [alumnoId])
+  encargado Encargado @relation(fields: [encargadoId], references: [encargadoId])
+
+  @@id([alumnoId, encargadoId])
+}
+
+model Grado {
+  gradoId Int    @id @default(autoincrement())
+  nombre  String @db.VarChar(50)
+  nivel   String @db.VarChar(30)
+  orden   Int
+
+  mallas    MallaCurricular[]
+  secciones Seccion[]
+}
+
+model Curso {
+  cursoId     Int     @id @default(autoincrement())
+  nombre      String  @db.VarChar(100)
+  descripcion String? @db.VarChar(255)
+
+  mallas        MallaCurricular[]
+  cursosSeccion CursoSeccion[]
+}
+
+model MallaCurricular {
+  mallaId Int @id @default(autoincrement())
+  gradoId Int
+  cursoId Int
+
+  grado Grado @relation(fields: [gradoId], references: [gradoId])
+  curso Curso @relation(fields: [cursoId], references: [cursoId])
+
+  @@unique([gradoId, cursoId])
+}
+
+model Seccion {
+  seccionId   Int    @id @default(autoincrement())
+  gradoId     Int
+  sedeId      Int
+  nombre      String @db.VarChar(10)
+  anioLectivo Int
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  grado Grado @relation(fields: [gradoId], references: [gradoId])
+  sede  Sede  @relation(fields: [sedeId], references: [sedeId])
+
+  alumnos       Alumno[]
+  cursosSeccion CursoSeccion[]
+  matriculas    Matricula[]
+
+  @@unique([gradoId, sedeId, nombre, anioLectivo])
+}
+
+model CursoSeccion {
+  cursoSeccionId Int @id @default(autoincrement())
+  cursoId        Int
+  seccionId      Int
+  catedraticoId  Int
+
+  curso       Curso       @relation(fields: [cursoId], references: [cursoId])
+  seccion     Seccion     @relation(fields: [seccionId], references: [seccionId])
+  catedratico Catedratico @relation(fields: [catedraticoId], references: [catedraticoId])
+
+  horarios    Horario[]
+  unidades    Unidad[]
+  asistencias Asistencia[]
+
+  @@unique([cursoId, seccionId])
+}
+
+model Horario {
+  horarioId      Int      @id @default(autoincrement())
+  cursoSeccionId Int
+  diaSemana      Int      @db.SmallInt
+  horaInicio     DateTime @db.Time
+  horaFin        DateTime @db.Time
+
+  cursoSeccion CursoSeccion @relation(fields: [cursoSeccionId], references: [cursoSeccionId])
+}
+
+model Matricula {
+  matriculaId    Int      @id @default(autoincrement())
+  alumnoId       Int
+  seccionId      Int
+  encargadoId    Int
+  fechaMatricula DateTime @default(now())
+  anioLectivo    Int
+  estado         String   @default("Activa") @db.VarChar(20)
+
+  alumno    Alumno    @relation(fields: [alumnoId], references: [alumnoId])
+  seccion   Seccion   @relation(fields: [seccionId], references: [seccionId])
+  encargado Encargado @relation(fields: [encargadoId], references: [encargadoId])
+}
+
+model Unidad {
+  unidadId       Int @id @default(autoincrement())
+  cursoSeccionId Int
+  numero         Int @db.SmallInt
+
+  cursoSeccion CursoSeccion @relation(fields: [cursoSeccionId], references: [cursoSeccionId])
+  actividades  Actividad[]
+
+  @@unique([cursoSeccionId, numero])
+}
+
+model Actividad {
+  actividadId   Int       @id @default(autoincrement())
+  unidadId      Int
+  nombre        String    @db.VarChar(100)
+  puntosMaximos Decimal   @db.Decimal(5, 2)
+  fecha         DateTime? @db.Date
+
+  unidad Unidad @relation(fields: [unidadId], references: [unidadId])
+  notas  Nota[]
+}
+
+model Nota {
+  notaId        Int      @id @default(autoincrement())
+  actividadId   Int
+  alumnoId      Int
+  valor         Decimal  @db.Decimal(5, 2)
+  fechaRegistro DateTime @default(now())
+
+  actividad Actividad @relation(fields: [actividadId], references: [actividadId])
+  alumno    Alumno    @relation(fields: [alumnoId], references: [alumnoId])
+
+  @@unique([actividadId, alumnoId])
+}
+
+model Asistencia {
+  asistenciaId   Int      @id @default(autoincrement())
+  cursoSeccionId Int
+  alumnoId       Int
+  fecha          DateTime @db.Date
+  estado         String   @db.VarChar(15)
+
+  cursoSeccion CursoSeccion @relation(fields: [cursoSeccionId], references: [cursoSeccionId])
+  alumno       Alumno       @relation(fields: [alumnoId], references: [alumnoId])
+
+  @@unique([cursoSeccionId, alumnoId, fecha])
+}
+
+model Beca {
+  becaId      Int       @id @default(autoincrement())
+  alumnoId    Int
+  porcentaje  Decimal   @db.Decimal(5, 2)
+  descripcion String?   @db.VarChar(255)
+  fechaInicio DateTime  @db.Date
+  fechaFin    DateTime? @db.Date
+  activa      Boolean   @default(true)
+
+  alumno Alumno @relation(fields: [alumnoId], references: [alumnoId])
+}
+
+model Pago {
+  pagoId          Int       @id @default(autoincrement())
+  alumnoId        Int
+  monto           Decimal   @db.Decimal(10, 2)
+  concepto        String    @db.VarChar(100)
+  stripePaymentId String?   @db.VarChar(150)
+  estado          String    @default("Pendiente") @db.VarChar(20)
+  fechaPago       DateTime?
+
+  alumno Alumno @relation(fields: [alumnoId], references: [alumnoId])
+}
+
+model Evento {
+  eventoId           Int      @id @default(autoincrement())
+  sedeId             Int?
+  nombre             String   @db.VarChar(150)
+  descripcion        String?  @db.VarChar(255)
+  fecha              DateTime @db.Date
+  tipoEvento         String   @db.VarChar(20)
+  enviarRecordatorio Boolean  @default(true)
+
+  sede Sede? @relation(fields: [sedeId], references: [sedeId])
+}
+
+model Notificacion {
+  notificacionId Int      @id @default(autoincrement())
+  usuarioId      Int
+  titulo         String   @db.VarChar(150)
+  mensaje        String   @db.VarChar(500)
+  fechaEnvio     DateTime @default(now())
+  leida          Boolean  @default(false)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [usuarioId])
+}

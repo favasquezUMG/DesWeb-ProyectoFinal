@@ -1,0 +1,23 @@
+{
+  "name": "desweb_proyectofinal",
+  "version": "1.0.0",
+  "description": "Sistema Escolar - Desarrollo Web",
+  "license": "ISC",
+  "author": "Grupo 3 (Fabian, Cuma y Fernando 'cookies')",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "prisma": "^5.10.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0"
+  }
+}

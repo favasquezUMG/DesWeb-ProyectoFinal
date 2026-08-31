@@ -1,0 +1,23 @@
+#Credenciales y Variables de entorno
+.env
+.env.*
+!.env.example
+
+#Dependencias
+node_modules/
+
+# Archivos de compilación de TypeScript
+dist/
+build/
+
+# Archivos del sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs y temporales
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
