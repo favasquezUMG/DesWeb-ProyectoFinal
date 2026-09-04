@@ -6,13 +6,13 @@
   "author": "Grupo 3 (Fabian, Cuma y Fernando 'cookies')",
   "type": "module",
   "main": "dist/server.js",
-"scripts": {
-  "dev": "tsx watch --env-file=.env.development src/server.ts",
-  "build": "tsc",
-  "start": "node dist/server.js",
-  "migrate": "dotenv -e .env.development -- prisma migrate dev",
-  "generate": "prisma generate"
-},
+  "scripts": {
+    "dev": "tsx watch --env-file=.env.development src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "migrate": "dotenv -e .env.development -- prisma migrate dev",
+    "generate": "prisma generate"
+  },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
