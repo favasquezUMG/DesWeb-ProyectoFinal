@@ -29,6 +29,7 @@ model Rol {
   usuarios Usuario[]
 }
 
+// *********** verificar que si funcione asi lo de los roles del usuario
 model Usuario {
   usuarioId    Int       @id @default(autoincrement())
   nombres      String    @db.VarChar(100)
@@ -113,6 +114,8 @@ model Curso {
   cursosSeccion CursoSeccion[]
 }
 
+
+// ********** Solo verificar sobre el nombre para no hacernos bolas
 model MallaCurricular {
   mallaId Int @id @default(autoincrement())
   gradoId Int
@@ -172,6 +175,7 @@ model Horario {
   cursoSeccion CursoSeccion @relation(fields: [cursoSeccionId], references: [cursoSeccionId])
 }
 
+// ****************** Esta es la inscripcion
 model Matricula {
   matriculaId    Int      @id @default(autoincrement())
   alumnoId       Int
