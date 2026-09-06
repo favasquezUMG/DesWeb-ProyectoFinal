@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express'; //Resolver este problema******
+import type { Request, Response, NextFunction } from 'express'; //Resolver este problema******
 import jwt from 'jsonwebtoken';
 
+//Una simple interface
 export interface AuthenticatedRequest extends Request {
     user?: {
         id: string;
@@ -10,7 +11,9 @@ export interface AuthenticatedRequest extends Request {
     };
 }
 
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFuntion) => {
+
+//Metodo que autentifica el token generado
+export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
