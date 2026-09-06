@@ -1,13 +1,21 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
+import { login } from "./controllers/auth.controller.js";
+import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
+import { authenticateToken } from "./middlewares/auth.middleware.js";
 import { prisma } from "./lib/prisma.js";
 
+dotenv.config();
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+////// Rutas publicas
+
+//Para ver que este vivo el sistema nada mas
 app.get("/", (_req, res) => {
   res.json({
     message: "API DERCAS",
@@ -15,13 +23,26 @@ app.get("/", (_req, res) => {
   });
 });
 
-// Aquí se irán registrando las rutas:
-// registrarRutasAuth(app);
-// registrarRutasRol(app);
+app.post('/api/auth/login', login);
+
+////// Rutas protegidas
+
+app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
+  res.json({
+    status: 'success',
+    user: req.user
+  });
+});
 
 const PORT = Number(process.env.PORT) || 8081;
+const HOST = process.env.HOST || "http://localhost";
 
 app.listen(PORT, async () => {
-  await prisma.$connect();
-  console.log(`Servidor en puerto ${PORT} [ambiente: ${process.env.NODE_ENV ?? "development"}]`);
+  try {
+    await prisma.$connect();
+    console.log(`🚀 Servidor ejecutándose en ${HOST}:${PORT} [ambiente: ${process.env.NODE_ENV ?? "development"}]`);
+    
+  } catch (error) {
+    console.error("❌ Error al conectar la base de datos:", error);
+  }
 });
