@@ -5,8 +5,20 @@ import { prisma } from '../lib/prisma.js';
 //Get All
 export const getUsers = async (_req: Request, res: Response) => {
     try {
-        const users = await prisma.usuario.findFirst({
-            where: { deletedAt: null }
+        const users = await prisma.usuario.findMany({
+            where: { deletedAt: null },
+            select: {
+                usuarioId: true,
+                nombres: true,
+                apellidos: true,
+                email: true,
+                rol: {
+                    select: { nombre: true}
+                },
+                sede: {
+                    select: { nombre: true}
+                }
+            }
         });
 
         return res.json({ status: 'success', data: users })
@@ -20,8 +32,11 @@ export const getUserById = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     try {
-        const user = await prisma.usuario.findUnique({
-            where: { usuarioId: Number(id), deletedAt: null },
+        const user = await prisma.usuario.findFirst({
+            where: { 
+                usuarioId: Number(id),
+                deletedAt: null
+            },
             include: { rol: true, sede: true }
         });
 
@@ -60,7 +75,7 @@ export const createUser = async (req: Request, res: Response ) => {
                 email,
                 passwordHash,
                 rolId: Number(rolId),
-                sedeId: Number(sedeId)
+                sedeId: sedeId ? Number(sedeId) : null 
             }
         });
 
@@ -89,7 +104,7 @@ export const updateUser = async (req: Request, res: Response) => {
         if(email) dataToUpdate.email = email;
         if(rolId) dataToUpdate.rolId = Number(rolId);
         if(sedeId !== undefined) dataToUpdate.sedeId = sedeId ? Number(sedeId) : null;
-        if(password) dataToUpdate.password = await bcrypt.hash(password, 10);
+        if(password) dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
 
         const updatedUser = await prisma.usuario.update({
             where: { usuarioId: Number(id) },
