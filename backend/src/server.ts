@@ -5,6 +5,7 @@ import { login } from "./controllers/auth.controller.js";
 import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
 import { authenticateToken } from "./middlewares/auth.middleware.js";
 import { prisma } from "./lib/prisma.js";
+import userRoutes from "./routes/user.routes.js";
 
 dotenv.config();
 const app = express();
@@ -25,6 +26,8 @@ app.get("/", (_req, res) => {
 
 app.post('/api/auth/login', login);
 
+
+
 ////// Rutas protegidas
 
 app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
@@ -33,6 +36,8 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
     user: req.user
   });
 });
+
+app.use('/api/users', userRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
