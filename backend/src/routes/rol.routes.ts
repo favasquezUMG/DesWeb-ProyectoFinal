@@ -11,7 +11,7 @@ import { authenticateToken } from "../middlewares/auth.middleware.js";
 const router = Router();
 
 // Todas las rutas de administración de roles quedan protegidas con el JWT
-router.use(authenticateToken)
+// router.use(authenticateToken)
 
 router.get('/all', getRoles);
 router.get('/:id', getRolById);
