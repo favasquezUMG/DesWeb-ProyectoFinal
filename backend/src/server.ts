@@ -6,6 +6,7 @@ import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
 import { authenticateToken } from "./middlewares/auth.middleware.js";
 import { prisma } from "./lib/prisma.js";
 import userRoutes from "./routes/user.routes.js";
+import activityRoutes from "./routes/activity.routes.js";
 
 dotenv.config();
 const app = express();
@@ -19,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 //Para ver que este vivo el sistema nada mas
 app.get("/", (_req, res) => {
   res.json({
-    message: "API DERCAS",
+    message: "API DesWeb - Proyecto Final",
     ambiente: process.env.NODE_ENV ?? "development",
   });
 });
@@ -38,6 +39,7 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
 });
 
 app.use('/api/users', userRoutes);
+app.use('/api/activities', activityRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
