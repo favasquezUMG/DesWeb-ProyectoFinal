@@ -18,10 +18,10 @@ router.get('/', getHorarios);
 router.get('/:id', getHorarioById);
 
 // Chequeo previo para el formulario del frontend: no guarda nada
-router.post('/verificar', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), verificarChoque);
+router.post('/verificar', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), verificarChoque);
 
-router.post('/', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), createHorario);
-router.put('/:id', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), updateHorario);
-router.delete('/:id', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), deleteHorarioById);
+router.post('/', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), createHorario);
+router.put('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), updateHorario);
+router.delete('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), deleteHorarioById);
 
 export default router;

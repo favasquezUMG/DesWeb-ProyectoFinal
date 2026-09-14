@@ -8,11 +8,13 @@ import { prisma } from '../lib/prisma.js';
  * ambientes (local, pruebas, produccion) y romperían las rutas.
  */
 export const ROL = {
+    ADMIN: 'Admin',
     ADMIN_GENERAL: 'Administrador General',
     ADMIN_SEDE: 'Administrador de Sede',
     CATEDRATICO: 'Catedratico',
     ALUMNO: 'Alumno',
     ENCARGADO: 'Encargado',
+    COORDINADOR: 'Coordinador',
 } as const;
 
 export type NombreRol = (typeof ROL)[keyof typeof ROL];
@@ -83,7 +85,7 @@ export const puedeOperarSede = async (
     const roles = await cargarRoles();
     const nombreRol = roles.get(Number(req.user.rolId));
 
-    if (nombreRol === ROL.ADMIN_GENERAL) return true;
+if (nombreRol === ROL.ADMIN_GENERAL || nombreRol === ROL.ADMIN) return true;
 
     return Number(req.user.sedeId) === Number(sedeId);
 };
