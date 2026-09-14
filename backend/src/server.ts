@@ -8,6 +8,10 @@ import { prisma } from "./lib/prisma.js";
 import userRoutes from "./routes/user.routes.js";
 import rolRoutes from "./routes/rol.routes.js";
 import becaRoutes from "./routes/beca.routes.js";
+import cursoRoutes from "./routes/curso.routes.js";
+import horarioRoutes from "./routes/horario.routes.js";
+
+
 
 dotenv.config();
 const app = express();
@@ -15,6 +19,7 @@ const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 ////// Rutas publicas
 
@@ -42,6 +47,8 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/roles', rolRoutes);
 app.use('/api/becas', becaRoutes);
+app.use('/api/cursos', cursoRoutes);
+app.use('/api/horarios', horarioRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
