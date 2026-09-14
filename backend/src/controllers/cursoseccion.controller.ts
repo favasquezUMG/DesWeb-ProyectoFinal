@@ -11,6 +11,7 @@ const incluirDetalle = {
         include: { usuario: { select: { usuarioId: true, nombres: true, apellidos: true, email: true } } },
     },
     horarios: { orderBy: { diaSemana: 'asc' as const } },
+    unidades: { orderBy: { numero: 'asc' as const } },
 };
 
 // Las horas salen como Date por el @db.Time; se formatean a 'HH:MM' para el API
@@ -23,6 +24,8 @@ const mapearRespuesta = (cs: any) => ({
         horaFin: formatHora(h.horaFin),
     })),
 });
+
+
 
 //Get All (filtros: ?seccionId=N ?catedraticoId=N ?sedeId=N)
 export const getCursosSeccion = async (req: AuthenticatedRequest, res: Response) => {
