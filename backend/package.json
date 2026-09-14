@@ -11,7 +11,11 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate": "dotenv -e .env -- prisma migrate dev",
-    "generate": "prisma generate"
+    "generate": "prisma generate",
+    "seed": "tsx --env-file=.env prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx --env-file=.env prisma/seed.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
