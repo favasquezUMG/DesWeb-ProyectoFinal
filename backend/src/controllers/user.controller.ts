@@ -12,6 +12,8 @@ export const getUsers = async (_req: Request, res: Response) => {
                 nombres: true,
                 apellidos: true,
                 email: true,
+                rolId: true,
+                sedeId: true,
                 rol: {
                     select: { nombre: true}
                 },
