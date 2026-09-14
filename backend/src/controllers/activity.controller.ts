@@ -14,7 +14,7 @@ export const getActivities = async (_req: Request, res: Response) => {
 
         return res.json({ status: 'success', data: activities })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: '', error })
+        return res.status(500).json({ status: 'error', message: 'No se pudo obtener las actividades', error })
     }
 }
 
@@ -37,6 +37,22 @@ export const getActivityById = async (req: Request, res: Response) => {
         return res.status(500).json({ status: 'error', message: `Error al obtener la actividad con ID: ${id}.`, error })
     }
 }
+
+//Get By Unidad
+export const getActivitiesByUnidad = async (req: Request, res: Response) => {
+  const { unidadId } = req.params;
+
+  try {
+    const activities = await prisma.actividad.findMany({
+      where: { unidadId: Number(unidadId) },
+      orderBy: { fecha: 'asc' }
+    });
+
+    return res.json({ status: 'success', data: activities });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', message: `Error al obtener actividades para la unidad: ${unidadId}`, error });
+  }
+};
 
 //Post create
 export const createActivity = async (req: Request, res: Response) => {
@@ -71,7 +87,7 @@ export const createActivity = async (req: Request, res: Response) => {
 }
 
 //Put update
-export const updtadeActivity = async (req: Request, res: Response) => {
+export const updateActivity = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { nombre, puntosMaximos, fecha } = req.body;
 
