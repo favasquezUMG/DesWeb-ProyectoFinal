@@ -11,9 +11,7 @@ import becaRoutes from "./routes/beca.routes.js";
 import cursoRoutes from "./routes/curso.routes.js";
 import horarioRoutes from "./routes/horario.routes.js";
 import cursoSeccionRoutes from "./routes/cursoseccion.routes.js";
-
-
-
+import activityRoutes from "./routes/activity.routes.js";
 
 dotenv.config();
 const app = express();
@@ -28,7 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 //Para ver que este vivo el sistema nada mas
 app.get("/", (_req, res) => {
   res.json({
-    message: "API DERCAS",
+    message: "API DesWeb - Proyecto Final",
     ambiente: process.env.NODE_ENV ?? "development",
   });
 });
@@ -52,6 +50,7 @@ app.use('/api/becas', becaRoutes);
 app.use('/api/cursos', cursoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/curso-seccion', cursoSeccionRoutes);
+app.use('/api/activities', activityRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
