@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Sistema Escolar - Desarrollo Web",
   "license": "ISC",
-  "author": "Grupo 3 (Fabian, Cuma y Fernando 'cookies')",
+  "author": "Grupo 3 (Fabian, Cuma y Fernando )",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
