@@ -1,6 +1,30 @@
 import type { Response, Request } from "express";
 import { prisma } from "../lib/prisma.js";
 
+//Get All
+export const getNotas = async (_req: Request, res: Response) => {
+  try {
+    const grades = await prisma.nota.findMany({
+      include: {
+        actividad: {
+          select: { nombre: true }
+        },
+        alumno: {
+          select: {
+            usuario: {
+              select: { usuarioId: true , nombres: true }
+            }
+          },
+        }
+      }
+    })
+
+    return res.json({ status: 'success', data: grades });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', message: 'No se pudo obtener las notas', error})
+  }
+}
+
 //Get By ActivityId
 export const getNotasByActivity = async (req: Request, res: Response) => {
     const { activityId } = req.params;
