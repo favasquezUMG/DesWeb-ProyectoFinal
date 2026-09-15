@@ -89,11 +89,12 @@ export const createActivity = async (req: Request, res: Response) => {
 //Put update
 export const updateActivity = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { nombre, puntosMaximos, fecha } = req.body;
+    const { unidadId, nombre, puntosMaximos, fecha } = req.body;
 
     try {
         const dataToUpdate: any = {};
 
+        if(unidadId) dataToUpdate.unidadId = Number(unidadId);
         if(nombre) dataToUpdate.nombre = nombre;
         if(puntosMaximos) dataToUpdate.puntosMaximos = Number(puntosMaximos);
         if(fecha){
