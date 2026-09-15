@@ -8,6 +8,7 @@ import { prisma } from "./lib/prisma.js";
 import userRoutes from "./routes/user.routes.js";
 import rolRoutes from "./routes/rol.routes.js";
 import becaRoutes from "./routes/beca.routes.js";
+import alumnoRoutes from "./routes/alumno.routes.js";
 import cursoRoutes from "./routes/curso.routes.js";
 import horarioRoutes from "./routes/horario.routes.js";
 import cursoSeccionRoutes from "./routes/cursoseccion.routes.js";
@@ -80,6 +81,7 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/roles', rolRoutes);
 app.use('/api/becas', becaRoutes);
+app.use('/api/alumnos', alumnoRoutes);
 app.use('/api/cursos', cursoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/curso-seccion', cursoSeccionRoutes);
