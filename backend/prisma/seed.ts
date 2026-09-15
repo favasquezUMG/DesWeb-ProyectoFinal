@@ -219,6 +219,192 @@ async function main() {
         });
     }
 
+    // 6. Cursos-Sección: si faltan, se crean a partir de la malla curricular de cada sección
+    const catedraticos = await prisma.catedratico.findMany({ include: { usuario: true } });
+    const catedraticosPorSede = new Map<number, typeof catedraticos>();
+    for (const cat of catedraticos) {
+        if (cat.usuario.sedeId == null) continue;
+        const lista = catedraticosPorSede.get(cat.usuario.sedeId) ?? [];
+        lista.push(cat);
+        catedraticosPorSede.set(cat.usuario.sedeId, lista);
+    }
+
+    const cursoSeccionAntes = await prisma.cursoSeccion.count();
+    for (const seccion of secciones) {
+        const malla = await prisma.mallaCurricular.findMany({ where: { gradoId: seccion.gradoId } });
+        const catedraticosSede = catedraticosPorSede.get(seccion.sedeId) ?? [];
+        if (!catedraticosSede.length) continue;
+
+        for (let i = 0; i < malla.length; i++) {
+            const catedratico = catedraticosSede[i % catedraticosSede.length];
+            await prisma.cursoSeccion.upsert({
+                where: { cursoId_seccionId: { cursoId: malla[i].cursoId, seccionId: seccion.seccionId } },
+                update: {},
+                create: {
+                    cursoId: malla[i].cursoId,
+                    seccionId: seccion.seccionId,
+                    catedraticoId: catedratico.catedraticoId,
+                },
+            });
+        }
+    }
+    const cursosSeccionCreados = (await prisma.cursoSeccion.count()) - cursoSeccionAntes;
+    console.log(`Cursos-sección creados: ${cursosSeccionCreados}`);
+
+    const todasCursoSeccion = await prisma.cursoSeccion.findMany({
+        select: { cursoSeccionId: true, seccionId: true },
+        orderBy: { cursoSeccionId: 'asc' },
+    });
+
+    // 7. Unidades: 4 por curso-sección (numero 1 a 4)
+    const unidadesAntes = await prisma.unidad.count();
+    for (const cs of todasCursoSeccion) {
+        for (let numero = 1; numero <= 4; numero++) {
+            await prisma.unidad.upsert({
+                where: { cursoSeccionId_numero: { cursoSeccionId: cs.cursoSeccionId, numero } },
+                update: {},
+                create: { cursoSeccionId: cs.cursoSeccionId, numero },
+            });
+        }
+    }
+    const unidadesCreadas = (await prisma.unidad.count()) - unidadesAntes;
+    console.log(`Unidades creadas: ${unidadesCreadas}`);
+
+    // 8. Actividades: 3 por unidad, puntosMaximos 10 + 10 + 5 = 25 (las 4 unidades suman 100)
+    // Actividad no tiene @@unique, así que se sigue el mismo patrón de findOrCreate que Sede/Grado
+    const ACTIVIDADES_UNIDAD = [
+        { nombre: 'Actividad 1', puntosMaximos: 10 },
+        { nombre: 'Actividad 2', puntosMaximos: 10 },
+        { nombre: 'Actividad 3', puntosMaximos: 5 },
+    ];
+    // Mes de referencia de cada unidad dentro del ciclo escolar (0 = enero)
+    const MES_POR_UNIDAD = [1, 3, 6, 9];
+
+    const unidades = await prisma.unidad.findMany({
+        select: { unidadId: true, numero: true, cursoSeccionId: true },
+        orderBy: { unidadId: 'asc' },
+    });
+
+    let actividadesCreadas = 0;
+    for (const unidad of unidades) {
+        for (let idx = 0; idx < ACTIVIDADES_UNIDAD.length; idx++) {
+            const { nombre, puntosMaximos } = ACTIVIDADES_UNIDAD[idx];
+            const existente = await prisma.actividad.findFirst({ where: { unidadId: unidad.unidadId, nombre } });
+            if (existente) continue;
+
+            const fecha = new Date(ANIO_LECTIVO, MES_POR_UNIDAD[unidad.numero - 1], 10 + idx * 7);
+
+            await prisma.actividad.create({
+                data: { unidadId: unidad.unidadId, nombre, puntosMaximos, fecha },
+            });
+            actividadesCreadas++;
+        }
+    }
+    console.log(`Actividades creadas: ${actividadesCreadas}`);
+
+    // 9. Notas: distribución controlada (no aleatoria) para que ~30% de los alumnos
+    // termine con promedio por debajo de 61 y el resto por encima. El "desempeño" de
+    // cada alumno es fijo según su posición global y se reparte proporcionalmente
+    // entre las actividades de cada unidad, para que el total de cada curso
+    // (4 unidades x 25 puntos = 100) quede cerca de ese porcentaje.
+    const alumnosOrdenados = await prisma.alumno.findMany({ orderBy: { alumnoId: 'asc' } });
+    const desempenoPorAlumno = new Map<number, number>();
+    alumnosOrdenados.forEach((alumno, indice) => {
+        const esBajo = indice % 10 < 3; // 3 de cada 10 alumnos => ~30%
+        const desempeno = esBajo
+            ? 35 + (indice % 4) * 6 // banda reprobada: 35, 41, 47, 53
+            : 65 + (indice % 5) * 6; // banda aprobada: 65, 71, 77, 83, 89
+        desempenoPorAlumno.set(alumno.alumnoId, desempeno);
+    });
+
+    const unidadesConActividades = await prisma.unidad.findMany({
+        select: {
+            unidadId: true,
+            cursoSeccion: { select: { seccionId: true } },
+            actividades: { orderBy: { actividadId: 'asc' } },
+        },
+        orderBy: { unidadId: 'asc' },
+    });
+
+    const notasAntes = await prisma.nota.count();
+    for (const unidad of unidadesConActividades) {
+        const puntosUnidad = unidad.actividades.reduce((suma, a) => suma + Number(a.puntosMaximos), 0);
+        const alumnosSeccion = await prisma.alumno.findMany({
+            where: { seccionId: unidad.cursoSeccion.seccionId },
+            orderBy: { alumnoId: 'asc' },
+        });
+
+        for (const alumno of alumnosSeccion) {
+            const desempeno = desempenoPorAlumno.get(alumno.alumnoId) ?? 70;
+            let restante = Math.round((puntosUnidad * desempeno) / 100);
+
+            for (let i = 0; i < unidad.actividades.length; i++) {
+                const actividad = unidad.actividades[i];
+                const esUltima = i === unidad.actividades.length - 1;
+                const maximo = Number(actividad.puntosMaximos);
+
+                const valor = esUltima
+                    ? Math.max(0, Math.min(restante, maximo))
+                    : Math.max(0, Math.min(Math.round((maximo * desempeno) / 100), maximo, restante));
+                restante -= valor;
+
+                await prisma.nota.upsert({
+                    where: { actividadId_alumnoId: { actividadId: actividad.actividadId, alumnoId: alumno.alumnoId } },
+                    update: { valor },
+                    create: { actividadId: actividad.actividadId, alumnoId: alumno.alumnoId, valor },
+                });
+            }
+        }
+    }
+    const notasCreadas = (await prisma.nota.count()) - notasAntes;
+    console.log(`Notas registradas: ${notasCreadas}`);
+
+    // 10. Asistencia: últimas 2 semanas (solo días hábiles), con mayoría de presentes
+    const ESTADOS_ASISTENCIA = [
+        'Presente', 'Presente', 'Presente', 'Presente', 'Presente', 'Presente', 'Presente',
+        'Tarde', 'Ausente', 'Justificado',
+    ];
+
+    const diasHabiles: Date[] = [];
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    for (let offset = 0; offset < 14; offset++) {
+        const fecha = new Date(hoy);
+        fecha.setDate(hoy.getDate() - offset);
+        const diaSemana = fecha.getDay();
+        if (diaSemana !== 0 && diaSemana !== 6) diasHabiles.push(fecha);
+    }
+
+    const asistenciasAntes = await prisma.asistencia.count();
+    let contadorEstado = 0;
+    for (const cs of todasCursoSeccion) {
+        const alumnosSeccion = await prisma.alumno.findMany({
+            where: { seccionId: cs.seccionId },
+            orderBy: { alumnoId: 'asc' },
+        });
+
+        for (const alumno of alumnosSeccion) {
+            for (const fecha of diasHabiles) {
+                const estado = ESTADOS_ASISTENCIA[(alumno.alumnoId + fecha.getDate() + contadorEstado) % ESTADOS_ASISTENCIA.length];
+                contadorEstado++;
+
+                await prisma.asistencia.upsert({
+                    where: {
+                        cursoSeccionId_alumnoId_fecha: {
+                            cursoSeccionId: cs.cursoSeccionId,
+                            alumnoId: alumno.alumnoId,
+                            fecha,
+                        },
+                    },
+                    update: { estado },
+                    create: { cursoSeccionId: cs.cursoSeccionId, alumnoId: alumno.alumnoId, fecha, estado },
+                });
+            }
+        }
+    }
+    const asistenciasCreadas = (await prisma.asistencia.count()) - asistenciasAntes;
+    console.log(`Asistencias registradas: ${asistenciasCreadas}`);
+
     console.log(`Seed completado. Contraseña de prueba para todos los usuarios: ${DEFAULT_PASSWORD}`);
 }
 

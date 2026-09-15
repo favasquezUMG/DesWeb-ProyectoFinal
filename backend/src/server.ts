@@ -14,6 +14,9 @@ import cursoSeccionRoutes from "./routes/cursoseccion.routes.js";
 import activityRoutes from "./routes/activity.routes.js";
 import notaRoutes from "./routes/nota.routes.js";
 import eventRoutes from "./routes/event.routes.js";
+import mailRoutes from "./routes/mail.routes.js";
+import reporteRoutes from "./routes/reporte.routes.js";
+import { closeBrowser } from "./services/pdf.service.js";
 
 dotenv.config();
 const app = express();
@@ -55,6 +58,8 @@ app.use('/api/curso-seccion', cursoSeccionRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/notas', notaRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/mail', mailRoutes);
+app.use('/api/reportes', reporteRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
@@ -68,3 +73,13 @@ app.listen(PORT, async () => {
     console.error("❌ Error al conectar la base de datos:", error);
   }
 });
+
+// Cierra el navegador de Puppeteer y la conexión a la base al apagar el servidor
+const apagarOrdenadamente = async () => {
+  await closeBrowser();
+  await prisma.$disconnect();
+  process.exit(0);
+};
+
+process.on("SIGINT", apagarOrdenadamente);
+process.on("SIGTERM", apagarOrdenadamente);
