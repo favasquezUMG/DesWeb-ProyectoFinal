@@ -46,15 +46,15 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
   });
 });
 
-app.use('/api/users', userRoutes);
+app.use('/api/usuarios', userRoutes);
 app.use('/api/roles', rolRoutes);
 app.use('/api/becas', becaRoutes);
 app.use('/api/cursos', cursoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/curso-seccion', cursoSeccionRoutes);
-app.use('/api/activities', activityRoutes);
+app.use('/api/actividades', activityRoutes);
 app.use('/api/notas', notaRoutes);
-app.use('/api/events', eventRoutes);
+app.use('/api/eventos', eventRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
