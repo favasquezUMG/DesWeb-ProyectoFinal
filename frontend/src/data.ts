@@ -185,7 +185,77 @@ export const HORARIO_3A: Record<string, Record<string, HorarioCelda>> = {
   },
 };
 
-export const MALLA_CNB = [
+// Un "año" dentro de una carrera de Diversificado (Cuarto, Quinto, y Sexto si aplica)
+export interface AnioCarrera {
+  nombre: string;
+  cursos: string[];
+}
+
+export interface CarreraDiversificado {
+  nombre: string;
+  anios: AnioCarrera[];
+}
+
+export interface GradoMalla {
+  nombre: string;
+  cursos: string[];
+}
+
+export interface NivelMalla {
+  nivel: string;
+  id: "pre" | "pri" | "bas" | "div";
+  // Lista plana de grados con sus cursos. Para "div" es el resultado de
+  // aplanar todas las carreras x año (ej. "Perito Contador — Quinto"), así
+  // las vistas que solo necesitan recorrer "un grado, sus cursos" (como la
+  // malla curricular del admin general) no necesitan saber de carreras.
+  grados: GradoMalla[];
+  // Solo presente en "div": agrupa esos mismos años por carrera, para poder
+  // armar un selector en cascada (carrera → año) en la solicitud de inscripción.
+  carreras?: CarreraDiversificado[];
+}
+
+const CARRERAS_DIVERSIFICADO: CarreraDiversificado[] = [
+  {
+    nombre: "Bachillerato en Ciencias y Letras",
+    anios: [
+      { nombre: "Cuarto", cursos: ["Matemática IV", "Física", "Química", "Biología", "Comunicación y Lenguaje", "Inglés IV", "Filosofía", "Educación Física"] },
+      { nombre: "Quinto", cursos: ["Matemática V", "Física II", "Química II", "Biología II", "Comunicación y Lenguaje", "Inglés V", "Estadística", "Educación Física"] },
+    ],
+  },
+  {
+    nombre: "Bachillerato en Ciencias y Letras con orientación en Computación",
+    anios: [
+      { nombre: "Cuarto", cursos: ["Matemática IV", "Física", "Química", "Comunicación y Lenguaje", "Inglés IV", "Introducción a la Programación", "Ofimática", "Educación Física"] },
+      { nombre: "Quinto", cursos: ["Matemática V", "Estadística", "Comunicación y Lenguaje", "Inglés V", "Bases de Datos", "Desarrollo Web", "Redes y Conectividad", "Educación Física"] },
+    ],
+  },
+  {
+    nombre: "Perito Contador",
+    anios: [
+      { nombre: "Cuarto", cursos: ["Contabilidad General", "Matemática Financiera", "Legislación Fiscal", "Comunicación y Lenguaje", "Inglés Técnico", "Ofimática"] },
+      { nombre: "Quinto", cursos: ["Contabilidad de Costos", "Derecho Mercantil", "Estadística", "Inglés Técnico II", "Matemática Financiera II", "Auditoría I"] },
+      { nombre: "Sexto", cursos: ["Contabilidad Superior", "Auditoría II", "Legislación Laboral", "Finanzas Corporativas", "Seminario de Práctica Contable"] },
+    ],
+  },
+  {
+    nombre: "Secretariado Bilingüe",
+    anios: [
+      { nombre: "Cuarto", cursos: ["Mecanografía y Digitación", "Inglés Comercial I", "Redacción y Correspondencia", "Ofimática", "Archivo y Documentación"] },
+      { nombre: "Quinto", cursos: ["Inglés Comercial II", "Taquigrafía", "Atención al Cliente", "Organización de Eventos", "Contabilidad Básica"] },
+      { nombre: "Sexto", cursos: ["Inglés Comercial III", "Gestión de Oficina", "Protocolo Empresarial", "Legislación Laboral", "Seminario de Práctica Secretarial"] },
+    ],
+  },
+  {
+    nombre: "Magisterio de Educación Infantil",
+    anios: [
+      { nombre: "Cuarto", cursos: ["Psicología del Desarrollo Infantil", "Didáctica General", "Comunicación y Lenguaje", "Expresión Artística", "Educación Física"] },
+      { nombre: "Quinto", cursos: ["Didáctica de la Lectoescritura", "Planeamiento Didáctico", "Psicopedagogía", "Recursos Educativos", "Evaluación del Aprendizaje"] },
+      { nombre: "Sexto", cursos: ["Práctica Docente Supervisada", "Legislación Educativa", "Didáctica de la Matemática Infantil", "Atención a la Diversidad", "Seminario de Graduación"] },
+    ],
+  },
+];
+
+export const MALLA_CNB: NivelMalla[] = [
   {
     nivel: "Preprimaria", id: "pre",
     grados: [
@@ -215,11 +285,11 @@ export const MALLA_CNB = [
   },
   {
     nivel: "Diversificado", id: "div",
-    grados: [
-      { nombre: "Cuarto Bachillerato (Ciencias)", cursos: ["Matemática IV", "Física", "Química", "Biología", "Comunicación y Lenguaje", "Inglés IV", "Filosofía", "Educación Física"] },
-      { nombre: "Quinto Bachillerato (Ciencias)", cursos: ["Matemática V", "Física II", "Química II", "Biología II", "Comunicación y Lenguaje", "Inglés V", "Estadística", "Educación Física"] },
-      { nombre: "Sexto Bachillerato (Ciencias)", cursos: ["Seminario", "Matemática VI", "Física III", "Química Orgánica", "Biología III", "Inglés VI", "Estadística II"] },
-    ]
+    // Cada combinación carrera x año, aplanada, para la malla curricular del admin general
+    grados: CARRERAS_DIVERSIFICADO.flatMap((carrera) =>
+      carrera.anios.map((anio) => ({ nombre: `${carrera.nombre} — ${anio.nombre}`, cursos: anio.cursos }))
+    ),
+    carreras: CARRERAS_DIVERSIFICADO,
   },
 ];
 

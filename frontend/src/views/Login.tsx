@@ -1,12 +1,30 @@
 import { useState } from "react";
-import { Eye, EyeOff, BookOpen, Users2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download } from "lucide-react";
 import type { AppUser } from "../types";
-import { Btn, AlertBanner, Input, Card } from "../components/Ui";
+import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
 import { login } from "../lib/api";
 import { buildAppUser, saveSession } from "../lib/auth";
+import {
+  type SolicitudGuardada,
+  type EstadoSolicitud,
+  buscarPorNumero,
+  buscarPorDpiCorreo,
+  resolverEstado,
+} from "../lib/solicitudes";
+import { generarConstanciaPdf } from "../lib/constanciaPdf";
 
-type Screen = "login" | "forgot" | "reset" | "sede" | "solicitud";
+type Screen = "login" | "forgot" | "reset" | "sede" | "solicitud" | "consulta";
+
+const TABS_CONSULTA = ["Por número de solicitud", "Por DPI y correo"];
+
+const BADGE_POR_ESTADO: Record<EstadoSolicitud, { variant: "info" | "warning" | "success" | "danger" | "neutral" }> = {
+  "En revisión": { variant: "info" },
+  "Documentos pendientes": { variant: "warning" },
+  "Aprobada": { variant: "success" },
+  "Rechazada": { variant: "danger" },
+  "Vencida": { variant: "neutral" },
+};
 
 interface LoginProps {
   onLogin: (user: AppUser, sede?: string) => void;
@@ -41,6 +59,13 @@ export default function Login({ onLogin }: LoginProps) {
   const [forgotSent, setForgotSent] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [selectedSede, setSelectedSede] = useState("Sede Central");
+
+  const [consultaTab, setConsultaTab] = useState<"numero" | "dpi">("numero");
+  const [consultaNumero, setConsultaNumero] = useState("");
+  const [consultaDpi, setConsultaDpi] = useState("");
+  const [consultaCorreo, setConsultaCorreo] = useState("");
+  const [consultaError, setConsultaError] = useState("");
+  const [consultaResultado, setConsultaResultado] = useState<SolicitudGuardada | null>(null);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -89,6 +114,47 @@ export default function Login({ onLogin }: LoginProps) {
 
   function volverAlLogin() {
     setScreen("login");
+  }
+
+  function reiniciarConsulta() {
+    setConsultaTab("numero");
+    setConsultaNumero("");
+    setConsultaDpi("");
+    setConsultaCorreo("");
+    setConsultaError("");
+    setConsultaResultado(null);
+  }
+
+  function handleConsultar(e: React.FormEvent) {
+    e.preventDefault();
+    setConsultaError("");
+    setConsultaResultado(null);
+
+    let encontrada: SolicitudGuardada | null = null;
+    if (consultaTab === "numero") {
+      if (!consultaNumero.trim()) {
+        setConsultaError("Ingrese el número de solicitud.");
+        return;
+      }
+      encontrada = buscarPorNumero(consultaNumero);
+    } else {
+      if (!/^\d{13}$/.test(consultaDpi.trim())) {
+        setConsultaError("El DPI debe tener 13 dígitos.");
+        return;
+      }
+      const correoErr = validarEmail(consultaCorreo);
+      if (correoErr) {
+        setConsultaError(correoErr);
+        return;
+      }
+      encontrada = buscarPorDpiCorreo(consultaDpi, consultaCorreo);
+    }
+
+    if (!encontrada) {
+      setConsultaError("No se encontró ninguna solicitud con esos datos.");
+      return;
+    }
+    setConsultaResultado(encontrada);
   }
 
   return (
@@ -145,7 +211,7 @@ export default function Login({ onLogin }: LoginProps) {
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center overflow-y-auto p-6 sm:p-10 bg-sand-100">
-        <div className={`w-full ${screen === "solicitud" ? "max-w-2xl" : "max-w-sm"} transition-[max-width] duration-200`}>
+        <div className={`w-full ${screen === "solicitud" ? "max-w-2xl" : screen === "consulta" ? "max-w-md" : "max-w-sm"} transition-[max-width] duration-200`}>
           <div className="md:hidden mb-8 text-center">
             <p className="font-display font-bold text-primary-700 text-2xl">Colegio Vanguardia</p>
             <p className="text-stone-500 text-sm">Sistema Académico</p>
@@ -204,6 +270,10 @@ export default function Login({ onLogin }: LoginProps) {
                 <button type="button" onClick={() => setScreen("solicitud")}
                   className="w-full text-center text-sm text-primary-700 hover:underline font-medium mt-4 py-1">
                   ¿Primer ingreso? Solicite la inscripción de su hijo
+                </button>
+                <button type="button" onClick={() => setScreen("consulta")}
+                  className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-1 py-1">
+                  Consultar estado de mi solicitud
                 </button>
               </form>
             )}
@@ -272,6 +342,89 @@ export default function Login({ onLogin }: LoginProps) {
             {/* ── Solicitud de inscripción ── */}
             {screen === "solicitud" && (
               <SolicitudInscripcion modo="publico" onFinalizar={volverAlLogin} onCancelar={volverAlLogin} />
+            )}
+
+            {/* ── Consultar estado de solicitud ── */}
+            {screen === "consulta" && (
+              <div>
+                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Consultar estado de solicitud</h2>
+                <p className="text-stone-500 text-sm mb-6">Ingrese el número de solicitud, o el DPI y correo del encargado.</p>
+
+                <Tabs
+                  tabs={TABS_CONSULTA}
+                  active={consultaTab === "numero" ? TABS_CONSULTA[0] : TABS_CONSULTA[1]}
+                  onChange={(t) => {
+                    setConsultaTab(t === TABS_CONSULTA[0] ? "numero" : "dpi");
+                    setConsultaResultado(null);
+                    setConsultaError("");
+                  }}
+                />
+
+                <form onSubmit={handleConsultar} noValidate className="mt-4 space-y-4">
+                  {consultaTab === "numero" ? (
+                    <Input
+                      label="Número de solicitud" value={consultaNumero}
+                      onChange={(e) => setConsultaNumero(e.target.value)}
+                      placeholder="SOL-2026-00001"
+                    />
+                  ) : (
+                    <>
+                      <Input
+                        label="DPI del encargado" value={consultaDpi} inputMode="numeric" placeholder="0000000000000"
+                        onChange={(e) => setConsultaDpi(e.target.value.replace(/\D/g, "").slice(0, 13))}
+                      />
+                      <Input
+                        label="Correo electrónico" type="email" value={consultaCorreo}
+                        onChange={(e) => setConsultaCorreo(e.target.value)}
+                        placeholder="encargado@correo.com"
+                      />
+                    </>
+                  )}
+
+                  {consultaError && <AlertBanner type="error" message={consultaError} onClose={() => setConsultaError("")} />}
+
+                  <Btn type="submit" variant="primary" size="lg" className="w-full justify-center">Buscar solicitud</Btn>
+                </form>
+
+                {consultaResultado && (() => {
+                  const { estado, motivo } = resolverEstado(consultaResultado);
+                  const cfg = BADGE_POR_ESTADO[estado];
+                  return (
+                    <div className="mt-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-stone-500">Solicitud</p>
+                          <p className="font-mono-data font-semibold text-stone-900">{consultaResultado.numero}</p>
+                        </div>
+                        <Badge variant={cfg.variant}>{estado}</Badge>
+                      </div>
+
+                      {estado === "Aprobada" && (
+                        <AlertBanner type="success" title="Solicitud aprobada"
+                          message={`Sus credenciales de acceso fueron enviadas a ${consultaResultado.encargado.correo}.`} />
+                      )}
+                      {(estado === "Rechazada" || estado === "Vencida") && (
+                        <AlertBanner type="error" title={estado === "Vencida" ? "Solicitud vencida" : "Solicitud rechazada"}
+                          message={motivo ?? ""} />
+                      )}
+                      {(estado === "En revisión" || estado === "Documentos pendientes") && (
+                        <AlertBanner type="info" title="Su solicitud sigue en proceso"
+                          message={`Le avisaremos por correo a ${consultaResultado.encargado.correo} en cuanto haya una resolución (hasta 5 días hábiles).`} />
+                      )}
+
+                      <Btn variant="outline" size="md" className="w-full justify-center" icon={<Download className="w-4 h-4" />}
+                        onClick={() => generarConstanciaPdf(consultaResultado)}>
+                        Volver a descargar constancia
+                      </Btn>
+                    </div>
+                  );
+                })()}
+
+                <button type="button" onClick={() => { reiniciarConsulta(); setScreen("login"); }}
+                  className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-4 py-1">
+                  ← Volver al inicio de sesión
+                </button>
+              </div>
             )}
           </Card>
         </div>

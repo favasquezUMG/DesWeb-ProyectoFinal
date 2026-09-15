@@ -113,3 +113,20 @@ body {
 
 /* Recharts tooltip */
 .recharts-tooltip-wrapper { outline: none !important; }
+
+/* Constancia de solicitud de inscripción: oculta en pantalla, solo visible al
+   imprimir (window.print()). Ver ConstanciaImprimible en SolicitudInscripcion.tsx */
+#constancia-imprimible { display: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  #constancia-imprimible,
+  #constancia-imprimible * { visibility: visible; }
+  #constancia-imprimible {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
