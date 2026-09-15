@@ -87,13 +87,10 @@ app.use('/api/horarios', horarioRoutes);
 app.use('/api/curso-seccion', cursoSeccionRoutes);
 app.use('/api/actividades', activityRoutes);
 app.use('/api/notas', notaRoutes);
-<<<<<<< HEAD
 app.use('/api/events', eventRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/reportes', reporteRoutes);
-=======
 app.use('/api/eventos', eventRoutes);
->>>>>>> fabian
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
