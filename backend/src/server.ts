@@ -14,6 +14,7 @@ import cursoSeccionRoutes from "./routes/cursoseccion.routes.js";
 import activityRoutes from "./routes/activity.routes.js";
 import notaRoutes from "./routes/nota.routes.js";
 import eventRoutes from "./routes/event.routes.js";
+import mailRoutes from "./routes/mail.routes.js";
 
 dotenv.config();
 const app = express();
@@ -55,6 +56,7 @@ app.use('/api/curso-seccion', cursoSeccionRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/notas', notaRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/mail', mailRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
