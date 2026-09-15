@@ -80,7 +80,7 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
       <div className="flex items-center justify-between px-4 h-16 border-b border-primary-600 textile-pattern shrink-0">
         {!collapsed && (
           <div className="min-w-0">
-            <p className="font-display font-bold text-white text-sm leading-tight truncate">COLEGIO_NOMBRE</p>
+            <p className="font-display font-bold text-white text-sm leading-tight truncate">Colegio Vanguardia</p>
             <p className="text-primary-200 text-xs font-medium tracking-widest">Sistema Académico</p>
           </div>
         )}
@@ -157,7 +157,7 @@ function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen }: {
       </button>
 
       {/* Mobile logo */}
-      <span className="md:hidden font-display font-bold text-primary-700 text-sm">COLEGIO_NOMBRE</span>
+      <span className="md:hidden font-display font-bold text-primary-700 text-sm">Colegio Vanguardia</span>
 
       {/* Page title */}
       <span className="hidden md:block text-sm font-semibold text-stone-700">{currentLabel}</span>
@@ -231,8 +231,8 @@ function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
       <aside className={`fixed left-0 top-0 h-full z-50 w-64 bg-primary-700 text-white md:hidden transition-transform duration-300 flex flex-col ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between px-4 h-14 border-b border-primary-600 textile-pattern shrink-0">
           <div>
-            <p className="font-display font-bold text-white text-sm">COLEGIO_NOMBRE</p>
-            <p className="text-primary-200 text-xs tracking-widest">COLEGIO_NOMBRE</p>
+            <p className="font-display font-bold text-white text-sm">Colegio Vanguardia</p>
+            <p className="text-primary-200 text-xs tracking-widest">Sistema Académico</p>
           </div>
           <button onClick={onClose} className="p-1.5 text-primary-200 hover:text-white" aria-label="Cerrar menú"><X className="w-5 h-5" /></button>
         </div>
