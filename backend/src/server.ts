@@ -21,7 +21,35 @@ import { closeBrowser } from "./services/pdf.service.js";
 dotenv.config();
 const app = express();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
+// Orígenes exactos permitidos (uno o varios separados por coma en CORS_ORIGIN)
+const origenesPermitidos = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+// En desarrollo también se acepta cualquier origen que use el mismo puerto que
+// los orígenes configurados (ej. la IP de red local del Vite dev server, para
+// poder probar desde el celular u otra máquina de la misma red).
+const puertosDev = origenesPermitidos
+  .map((o) => { try { return new URL(o).port; } catch { return null; } })
+  .filter((p): p is string => !!p);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true); // same-origin, curl, Postman, etc.
+    if (origenesPermitidos.includes(origin)) return callback(null, true);
+
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        if (puertosDev.includes(new URL(origin).port)) return callback(null, true);
+      } catch {
+        // origin mal formado: cae al rechazo de abajo
+      }
+    }
+
+    callback(new Error("Origen no permitido por CORS"));
+  },
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
