@@ -89,3 +89,74 @@ export async function getRoles(): Promise<RolDto[]> {
   const body = await request<{ status: "success"; data: RolDto[] }>("/api/roles/all");
   return body.data;
 }
+
+// ─── Alumnos ────────────────────────────────────────────────────────────────
+
+export interface AlumnoDto {
+  alumnoId: number;
+  seccionId: number;
+  usuario: { nombres: string; apellidos: string };
+  seccion: { seccionId: number; nombre: string; grado: { nombre: string } };
+}
+
+export async function getAlumnos(): Promise<AlumnoDto[]> {
+  const body = await request<{ status: "success"; data: AlumnoDto[] }>("/api/alumnos/all");
+  return body.data;
+}
+
+// ─── Becas ────────────────────────────────────────────────────────────────────
+
+export interface BecaDto {
+  becaId: number;
+  alumnoId: number;
+  /** El backend serializa los campos Decimal como string. */
+  porcentaje: string;
+  descripcion: string | null;
+  fechaInicio: string;
+  fechaFin: string | null;
+  activa: boolean;
+  alumno: {
+    alumnoId: number;
+    usuario: { nombres: string; apellidos: string };
+    seccion: { nombre: string; grado: { nombre: string } };
+  };
+}
+
+export interface BecaInput {
+  alumnoId: number;
+  porcentaje: number;
+  descripcion?: string;
+  fechaInicio: string;
+  fechaFin?: string | null;
+}
+
+export async function getBecas(params?: { activa?: boolean }): Promise<BecaDto[]> {
+  const query = params?.activa !== undefined ? `?activa=${params.activa}` : "";
+  const body = await request<{ status: "success"; data: BecaDto[] }>(`/api/becas/all${query}`);
+  return body.data;
+}
+
+export async function getBecaById(id: number): Promise<BecaDto> {
+  const body = await request<{ status: "success"; data: BecaDto }>(`/api/becas/${id}`);
+  return body.data;
+}
+
+export async function createBeca(input: BecaInput): Promise<BecaDto> {
+  const body = await request<{ status: "success"; data: BecaDto }>("/api/becas", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return body.data;
+}
+
+export async function updateBeca(id: number, input: Partial<BecaInput> & { activa?: boolean }): Promise<BecaDto> {
+  const body = await request<{ status: "success"; data: BecaDto }>(`/api/becas/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return body.data;
+}
+
+export function desactivarBeca(id: number): Promise<{ status: "success"; message: string }> {
+  return request(`/api/becas/${id}`, { method: "DELETE" });
+}

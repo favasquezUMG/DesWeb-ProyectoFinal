@@ -181,7 +181,7 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="space-y-4 mt-10">
             <div className="flex items-center gap-3 text-primary-100">
               <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><BookOpen className="w-4 h-4" /></div>
-              <span className="text-sm">Basado en el CNB del MINEDUC</span>
+              <span className="text-sm">El mejor colegio del país</span>
             </div>
             <div className="flex items-center gap-3 text-primary-100">
               <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">

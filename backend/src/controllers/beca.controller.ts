@@ -18,6 +18,18 @@ const handlePrismaError = (res: Response, error: unknown, notFoundMessage: strin
     return res.status(500).json({ status: 'error', message: serverMessage, error: errorMessage(error) });
 };
 
+// Datos del alumno que necesita el frontend para mostrar nombre y grado sin
+// tener que pedirlos por separado.
+const incluirAlumno = {
+    alumno: {
+        select: {
+            alumnoId: true,
+            usuario: { select: { nombres: true, apellidos: true } },
+            seccion: { select: { nombre: true, grado: { select: { nombre: true } } } },
+        },
+    },
+} as const;
+
 //Get All (soporta filtro opcional ?activa=true|false)
 export const getBecas = async (req: Request, res: Response) => {
     const { activa } = req.query;
@@ -27,7 +39,11 @@ export const getBecas = async (req: Request, res: Response) => {
         if(activa === 'true') where.activa = true;
         if(activa === 'false') where.activa = false;
 
-        const becas = await prisma.beca.findMany({ where });
+        const becas = await prisma.beca.findMany({
+            where,
+            include: incluirAlumno,
+            orderBy: [{ alumno: { usuario: { apellidos: 'asc' } } }, { alumno: { usuario: { nombres: 'asc' } } }],
+        });
 
         return res.json({ status: 'success', data: becas })
     } catch (error) {
@@ -46,7 +62,8 @@ export const getBecaById = async (req: Request, res: Response) => {
 
     try {
         const beca = await prisma.beca.findUnique({
-            where: { becaId }
+            where: { becaId },
+            include: incluirAlumno,
         });
 
         if(!beca){
