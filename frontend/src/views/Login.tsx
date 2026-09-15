@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Eye, EyeOff, AlertCircle, BookOpen } from "lucide-react";
 import type { AppUser } from "../types";
-import { DEMO_USERS } from "../data";
 import { Btn, AlertBanner } from "../components/Ui";
+import { login } from "../lib/api";
+import { buildAppUser, saveSession } from "../lib/auth";
 
 type Screen = "login" | "forgot" | "reset" | "sede";
 
@@ -24,25 +25,32 @@ export default function Login({ onLogin }: LoginProps) {
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [selectedSede, setSelectedSede] = useState("Sede Central");
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const found = DEMO_USERS.find(u => u.email === email.trim());
-      if (!found || password !== "dercas2025") {
-        setError("Correo electrónico o contraseña incorrectos. Verifique sus datos e intente de nuevo.");
-        return;
-      }
+    try {
+      const result = await login(email.trim(), password);
+      const appUser = buildAppUser(result.usuario);
+      saveSession(result.token, appUser);
+
       // Multi-sede users get the sede selector
-      if (found.role === "admin-general") {
-        setSelectedUser(found);
+      if (appUser.role === "admin-general") {
+        setSelectedUser(appUser);
         setScreen("sede");
       } else {
-        onLogin(found, found.sede);
+        onLogin(appUser, appUser.sede);
       }
-    }, 800);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      setError(
+        message === "Invalid credentials" || !message
+          ? "Correo electrónico o contraseña incorrectos. Verifique sus datos e intente de nuevo."
+          : message
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleForgot(e: React.FormEvent) {
@@ -53,19 +61,6 @@ export default function Login({ onLogin }: LoginProps) {
 
   function handleSedeConfirm() {
     if (selectedUser) onLogin(selectedUser, selectedSede);
-  }
-
-  // Quick-access demo login
-  function quickLogin(user: AppUser) {
-    setEmail(user.email);
-    setPassword("dercas2025");
-    const found = user;
-    if (found.role === "admin-general") {
-      setSelectedUser(found);
-      setScreen("sede");
-    } else {
-      onLogin(found, found.sede);
-    }
   }
 
   return (
@@ -161,26 +156,6 @@ export default function Login({ onLogin }: LoginProps) {
               <Btn type="submit" variant="primary" size="lg" loading={loading} className="w-full mt-6 justify-center">
                 {loading ? "Verificando…" : "Ingresar al sistema"}
               </Btn>
-
-              {/* Demo shortcuts */}
-              <div className="mt-6">
-                <p className="text-xs text-stone-400 text-center mb-3 font-medium uppercase tracking-wider">Acceso rápido de demostración</p>
-                <div className="grid grid-cols-1 gap-1.5">
-                  {DEMO_USERS.map(u => (
-                    <button key={u.id} type="button" onClick={() => quickLogin(u)}
-                      className="flex items-center gap-2.5 px-3 py-2 text-xs bg-white border border-stone-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors text-left cursor-pointer">
-                      <span className="w-6 h-6 rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-[10px] shrink-0">{u.initials}</span>
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-stone-700 truncate">{u.name.split(" ").slice(0, 2).join(" ")}</span>
-                        <span className="block text-stone-400 text-[10px]">{
-                          { "admin-general": "Admin General", "admin-sede": "Director de Sede", "catedratico": "Catedrático", "alumno": "Alumno", "padre": "Padre/Encargado" }[u.role]
-                        }</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-stone-400 text-center mt-2">Contraseña de demo: <code className="bg-stone-100 px-1 rounded">dercas2025</code></p>
-              </div>
             </form>
           )}
 
