@@ -1,5 +1,22 @@
 import type { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+
+const parseId = (id: unknown): number | null => {
+    if (typeof id !== 'string' || !/^\d+$/.test(id)) return null;
+    return Number(id);
+};
+
+const errorMessage = (error: unknown): string => {
+    return error instanceof Error ? error.message : 'Error desconocido';
+};
+
+const handlePrismaError = (res: Response, error: unknown, notFoundMessage: string, serverMessage: string) => {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return res.status(404).json({ status: 'error', message: notFoundMessage });
+    }
+    return res.status(500).json({ status: 'error', message: serverMessage, error: errorMessage(error) });
+};
 
 //Get All (soporta filtro opcional ?activa=true|false)
 export const getBecas = async (req: Request, res: Response) => {
@@ -14,7 +31,7 @@ export const getBecas = async (req: Request, res: Response) => {
 
         return res.json({ status: 'success', data: becas })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: 'Error al obtener las becas.', error})
+        return res.status(500).json({ status: 'error', message: 'Error al obtener las becas.', error: errorMessage(error) })
     }
 }
 
@@ -22,9 +39,14 @@ export const getBecas = async (req: Request, res: Response) => {
 export const getBecaById = async (req: Request, res: Response) => {
     const { id } = req.params;
 
+    const becaId = parseId(id);
+    if(becaId === null){
+        return res.status(400).json({ status: 'error', message: `El ID: ${id} no es un número válido` });
+    }
+
     try {
         const beca = await prisma.beca.findUnique({
-            where: { becaId: Number(id) }
+            where: { becaId }
         });
 
         if(!beca){
@@ -33,7 +55,7 @@ export const getBecaById = async (req: Request, res: Response) => {
 
         return res.json({ status: 'success', data: beca });
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al obtener la beca con ID: ${id}.`, error})
+        return handlePrismaError(res, error, `Beca con ID: ${id} no encontrada`, `Error al obtener la beca con ID: ${id}.`);
     }
 }
 
@@ -86,7 +108,7 @@ export const createBeca = async (req: Request, res: Response ) => {
 
         return res.status(200).json({ status: 'success', data: newBeca })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: 'Error al crear la beca.', error})
+        return res.status(500).json({ status: 'error', message: 'Error al crear la beca.', error: errorMessage(error) })
     }
 }
 
@@ -95,9 +117,14 @@ export const updateBeca = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { alumnoId, porcentaje, descripcion, fechaInicio, fechaFin, activa } = req.body;
 
+    const becaId = parseId(id);
+    if(becaId === null){
+        return res.status(400).json({ status: 'error', message: `El ID: ${id} no es un número válido` });
+    }
+
     try {
         const becaActual = await prisma.beca.findUnique({
-            where: { becaId: Number(id) }
+            where: { becaId }
         });
         if(!becaActual){
             return res.status(404).json({ status: 'error', message: `Beca con ID: ${id} no encontrada` })
@@ -143,13 +170,13 @@ export const updateBeca = async (req: Request, res: Response) => {
         if(activa !== undefined) dataToUpdate.activa = Boolean(activa);
 
         const updatedBeca = await prisma.beca.update({
-            where: { becaId: Number(id) },
+            where: { becaId },
             data: dataToUpdate
         });
 
         return res.json({ status: 'success', data: updatedBeca })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al actualizar la beca con ID ${id}.`, error})
+        return handlePrismaError(res, error, `Beca con ID: ${id} no encontrada`, `Error al actualizar la beca con ID ${id}.`);
     };
 }
 
@@ -157,14 +184,26 @@ export const updateBeca = async (req: Request, res: Response) => {
 export const deleteBecaById = async (req: Request, res: Response ) => {
     const { id } = req.params;
 
+    const becaId = parseId(id);
+    if(becaId === null){
+        return res.status(400).json({ status: 'error', message: `El ID: ${id} no es un número válido` });
+    }
+
     try {
+        const becaActual = await prisma.beca.findUnique({
+            where: { becaId }
+        });
+        if(!becaActual){
+            return res.status(404).json({ status: 'error', message: `Beca con ID: ${id} no encontrada` })
+        }
+
         await prisma.beca.update({
-            where: { becaId: Number(id) },
+            where: { becaId },
             data: { activa: false }
         })
 
         return res.json({ status: 'success', message: `Se desactivó la beca con ID: ${id} correctamente.`});
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al eliminar la beca con ID: ${id}.`, error});
+        return handlePrismaError(res, error, `Beca con ID: ${id} no encontrada`, `Error al eliminar la beca con ID: ${id}.`);
     }
 }
