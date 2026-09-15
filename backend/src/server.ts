@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import swaggerUi from "swagger-ui-express";
+import { openapiSpec } from "./docs/openapi.js";
 import { login } from "./controllers/auth.controller.js";
 import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
 import { authenticateToken } from "./middlewares/auth.middleware.js";
@@ -22,11 +24,19 @@ import { closeBrowser } from "./services/pdf.service.js";
 dotenv.config();
 const app = express();
 
+const PORT = Number(process.env.PORT) || 8081;
+const HOST = process.env.HOST || "http://localhost";
+
 // Orígenes exactos permitidos (uno o varios separados por coma en CORS_ORIGIN)
 const origenesPermitidos = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+
+// El propio host de la API también necesita pasar el chequeo de CORS: el botón
+// "Try it out" de Swagger UI (servido en /api-docs) hace fetch hacia /api/*
+// desde ese mismo origen, y el navegador igual manda el header Origin.
+const origenesPropios = [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
 
 // En desarrollo también se acepta cualquier origen que use el mismo puerto que
 // los orígenes configurados (ej. la IP de red local del Vite dev server, para
@@ -39,6 +49,7 @@ app.use(cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true); // same-origin, curl, Postman, etc.
     if (origenesPermitidos.includes(origin)) return callback(null, true);
+    if (origenesPropios.includes(origin)) return callback(null, true);
 
     if (process.env.NODE_ENV !== "production") {
       try {
@@ -65,6 +76,16 @@ app.get("/", (_req, res) => {
   });
 });
 
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, {
+    customSiteTitle: "API Sistema Escolar - Docs",
+    // Colapsa todo por defecto para que no se sienta saturado al abrir
+    swaggerOptions: { docExpansion: "list", defaultModelsExpandDepth: -1 },
+  })
+);
+
 app.post('/api/auth/login', login);
 
 
@@ -90,10 +111,6 @@ app.use('/api/notas', notaRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/reportes', reporteRoutes);
-app.use('/api/eventos', eventRoutes);
-
-const PORT = Number(process.env.PORT) || 8081;
-const HOST = process.env.HOST || "http://localhost";
 
 app.listen(PORT, async () => {
   try {
