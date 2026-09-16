@@ -11,6 +11,8 @@ import becaRoutes from "./routes/beca.routes.js";
 import cursoRoutes from "./routes/curso.routes.js";
 import horarioRoutes from "./routes/horario.routes.js";
 import cursoSeccionRoutes from "./routes/cursoseccion.routes.js";
+import asistenciaRoutes from "./routes/asistencia.routes.js";
+
 
 
 
@@ -52,6 +54,7 @@ app.use('/api/becas', becaRoutes);
 app.use('/api/cursos', cursoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/curso-seccion', cursoSeccionRoutes);
+app.use('/api/asistencia', asistenciaRoutes);
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
