@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppUser, View } from "./types";
 import { Layout } from "./components/Layout";
 import Login from "./views/Login";
@@ -7,6 +7,7 @@ import AdminSede from "./views/admin-sede";
 import Catedratico from "./views/Catedratico";
 import Alumno from "./views/Alumno";
 import Padre from "./views/Padre";
+import { clearSession, getSession } from "./lib/auth";
 
 const DEFAULT_VIEWS: Record<string, View> = {
   "admin-general": "ag-dashboard",
@@ -21,6 +22,16 @@ export default function App() {
   const [sede, setSede] = useState<string | undefined>(undefined);
   const [currentView, setCurrentView] = useState<View>("ag-dashboard");
 
+  // Restaura la sesión guardada en localStorage al cargar (sobrevive a un refresh)
+  useEffect(() => {
+    const session = getSession();
+    if (session) {
+      setUser(session.user);
+      setSede(session.user.sede);
+      setCurrentView(DEFAULT_VIEWS[session.user.role] as View);
+    }
+  }, []);
+
   function handleLogin(loggedUser: AppUser, loggedSede?: string) {
     setUser(loggedUser);
     setSede(loggedSede || loggedUser.sede);
@@ -28,6 +39,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    clearSession();
     setUser(null);
     setSede(undefined);
   }
