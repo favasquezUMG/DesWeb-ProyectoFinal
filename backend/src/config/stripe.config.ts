@@ -6,8 +6,10 @@ if (!secretKey) {
     console.warn('⚠️  STRIPE_SECRET_KEY no está configurada. El módulo de pagos no va a funcionar.');
 }
 
-export const stripe = new Stripe(secretKey ?? '', {
-});
+// Si falta la key no se construye el cliente real: Stripe lanza en el
+// constructor incluso con un string vacío, y eso tumbaría toda la app
+// en vez de solo dejar el módulo de pagos sin funcionar.
+export const stripe = secretKey ? new Stripe(secretKey, {}) : (null as unknown as Stripe);
 
 /**
  * Stripe trabaja con la unidad mínima de la moneda: para GTQ son centavos.
