@@ -32,7 +32,7 @@ export const login = async (req: Request, res: Response) => {
 
         //Se crea el JWT payload
         const payload = {
-            id: user.usuarioId,
+            usuarioId: user.usuarioId,
             email: user.email,
             rolId: user.rolId,
             sedeId: user.sedeId
@@ -47,7 +47,7 @@ export const login = async (req: Request, res: Response) => {
             status: 'success',
             token,
             usuario: {
-                id: user.usuarioId,
+                usuarioId: user.usuarioId,
                 nombre: user.nombres,
                 email: user.email,
                 rol: user.rol.nombre

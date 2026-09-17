@@ -1,5 +1,22 @@
 import type { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+
+const parseId = (id: unknown): number | null => {
+    if (typeof id !== 'string' || !/^\d+$/.test(id)) return null;
+    return Number(id);
+};
+
+const errorMessage = (error: unknown): string => {
+    return error instanceof Error ? error.message : 'Error desconocido';
+};
+
+const handlePrismaError = (res: Response, error: unknown, notFoundMessage: string, serverMessage: string) => {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return res.status(404).json({ status: 'error', message: notFoundMessage });
+    }
+    return res.status(500).json({ status: 'error', message: serverMessage, error: errorMessage(error) });
+};
 
 //Get All
 export const getRoles = async (_req: Request, res: Response) => {
@@ -8,7 +25,7 @@ export const getRoles = async (_req: Request, res: Response) => {
 
         return res.json({ status: 'success', data: roles })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: 'Error al obtener los roles.', error})
+        return res.status(500).json({ status: 'error', message: 'Error al obtener los roles.', error: errorMessage(error) })
     }
 }
 
@@ -16,9 +33,14 @@ export const getRoles = async (_req: Request, res: Response) => {
 export const getRolById = async (req: Request, res: Response) => {
     const { id } = req.params;
 
+    const rolId = parseId(id);
+    if(rolId === null){
+        return res.status(400).json({ status: 'error', message: `El ID: ${id} no es un número válido` });
+    }
+
     try {
         const rol = await prisma.rol.findUnique({
-            where: { rolId: Number(id) }
+            where: { rolId }
         });
 
         if(!rol){
@@ -27,7 +49,7 @@ export const getRolById = async (req: Request, res: Response) => {
 
         return res.json({ status: 'success', data: rol });
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al obtener el rol con ID: ${id}.`, error})
+        return handlePrismaError(res, error, `Rol con ID: ${id} no encontrado`, `Error al obtener el rol con ID: ${id}.`);
     }
 }
 
@@ -53,7 +75,7 @@ export const createRol = async (req: Request, res: Response ) => {
 
         return res.status(200).json({ status: 'success', data: newRol })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: 'Error al crear el rol.', error})
+        return res.status(500).json({ status: 'error', message: 'Error al crear el rol.', error: errorMessage(error) })
     }
 }
 
@@ -62,12 +84,24 @@ export const updateRol = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { nombre } = req.body;
 
+    const rolId = parseId(id);
+    if(rolId === null){
+        return res.status(400).json({ status: 'error', message: `El ID: ${id} no es un número válido` });
+    }
+
     try {
+        const existingRolById = await prisma.rol.findUnique({
+            where: { rolId }
+        });
+        if(!existingRolById){
+            return res.status(404).json({ status: 'error', message: `Rol con ID: ${id} no encontrado` });
+        }
+
         if(nombre) {
             const existingRol = await prisma.rol.findUnique({
                 where: { nombre: nombre }
             })
-            if(existingRol && existingRol.rolId !== Number(id)){
+            if(existingRol && existingRol.rolId !== rolId){
                 return res.status(400).json({ status: 'error', message: `El rol ${nombre} ya está registrado. Ingrese otro nombre` })
             }
         }
@@ -76,13 +110,13 @@ export const updateRol = async (req: Request, res: Response) => {
         if(nombre) dataToUpdate.nombre = nombre;
 
         const updatedRol = await prisma.rol.update({
-            where: { rolId: Number(id) },
+            where: { rolId },
             data: dataToUpdate
         });
 
         return res.json({ status: 'success', data: updatedRol })
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al actualizar el rol con ID ${id}.`, error})
+        return handlePrismaError(res, error, `Rol con ID: ${id} no encontrado`, `Error al actualizar el rol con ID ${id}.`);
     };
 }
 
@@ -90,9 +124,21 @@ export const updateRol = async (req: Request, res: Response) => {
 export const deleteRolById = async (req: Request, res: Response ) => {
     const { id } = req.params;
 
+    const rolId = parseId(id);
+    if(rolId === null){
+        return res.status(400).json({ status: 'error', message: `El ID: ${id} no es un número válido` });
+    }
+
     try {
+        const existingRol = await prisma.rol.findUnique({
+            where: { rolId }
+        });
+        if(!existingRol){
+            return res.status(404).json({ status: 'error', message: `Rol con ID: ${id} no encontrado` });
+        }
+
         const usuariosConRol = await prisma.usuario.count({
-            where: { rolId: Number(id) }
+            where: { rolId }
         });
 
         if(usuariosConRol > 0){
@@ -100,11 +146,11 @@ export const deleteRolById = async (req: Request, res: Response ) => {
         }
 
         await prisma.rol.delete({
-            where: { rolId: Number(id) }
+            where: { rolId }
         })
 
         return res.json({ status: 'success', message: `Se eliminó el rol con ID: ${id} correctamente.`});
     } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al eliminar el rol con ID: ${id}.`, error});
+        return handlePrismaError(res, error, `Rol con ID: ${id} no encontrado`, `Error al eliminar el rol con ID: ${id}.`);
     }
 }
