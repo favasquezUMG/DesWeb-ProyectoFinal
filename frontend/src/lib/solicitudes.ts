@@ -1,7 +1,3 @@
-// Persistencia simulada (localStorage) de solicitudes de inscripción. No hay
-// backend real todavía: esto solo existe para que el flujo de "Solicitud" y el
-// de "Consultar estado" puedan conversar entre sí durante las pruebas.
-
 export type EstadoSolicitud = "En revisión" | "Documentos pendientes" | "Aprobada" | "Rechazada" | "Vencida";
 
 export interface DatosEncargadoSolicitud {
@@ -54,8 +50,6 @@ export function guardarSolicitud(solicitud: SolicitudGuardada): void {
     todas.push(solicitud);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(todas));
   } catch {
-    // Sin localStorage disponible la solicitud sigue mostrándose en pantalla,
-    // solo no quedará disponible luego para "Consultar estado".
   }
 }
 
@@ -74,15 +68,12 @@ export function buscarPorDpiCorreo(dpi: string, correo: string): SolicitudGuarda
   );
 }
 
-// ─── Generación de folio y fechas ──────────────────────────────────────────────
-
 export function generarNumeroSolicitud(): string {
   const anio = new Date().getFullYear();
   const numero = Math.floor(Math.random() * 99999) + 1;
   return `SOL-${anio}-${String(numero).padStart(5, "0")}`;
 }
 
-/** Fecha límite para entregar documentos físicamente: 15 días naturales desde hoy. */
 export function calcularFechaLimite(desde: Date = new Date()): Date {
   const fecha = new Date(desde);
   fecha.setDate(fecha.getDate() + 15);
@@ -93,12 +84,6 @@ export function formatearFecha(fecha: string | Date): string {
   const d = typeof fecha === "string" ? new Date(fecha) : fecha;
   return d.toLocaleDateString("es-GT", { day: "numeric", month: "long", year: "numeric" });
 }
-
-// ─── Estado simulado ────────────────────────────────────────────────────────
-// No hay backend que apruebe/rechace solicitudes de verdad: el estado se
-// deriva de forma determinista del número de folio, para que la misma
-// solicitud siempre muestre el mismo resultado. La única regla "real" es que
-// una solicitud aún pendiente vence automáticamente si ya pasó su fecha límite.
 
 export interface EstadoResuelto {
   estado: EstadoSolicitud;

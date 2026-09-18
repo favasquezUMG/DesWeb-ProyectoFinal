@@ -3,8 +3,6 @@ import type { AppUser, Role } from "../types";
 const TOKEN_KEY = "dercas.token";
 const USER_KEY = "dercas.user";
 
-// El backend guarda los roles como texto ("Administrador General", ...);
-// el frontend usa slugs cortos. Este mapeo conecta ambos mundos.
 const ROLE_FROM_BACKEND: Record<string, Role> = {
   "Administrador General": "admin-general",
   "Administrador de Sede": "admin-sede",
@@ -50,7 +48,6 @@ export interface Session {
   user: AppUser;
 }
 
-/** Guarda la sesión en localStorage para que sobreviva a un refresh de página. */
 export function saveSession(token: string, user: AppUser): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
