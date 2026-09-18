@@ -155,6 +155,7 @@ export const openapiSpec = {
     { name: "Eventos" },
     { name: "Mail" },
     { name: "Reportes" },
+    { name: "Pagos" },
   ],
   components: {
     securitySchemes: {
@@ -416,6 +417,88 @@ export const openapiSpec = {
           enviarRecordatorio: { type: "boolean" },
         },
       },
+
+      Pago: {
+        type: "object",
+        properties: {
+          pagoId: { type: "integer" },
+          alumnoId: { type: "integer" },
+          concepto: { type: "string", example: "Colegiatura" },
+          anioLectivo: { type: "integer" },
+          mes: { type: "integer", description: "1 a 12" },
+          monto: { type: "number" },
+          estado: { type: "string", enum: ["Pendiente", "Pagado", "Cancelado"] },
+          stripeSessionId: { type: "string", nullable: true },
+          fechaPago: { type: "string", format: "date-time", nullable: true },
+        },
+      },
+      CotizacionColegiatura: {
+        type: "object",
+        properties: {
+          alumno: { type: "string" },
+          anioLectivo: { type: "integer" },
+          mes: { type: "integer" },
+          nombreMes: { type: "string" },
+          montoBase: { type: "number" },
+          descuentoPorcentaje: { type: "number" },
+          montoFinal: { type: "number" },
+          yaTienePago: { type: "boolean" },
+          estadoPago: { type: "string", nullable: true },
+        },
+      },
+      EstadoCuenta: {
+        type: "object",
+        properties: {
+          alumno: { type: "string" },
+          grado: { type: "string" },
+          seccion: { type: "string" },
+          anioLectivo: { type: "integer" },
+          mesesPagados: { type: "integer" },
+          mesesPendientes: { type: "integer" },
+          totalPagado: { type: "number" },
+          detalle: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                mes: { type: "integer" },
+                nombreMes: { type: "string" },
+                estado: { type: "string" },
+                monto: { type: "number", nullable: true },
+                fechaPago: { type: "string", format: "date-time", nullable: true },
+              },
+            },
+          },
+        },
+      },
+      CheckoutInput: {
+        type: "object",
+        required: ["alumnoId", "mes"],
+        properties: {
+          alumnoId: { type: "integer" },
+          anioLectivo: { type: "integer", description: "Por defecto el año actual" },
+          mes: { type: "integer", description: "1 a 12" },
+        },
+      },
+      CheckoutResponse: {
+        type: "object",
+        properties: {
+          pagoId: { type: "integer" },
+          monto: { type: "number" },
+          descuentoAplicado: { type: "number" },
+          checkoutUrl: { type: "string", description: "URL de Stripe Checkout a la que redirigir al usuario" },
+          sessionId: { type: "string" },
+        },
+      },
+      VerificacionSesion: {
+        type: "object",
+        properties: {
+          pagado: { type: "boolean" },
+          estadoStripe: { type: "string" },
+          estadoLocal: { type: "string", nullable: true },
+          monto: { type: "number", nullable: true },
+        },
+      },
     },
   },
   paths: {
@@ -671,6 +754,97 @@ export const openapiSpec = {
           q("formato", "\"json\" para JSON, cualquier otro valor devuelve PDF", "string"),
         ],
         responses: { 200: { description: "Reporte en JSON o el PDF" }, 400: commonErrors[400], 404: commonErrors[404], 500: commonErrors[500] },
+      },
+    },
+
+    "/pagos": {
+      get: {
+        tags: ["Pagos"],
+        summary: "Listar pagos",
+        security: bearer,
+        parameters: [
+          q("alumnoId", "Filtrar por alumno"),
+          q("anioLectivo", "Filtrar por año lectivo"),
+          q("mes", "Filtrar por mes (1-12)"),
+          q("estado", "Filtrar por estado (Pendiente/Pagado/Cancelado)", "string"),
+        ],
+        responses: { 200: listResponse("Listado de pagos", ref("Pago")), ...commonErrors },
+      },
+    },
+    "/pagos/{id}": {
+      get: {
+        tags: ["Pagos"],
+        summary: "Obtener un pago por ID",
+        security: bearer,
+        parameters: [idParam("id", "ID de pago")],
+        responses: { 200: dataResponse("Encontrado", ref("Pago")), ...commonErrors },
+      },
+    },
+    "/pagos/cotizar/{alumnoId}": {
+      get: {
+        tags: ["Pagos"],
+        summary: "Cotizar la colegiatura de un mes (aplica beca si tiene)",
+        security: bearer,
+        parameters: [
+          idParam("alumnoId", "ID de alumno"),
+          q("anioLectivo", "Por defecto el año actual"),
+          q("mes", "Por defecto el mes actual (1-12)"),
+        ],
+        responses: { 200: dataResponse("Cotización calculada", ref("CotizacionColegiatura")), ...commonErrors },
+      },
+    },
+    "/pagos/estado-cuenta/{alumnoId}": {
+      get: {
+        tags: ["Pagos"],
+        summary: "Estado de cuenta del alumno (meses pagados/pendientes del ciclo escolar)",
+        security: bearer,
+        parameters: [idParam("alumnoId", "ID de alumno"), q("anioLectivo", "Por defecto el año actual")],
+        responses: { 200: dataResponse("Estado de cuenta", ref("EstadoCuenta")), ...commonErrors },
+      },
+    },
+    "/pagos/verificar/{sessionId}": {
+      get: {
+        tags: ["Pagos"],
+        summary: "Verificar en Stripe el estado real de una sesión de checkout",
+        description:
+          "Consulta directo a Stripe (no la base local) el estado de una sesión. " +
+          "Útil para la pantalla de confirmación a la que vuelve el usuario tras pagar; " +
+          "no reemplaza al webhook, que es lo que efectivamente marca el pago como completado.",
+        security: bearer,
+        parameters: [
+          {
+            name: "sessionId",
+            in: "path",
+            required: true,
+            description: "ID de la sesión de Stripe Checkout (cs_...)",
+            schema: { type: "string" },
+          },
+        ],
+        responses: { 200: dataResponse("Estado de la sesión", ref("VerificacionSesion")), ...commonErrors },
+      },
+    },
+    "/pagos/checkout": {
+      post: {
+        tags: ["Pagos"],
+        summary: "Crear una sesión de Stripe Checkout para pagar la colegiatura",
+        description:
+          "Crea la sesión de pago en Stripe y registra el pago localmente en estado " +
+          "'Pendiente'. Devuelve `checkoutUrl`, a donde debe redirigirse al usuario para " +
+          "completar el pago con tarjeta. El pago solo queda 'Pagado' cuando llega el " +
+          "webhook de Stripe (`POST /api/pagos/webhook`, fuera de esta documentación porque " +
+          "no lleva JWT: Stripe no puede loguearse, se valida con la firma del webhook).\n\n" +
+          "Solo puede pagar el propio alumno, uno de sus encargados, o un administrador.",
+        security: bearer,
+        requestBody: jsonBody(ref("CheckoutInput")),
+        responses: {
+          201: dataResponse("Sesión de checkout creada", ref("CheckoutResponse")),
+          400: commonErrors[400],
+          401: commonErrors[401],
+          403: commonErrors[403],
+          404: commonErrors[404],
+          409: { description: "Ya está pagado ese mes", ...jsonBody(ref("ErrorResponse")) },
+          500: commonErrors[500],
+        },
       },
     },
   },
