@@ -5,11 +5,6 @@ import { stripe, aCentavos, MONEDA, COLEGIATURA_MENSUAL, MESES } from '../config
 
 const CONCEPTO_COLEGIATURA = 'Colegiatura';
 
-/**
- * Busca la beca activa del alumno que cubra la fecha dada y devuelve el
- * porcentaje de descuento. El módulo de Becas es de otra persona; aquí solo
- * se lee para calcular el monto a cobrar.
- */
 const getDescuento = async (alumnoId: number, fecha: Date): Promise<number> => {
     const beca = await prisma.beca.findFirst({
         where: {
@@ -24,10 +19,6 @@ const getDescuento = async (alumnoId: number, fecha: Date): Promise<number> => {
     return beca ? Number(beca.porcentaje) : 0;
 };
 
-/**
- * Calcula cuánto le toca pagar al alumno por un mes, ya con beca aplicada.
- * GET /api/pagos/cotizar/:alumnoId?anioLectivo=2026&mes=9
- */
 export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId } = req.params;
     const { anioLectivo, mes } = req.query;
@@ -53,7 +44,6 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
         const montoBase = COLEGIATURA_MENSUAL;
         const montoFinal = Number((montoBase * (1 - descuento / 100)).toFixed(2));
 
-        // Si ya existe un pago para ese periodo, se reporta su estado
         const pagoExistente = await prisma.pago.findUnique({
             where: {
                 alumnoId_anioLectivo_mes_concepto: {
@@ -84,16 +74,6 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
     }
 };
 
-/**
- * Crea la sesión de pago de Stripe y devuelve la URL a la que hay que
- * mandar al usuario.
- * POST /api/pagos/checkout
- *
- * IMPORTANTE: aquí el pago queda en estado "Pendiente". Lo que lo marca
- * como pagado es el webhook, no esta respuesta: el usuario podría cerrar
- * la ventana de Stripe sin pagar, o pagar y cerrar antes de que lo
- * redirijan de vuelta.
- */
 export const crearCheckout = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId, anioLectivo, mes } = req.body;
 
@@ -121,14 +101,12 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             return res.status(404).json({ status: 'error', message: `Alumno con ID: ${alumnoId} no encontrado` });
         }
 
-        // Un encargado solo puede pagar la colegiatura de los alumnos a su cargo
         const esEncargadoDelAlumno = alumno.encargados.some(
             (e) => e.encargadoId === Number(req.user?.id),
         );
         const esElAlumno = Number(req.user?.id) === Number(alumnoId);
 
         if (!esEncargadoDelAlumno && !esElAlumno) {
-            // Los administradores pasan; el resto no
             const rol = await prisma.rol.findUnique({ where: { rolId: Number(req.user?.rolId) } });
             const esAdmin = rol?.nombre?.toLowerCase().includes('admin') ?? false;
             if (!esAdmin) {
@@ -139,7 +117,6 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             }
         }
 
-        // No se cobra dos veces el mismo periodo
         const pagoExistente = await prisma.pago.findUnique({
             where: {
                 alumnoId_anioLectivo_mes_concepto: {
@@ -190,8 +167,6 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
                     quantity: 1,
                 },
             ],
-            // Estos datos vuelven en el webhook y son los que permiten
-            // saber a qué pago corresponde el evento de Stripe.
             metadata: {
                 alumnoId: String(alumnoId),
                 anioLectivo: String(anio),
@@ -202,7 +177,6 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             cancel_url: `${process.env.FRONTEND_URL}/pagos/cancelado`,
         });
 
-        // Se registra el intento como Pendiente. El webhook lo confirma.
         const pago = await prisma.pago.upsert({
             where: {
                 alumnoId_anioLectivo_mes_concepto: {
@@ -247,10 +221,6 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
     }
 };
 
-/**
- * Estado de cuenta del alumno: qué meses están pagados y cuáles no.
- * GET /api/pagos/estado-cuenta/:alumnoId?anioLectivo=2026
- */
 export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId } = req.params;
     const { anioLectivo } = req.query;
@@ -275,7 +245,6 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
 
         const porMes = new Map(pagos.map((p) => [p.mes, p]));
 
-        // El ciclo escolar en Guatemala va de enero a octubre
         const meses = Array.from({ length: 10 }, (_, i) => {
             const mes = i + 1;
             const pago = porMes.get(mes);
@@ -356,14 +325,6 @@ export const getPagoById = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-/**
- * Consulta el estado real de una sesión en Stripe.
- * GET /api/pagos/verificar/:sessionId
- *
- * Sirve para la pantalla de "gracias por su pago": el frontend llega ahí
- * con el session_id en la URL y pregunta cómo quedó. No reemplaza al
- * webhook, solo da respuesta inmediata al usuario.
- */
 export const verificarSesion = async (req: AuthenticatedRequest, res: Response) => {
     const sessionId = String(req.params.sessionId);
 

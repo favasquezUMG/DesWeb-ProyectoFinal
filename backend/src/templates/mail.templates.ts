@@ -1,14 +1,8 @@
-/**
- * Plantillas HTML simples para los correos que envía el sistema.
- * Cada plantilla devuelve { subject, html } listo para pasarle a sendMail().
- */
-
 type PlantillaResult = {
     subject: string;
     html: string;
 };
 
-// Envoltorio comun para que todos los correos tengan el mismo estilo
 const baseTemplate = (titulo: string, contenidoHtml: string): string => `
 <!DOCTYPE html>
 <html lang="es">
@@ -46,7 +40,6 @@ const baseTemplate = (titulo: string, contenidoHtml: string): string => `
 </html>
 `;
 
-// Recordatorio de evento (se envía un día antes)
 export const plantillaRecordatorioEvento = (datos: {
     nombreDestinatario: string;
     nombreEvento: string;
@@ -73,7 +66,6 @@ export const plantillaRecordatorioEvento = (datos: {
     };
 };
 
-// Notificación de matrícula aceptada o rechazada
 export const plantillaMatricula = (datos: {
     nombreDestinatario: string;
     nombreAlumno: string;
@@ -97,7 +89,6 @@ export const plantillaMatricula = (datos: {
     };
 };
 
-// Notificación general de la administración
 export const plantillaNotificacionGeneral = (datos: {
     nombreDestinatario?: string;
     titulo: string;

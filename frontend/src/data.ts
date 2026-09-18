@@ -126,16 +126,12 @@ export const NOTIFICACIONES_LISTA: Notificacion[] = [
 
 export const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"] as const;
 
-// Horario Básico / Primaria / Diversificado: 07:30 – 12:30
-// Períodos de 45 min con receso a las 10:00–10:15
 export const BLOQUES = [
   "07:30–08:15", "08:15–09:00", "09:00–09:45",
   "09:45–10:15", // Receso
   "10:15–11:00", "11:00–11:45", "11:45–12:30",
 ] as const;
 
-// Horario Preprimaria: 08:00 – 11:00
-// Períodos de 45 min con receso a las 09:30–09:45
 export const BLOQUES_PREPRIMARIA = [
   "08:00–08:45", "08:45–09:30",
   "09:30–09:45", // Receso
@@ -185,7 +181,6 @@ export const HORARIO_3A: Record<string, Record<string, HorarioCelda>> = {
   },
 };
 
-// Un "año" dentro de una carrera de Diversificado (Cuarto, Quinto, y Sexto si aplica)
 export interface AnioCarrera {
   nombre: string;
   cursos: string[];
@@ -204,13 +199,7 @@ export interface GradoMalla {
 export interface NivelMalla {
   nivel: string;
   id: "pre" | "pri" | "bas" | "div";
-  // Lista plana de grados con sus cursos. Para "div" es el resultado de
-  // aplanar todas las carreras x año (ej. "Perito Contador — Quinto"), así
-  // las vistas que solo necesitan recorrer "un grado, sus cursos" (como la
-  // malla curricular del admin general) no necesitan saber de carreras.
   grados: GradoMalla[];
-  // Solo presente en "div": agrupa esos mismos años por carrera, para poder
-  // armar un selector en cascada (carrera → año) en la solicitud de inscripción.
   carreras?: CarreraDiversificado[];
 }
 
@@ -285,7 +274,6 @@ export const MALLA_CNB: NivelMalla[] = [
   },
   {
     nivel: "Diversificado", id: "div",
-    // Cada combinación carrera x año, aplanada, para la malla curricular del admin general
     grados: CARRERAS_DIVERSIFICADO.flatMap((carrera) =>
       carrera.anios.map((anio) => ({ nombre: `${carrera.nombre} — ${anio.nombre}`, cursos: anio.cursos }))
     ),

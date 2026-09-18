@@ -22,7 +22,6 @@ export default function App() {
   const [sede, setSede] = useState<string | undefined>(undefined);
   const [currentView, setCurrentView] = useState<View>("ag-dashboard");
 
-  // Restaura la sesión guardada en localStorage al cargar (sobrevive a un refresh)
   useEffect(() => {
     const session = getSession();
     if (session) {
