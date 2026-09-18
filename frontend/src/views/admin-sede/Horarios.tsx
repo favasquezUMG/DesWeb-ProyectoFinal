@@ -3,8 +3,6 @@ import { Plus, AlertTriangle } from "lucide-react";
 import { HORARIO_3A, DIAS, BLOQUES } from "../../data";
 import { Card, SectionHeader, Btn, AlertBanner } from "../../components/Ui";
 
-// ─── Horarios ─────────────────────────────────────────────────────────────────
-
 export default function HorariosView() {
   const [conflicto, setConflicto] = useState(false);
   const [showConflicto, setShowConflicto] = useState(false);

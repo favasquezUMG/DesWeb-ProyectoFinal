@@ -11,20 +11,11 @@ import {
 } from "../lib/solicitudes";
 import { generarConstanciaPdf, etiquetaGradoSolicitud } from "../lib/constanciaPdf";
 
-// ─── Solicitud de inscripción ──────────────────────────────────────────────────
-// Flujo simulado (sin backend) para solicitar el cupo de un alumno. Se usa en
-// dos contextos:
-//  - "publico": desde el login, un encargado sin cuenta solicita la inscripción.
-//  - "presencial": desde el panel de admin de sede, cuando la secretaría recibe
-//     al encargado en ventanilla y registra la solicitud por él.
-
 export type SolicitudInscripcionModo = "publico" | "presencial";
 
 interface SolicitudInscripcionProps {
   modo: SolicitudInscripcionModo;
-  /** Se llama al terminar el flujo (botón final de la pantalla de confirmación). */
   onFinalizar?: () => void;
-  /** Se llama si el usuario cancela antes de terminar (solo visible en el primer paso). */
   onCancelar?: () => void;
 }
 
@@ -45,9 +36,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type NivelId = "pre" | "pri" | "bas" | "div";
 
-// Posición (0-14) de cada grado/año en la progresión completa del colegio:
-// 0-2 Preprimaria, 3-8 Primaria, 9-11 Básico, 12-14 Diversificado (Cuarto/Quinto/Sexto,
-// sin importar la carrera). Se usa solo para validar que la edad sea coherente.
 const OFFSET_POR_NIVEL: Record<NivelId, number> = { pre: 0, pri: 3, bas: 9, div: 12 };
 const ORDEN_ANIO_DIV: Record<string, number> = { Cuarto: 0, Quinto: 1, Sexto: 2 };
 
@@ -163,7 +151,6 @@ function validarAlumno(d: DatosAlumno): Partial<Record<keyof DatosAlumno, string
   return errores;
 }
 
-/** Bloque imprimible de la constancia (oculto en pantalla, visible solo al imprimir). Ver @media print en index.css. */
 export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
   return (
     <div id="constancia-imprimible" className="p-10 text-stone-900 text-sm">
@@ -342,7 +329,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
 
       <Stepper steps={STEPS} current={step} />
 
-      {/* ── Paso 1: Encargado ── */}
       {step === 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Nombres" value={encargado.nombres} onChange={(e) => actualizarEncargado("nombres", e.target.value)} error={erroresEncargado.nombres} placeholder="Nombres del encargado" />
@@ -369,7 +355,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Paso 2: Alumno ── */}
       {step === 1 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Nombres del alumno" value={alumno.nombres} onChange={(e) => actualizarAlumno("nombres", e.target.value)} error={erroresAlumno.nombres} />
@@ -407,7 +392,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Paso 3: Documentos ── */}
       {step === 2 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-4 py-3 bg-warning-50 border border-warning-200 rounded-lg">
@@ -457,7 +441,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Paso 4: Confirmación ── */}
       {step === 3 && solicitudGuardada && (
         <div className="text-center py-2 space-y-5">
           <div className="w-14 h-14 rounded-full bg-success-100 text-success-700 flex items-center justify-center mx-auto">
@@ -501,7 +484,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Navegación entre pasos ── */}
       {step < 3 && (
         <div className="flex items-center justify-between pt-2">
           {step === 0 ? (

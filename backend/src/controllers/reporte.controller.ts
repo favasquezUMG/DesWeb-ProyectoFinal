@@ -6,8 +6,6 @@ import {
     plantillaReporteAlumnosPorRango,
 } from "../templates/reporte.templates.js";
 
-// Incluye lo necesario para calcular, por alumno, la nota de cada unidad
-// (suma de las notas de sus actividades) de un curso-sección específico.
 const incluirNotas = {
     curso: true,
     seccion: { include: { sede: true, grado: true } },
@@ -19,10 +17,6 @@ const incluirNotas = {
     },
 };
 
-/**
- * Calcula, para un curso-sección, la nota de cada unidad de cada alumno
- * (suma de las notas de las actividades de esa unidad) y el total del curso.
- */
 const calcularNotasCursoSeccion = async (cursoSeccionId: number) => {
     const cursoSeccion = await prisma.cursoSeccion.findUnique({
         where: { cursoSeccionId },
@@ -159,7 +153,6 @@ export const getReporteAlumnosPorRango = async (req: Request, res: Response) => 
             orderBy: [{ usuario: { apellidos: "asc" } }, { usuario: { nombres: "asc" } }],
         });
 
-        // El promedio general del alumno es el promedio de los totales de cada curso-sección
         const filas = alumnos.map((alumno) => {
             const totales = resultadosPorCurso.map(
                 (c) => c.alumnos.find((a) => a.alumnoId === alumno.alumnoId)?.total ?? 0

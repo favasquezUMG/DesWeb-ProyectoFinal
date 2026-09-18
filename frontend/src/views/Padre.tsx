@@ -7,8 +7,6 @@ import {
   AlertBanner, Stepper, TH, TD
 } from "../components/Ui";
 
-// ─── Dashboard Padre ──────────────────────────────────────────────────────────
-
 function DashboardPadre() {
   const [hijo, setHijo] = useState("María José Ajú Pac");
   const hijos = ["María José Ajú Pac", "Pedro José Ajú Pac"];
@@ -103,8 +101,6 @@ function DashboardPadre() {
     </div>
   );
 }
-
-// ─── Matrícula ────────────────────────────────────────────────────────────────
 
 type MatriculaStep = 0 | 1 | 2 | 3;
 
@@ -302,8 +298,6 @@ function MatriculaView() {
   );
 }
 
-// ─── Notas del Hijo ───────────────────────────────────────────────────────────
-
 function NotasHijo() {
   return (
     <div className="space-y-5">
@@ -394,8 +388,6 @@ function NotasHijo() {
     </div>
   );
 }
-
-// ─── Pagos ────────────────────────────────────────────────────────────────────
 
 type PagoEstado = "idle" | "procesando" | "exitoso" | "rechazado";
 // eslint-disable-next-line
@@ -490,8 +482,6 @@ function PagosView() {
   );
 }
 
-// ─── Perfil ───────────────────────────────────────────────────────────────────
-
 function PerfilView() {
   const [saved, setSaved] = useState(false);
   const notifOptions = [
@@ -565,8 +555,6 @@ function PerfilView() {
     </div>
   );
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 export default function Padre({ view }: { view: View }) {
   if (view === "pad-matricula") return <MatriculaView />;

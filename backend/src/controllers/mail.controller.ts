@@ -2,9 +2,6 @@ import type { Request, Response } from "express";
 import { sendMail } from "../services/mail.service.js";
 import { plantillaNotificacionGeneral } from "../templates/mail.templates.js";
 
-/**
- * Endpoint temporal para probar el envío de correo. Quitar antes de producción.
- */
 export const testMail = async (req: Request, res: Response) => {
     const { to, usuarioId, titulo, mensaje } = req.body;
 

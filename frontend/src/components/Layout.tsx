@@ -9,8 +9,6 @@ import {
   LogOut, Settings, Award, BookText, Layers
 } from "lucide-react";
 
-// ─── Nav item config ──────────────────────────────────────────────────────────
-
 type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard };
 
 const NAV: Record<Role, NavItem[]> = {
@@ -62,8 +60,6 @@ const ROLE_LABELS: Record<Role, string> = {
   "alumno": "Alumno",
   "padre": "Padre / Encargado",
 };
-
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
   user: AppUser;
@@ -131,8 +127,6 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
     </aside>
   );
 }
-
-// ─── Topbar ───────────────────────────────────────────────────────────────────
 
 function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen }: {
   user: AppUser;
@@ -215,8 +209,6 @@ function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen }: {
   );
 }
 
-// ─── Mobile Sidebar Overlay ───────────────────────────────────────────────────
-
 function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
   user: AppUser;
   currentView: View;
@@ -260,8 +252,6 @@ function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
     </>
   );
 }
-
-// ─── Layout ───────────────────────────────────────────────────────────────────
 
 export function Layout({ user, currentView, onNavigate, onLogout, sede, children }: {
   user: AppUser;

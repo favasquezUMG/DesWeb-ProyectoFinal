@@ -6,8 +6,6 @@ import {
   Drawer, Modal, AlertBanner, EmptyState, TH, TD, Tabs
 } from "../../components/Ui";
 
-// ─── Alumnos ──────────────────────────────────────────────────────────────────
-
 export default function AlumnosView() {
   const [search, setSearch] = useState("");
   const [gradoFilter, setGradoFilter] = useState("todos");
