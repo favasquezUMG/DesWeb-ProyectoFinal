@@ -12,7 +12,6 @@ import { verificarRol, ROL } from "../middlewares/role.middleware.js"
 
 const router = Router();
 
-// Todas las rutas de abajo quedan protegidas con el JWT
 router.use(authenticateToken);
 
 router.get('/', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE, ROL.CATEDRATICO, ROL.ENCARGADO, ROL.ALUMNO), getActivities);

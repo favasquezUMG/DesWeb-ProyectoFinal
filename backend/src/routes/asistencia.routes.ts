@@ -19,9 +19,6 @@ router.get('/', getAsistencias);
 router.get('/lista/:cursoSeccionId', getListaParaPasar);
 router.get('/resumen/:cursoSeccionId', getResumenAsistencia);
 
-// El catedrático pasa lista de sus propios cursos; los administradores
-// pueden hacerlo también. La validación de "es SU curso" se hace dentro
-// del controller con puedeGestionarCurso().
 router.post(
     '/pasar-lista',
     verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE, ROL.CATEDRATICO),

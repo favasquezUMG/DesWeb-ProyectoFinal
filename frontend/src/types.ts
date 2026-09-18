@@ -92,7 +92,6 @@ export interface Evento {
   id: string;
   titulo: string;
   fecha: string;
-  /** fecha final para eventos que abarcan varios días (YYYY-MM-DD) */
   fechaFin?: string;
   tipo: "clases" | "examen" | "descanso" | "actividad" | "asueto" | "festivo" | "institucional";
   descripcion?: string;
