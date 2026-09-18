@@ -31,59 +31,42 @@ const app = express();
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
 
-// Orígenes exactos permitidos (uno o varios separados por coma en CORS_ORIGIN)
 const origenesPermitidos = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
 
-// El propio host de la API también necesita pasar el chequeo de CORS: el botón
-// "Try it out" de Swagger UI (servido en /api-docs) hace fetch hacia /api/*
-// desde ese mismo origen, y el navegador igual manda el header Origin.
 const origenesPropios = [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
 
-// En desarrollo también se acepta cualquier origen que use el mismo puerto que
-// los orígenes configurados (ej. la IP de red local del Vite dev server, para
-// poder probar desde el celular u otra máquina de la misma red).
 const puertosDev = origenesPermitidos
   .map((o) => { try { return new URL(o).port; } catch { return null; } })
   .filter((p): p is string => !!p);
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin) return callback(null, true); // same-origin, curl, Postman, etc.
+    if (!origin) return callback(null, true);
     if (origenesPermitidos.includes(origin)) return callback(null, true);
     if (origenesPropios.includes(origin)) return callback(null, true);
 
     if (process.env.NODE_ENV !== "production") {
       try {
         if (puertosDev.includes(new URL(origin).port)) return callback(null, true);
-      } catch {
-        // origin mal formado: cae al rechazo de abajo
-      }
+      } catch {}
     }
 
     callback(new Error("Origen no permitido por CORS"));
   },
 }));
 
-////// Webhook de Stripe
-// IMPORTANTE: va ANTES de express.json(). Stripe firma los bytes crudos
-// del body y el parser global los convertiría en objeto, rompiendo la
-// verificación de firma. Tampoco lleva authenticateToken: Stripe no se loguea.
 app.post(
   '/api/pagos/webhook',
   express.raw({ type: 'application/json' }),
   stripeWebhook
 );
 
-////// Parsers globales (después del webhook)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-////// Rutas publicas
-
-//Para ver que este vivo el sistema nada mas
 app.get("/", (_req, res) => {
   res.json({
     message: "API DesWeb - Proyecto Final",
@@ -96,14 +79,11 @@ app.use(
   swaggerUi.serve,
   swaggerUi.setup(openapiSpec, {
     customSiteTitle: "API Sistema Escolar - Docs",
-    // Colapsa todo por defecto para que no se sienta saturado al abrir
     swaggerOptions: { docExpansion: "list", defaultModelsExpandDepth: -1 },
   })
 );
 
 app.post('/api/auth/login', login);
-
-////// Rutas protegidas
 
 app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
   res.json({
@@ -138,7 +118,6 @@ app.listen(PORT, async () => {
   }
 });
 
-// Cierra el navegador de Puppeteer y la conexión a la base al apagar el servidor
 const apagarOrdenadamente = async () => {
   await closeBrowser();
   await prisma.$disconnect();

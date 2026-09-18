@@ -1,22 +1,9 @@
-/**
- * Definición estática de OpenAPI 3.0 para la API del Sistema Escolar.
- *
- * Se arma como objeto (en vez de comentarios JSDoc esparcidos en cada ruta)
- * para mantener las rutas limpias y controlar qué tan detallada queda la
- * documentación en un solo lugar. Los helpers de abajo solo evitan repetir
- * los mismos bloques (respuestas de error, envoltorios {status, data}) en
- * cada endpoint.
- */
-
-// ---------- Helpers para no repetir bloques comunes ----------
-
 const jsonBody = (schema: object) => ({
   content: { "application/json": { schema } },
 });
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 
-/** Respuesta { status: 'success', data: <schema> } */
 const dataResponse = (description: string, schema: object) => ({
   description,
   ...jsonBody({
@@ -25,7 +12,6 @@ const dataResponse = (description: string, schema: object) => ({
   }),
 });
 
-/** Respuesta { status: 'success', data: [<schema>] } */
 const listResponse = (description: string, itemSchema: object) => ({
   description,
   ...jsonBody({
@@ -52,7 +38,6 @@ const idParam = (name: string, description: string) => ({
   schema: { type: "integer" },
 });
 
-// Respuestas de error reutilizables (referenciadas por $ref en cada operación)
 const commonErrors = {
   400: { $ref: "#/components/responses/BadRequest" },
   401: { $ref: "#/components/responses/Unauthorized" },
@@ -61,15 +46,14 @@ const commonErrors = {
   500: { $ref: "#/components/responses/ServerError" },
 };
 
-/** Arma un CRUD estándar (list/get/create/update/delete) para un recurso. */
 function crud(opts: {
   tag: string;
-  base: string; // ej. /api/becas
-  idName: string; // ej. becaId
-  schema: string; // nombre del schema, ej. "Beca"
-  inputSchema: string; // nombre del schema de entrada
+  base: string;
+  idName: string;
+  schema: string;
+  inputSchema: string;
   listQuery?: object[];
-  auth?: boolean; // si requiere bearer (default true)
+  auth?: boolean;
 }) {
   const { tag, base, idName, schema, inputSchema, listQuery = [], auth = true } = opts;
   const security = auth ? bearer : undefined;
@@ -128,8 +112,6 @@ const q = (name: string, description: string, type: "integer" | "string" = "inte
   description,
   schema: { type },
 });
-
-// ---------- Documento OpenAPI ----------
 
 export const openapiSpec = {
   openapi: "3.0.3",
@@ -533,10 +515,8 @@ export const openapiSpec = {
       },
     },
 
-    // Usuarios: requiere bearer en todas
     ...crud({ tag: "Usuarios", base: "/usuarios", idName: "id", schema: "Usuario", inputSchema: "UsuarioInput" }),
 
-    // Roles y Becas: sin middleware de auth activo por ahora (ver rol.routes.ts / beca.routes.ts)
     ...crud({
       tag: "Roles",
       base: "/roles/all",

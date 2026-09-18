@@ -11,7 +11,6 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Convierte el html a texto plano simple, para guardarlo en Notificacion.mensaje
 const htmlATextoPlano = (html: string): string =>
     html
         .replace(/<[^>]*>/g, " ")
@@ -22,17 +21,10 @@ interface SendMailParams {
     to: string;
     subject: string;
     html: string;
-    /** Si se provee, ademas se registra la notificación en la tabla Notificacion */
     usuarioId?: number;
-    /** Texto para Notificacion.mensaje. Si no se da, se deriva del html. */
     mensaje?: string;
 }
 
-/**
- * Envía un correo por SMTP y, si se provee usuarioId, registra la notificación
- * en la base de datos. Un fallo en el envío del correo NUNCA lanza: se loguea
- * y se devuelve false para que la operación que llamó a sendMail continue.
- */
 export const sendMail = async ({ to, subject, html, usuarioId, mensaje }: SendMailParams): Promise<boolean> => {
     let enviado = false;
 
