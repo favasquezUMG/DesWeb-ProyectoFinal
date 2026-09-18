@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { Card, SectionHeader, Btn, Badge, Drawer, TH, TD } from "../../components/Ui";
 
-// ─── Usuarios ─────────────────────────────────────────────────────────────────
-
 export default function UsuariosView() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const usuarios = [

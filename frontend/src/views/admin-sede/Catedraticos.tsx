@@ -2,8 +2,6 @@ import { Plus, Edit } from "lucide-react";
 import { CATEDRATICOS } from "../../data";
 import { Card, SectionHeader, Btn, Badge, TH, TD } from "../../components/Ui";
 
-// ─── Catedráticos ─────────────────────────────────────────────────────────────
-
 export default function CatedraticosView() {
   return (
     <div className="space-y-5">

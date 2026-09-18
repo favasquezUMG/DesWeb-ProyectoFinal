@@ -2,10 +2,6 @@ import { useEffect, useState } from "react";
 import { Card, SectionHeader, Btn, AlertBanner } from "../../components/Ui";
 import { getRoles, type RolDto } from "../../lib/api";
 
-// ─── Roles y Permisos ─────────────────────────────────────────────────────────
-
-// La matriz de permisos aún no tiene endpoint propio en el backend, así que
-// se mantiene local; solo la lista de roles (columnas) viene de /api/roles.
 const MODULOS = ["Alumnos", "Catedráticos", "Horarios", "Notas", "Asistencia", "Becas", "Pagos", "Notificaciones", "Calendario", "Reportería"];
 const PERMISOS: Record<string, Record<string, boolean>> = {
   "Administrador General": { Alumnos: true, Catedráticos: true, Horarios: true, Notas: true, Asistencia: true, Becas: true, Pagos: true, Notificaciones: true, Calendario: true, Reportería: true },

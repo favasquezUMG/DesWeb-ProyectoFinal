@@ -1,8 +1,6 @@
 import { AlertTriangle, Users, Award, CheckCircle2 } from "lucide-react";
 import { Card, MetricCard, SectionHeader } from "../../components/Ui";
 
-// ─── Dashboard de Sede ────────────────────────────────────────────────────────
-
 export default function DashboardSede() {
   return (
     <div className="space-y-6">

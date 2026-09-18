@@ -1,8 +1,6 @@
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Card, SectionHeader, Btn, TH, TD } from "../../components/Ui";
 
-// ─── Cursos ───────────────────────────────────────────────────────────────────
-
 export default function CursosView() {
   return (
     <div className="space-y-5">

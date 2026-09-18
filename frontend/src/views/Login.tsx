@@ -83,7 +83,6 @@ export default function Login({ onLogin }: LoginProps) {
       const appUser = buildAppUser(result.usuario);
       saveSession(result.token, appUser);
 
-      // Multi-sede users get the sede selector
       if (appUser.role === "admin-general") {
         setSelectedUser(appUser);
         setScreen("sede");
@@ -218,7 +217,6 @@ export default function Login({ onLogin }: LoginProps) {
           </div>
 
           <Card className="p-6 sm:p-8">
-            {/* ── Login ── */}
             {screen === "login" && (
               <form onSubmit={handleLogin} noValidate>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Iniciar sesión</h2>
@@ -278,7 +276,6 @@ export default function Login({ onLogin }: LoginProps) {
               </form>
             )}
 
-            {/* ── Forgot password ── */}
             {screen === "forgot" && (
               <form onSubmit={handleForgot} noValidate>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Recuperar contraseña</h2>
@@ -311,7 +308,6 @@ export default function Login({ onLogin }: LoginProps) {
               </form>
             )}
 
-            {/* ── Sede selector ── */}
             {screen === "sede" && selectedUser && (
               <div>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Seleccionar sede</h2>
@@ -339,12 +335,10 @@ export default function Login({ onLogin }: LoginProps) {
               </div>
             )}
 
-            {/* ── Solicitud de inscripción ── */}
             {screen === "solicitud" && (
               <SolicitudInscripcion modo="publico" onFinalizar={volverAlLogin} onCancelar={volverAlLogin} />
             )}
 
-            {/* ── Consultar estado de solicitud ── */}
             {screen === "consulta" && (
               <div>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Consultar estado de solicitud</h2>

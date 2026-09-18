@@ -3,8 +3,6 @@ import { Plus, Bell } from "lucide-react";
 import { NOTIFICACIONES_LISTA } from "../../data";
 import { Card, SectionHeader, Btn, Badge } from "../../components/Ui";
 
-// ─── Notificaciones ───────────────────────────────────────────────────────────
-
 export default function NotificacionesView() {
   const [showForm, setShowForm] = useState(false);
 

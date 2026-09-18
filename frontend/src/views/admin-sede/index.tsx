@@ -11,8 +11,6 @@ import GradosView from "./Grados";
 import CursosView from "./Cursos";
 import UsuariosView from "./Usuarios";
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 export default function AdminSede({ view }: { view: View }) {
   if (view === "as-usuarios") return <UsuariosView />;
   if (view === "as-roles") return <RolesView />;

@@ -1,8 +1,6 @@
 import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "lucide-react";
 
-// ─── Button ──────────────────────────────────────────────────────────────────
-
 type BtnVariant = "primary" | "secondary" | "ghost" | "destructive" | "outline";
 interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: BtnVariant;
@@ -33,8 +31,6 @@ export function Btn({ variant = "primary", size = "md", loading, icon, children,
     </button>
   );
 }
-
-// ─── Input ────────────────────────────────────────────────────────────────────
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> {
   label?: string;
@@ -67,8 +63,6 @@ export function Input({ label, error, hint, prefix, suffix, className = "", id, 
   );
 }
 
-// ─── Select ───────────────────────────────────────────────────────────────────
-
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
@@ -93,8 +87,6 @@ export function Select({ label, error, className = "", id, children, ...props }:
   );
 }
 
-// ─── Textarea ─────────────────────────────────────────────────────────────────
-
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
@@ -118,8 +110,6 @@ export function Textarea({ label, error, className = "", id, ...props }: Textare
   );
 }
 
-// ─── Badge ────────────────────────────────────────────────────────────────────
-
 type BadgeVariant = "success" | "danger" | "warning" | "info" | "neutral" | "primary";
 
 const BADGE_STYLES: Record<BadgeVariant, string> = {
@@ -138,8 +128,6 @@ export function Badge({ variant = "neutral", children, className = "" }: { varia
     </span>
   );
 }
-
-// ─── Nota Badge (Aprobado / Reprobado) ────────────────────────────────────────
 
 export function NotaBadge({ nota }: { nota: number | null }) {
   if (nota === null) return <span className="text-stone-400 text-xs font-mono-data">—</span>;
@@ -167,8 +155,6 @@ export function EstadoBadge({ aprobado, label }: { aprobado: boolean; label?: st
   );
 }
 
-// ─── Pago Badge ───────────────────────────────────────────────────────────────
-
 export function PagoBadge({ estado }: { estado: "pagado" | "pendiente" | "vencido" }) {
   const cfg = {
     pagado: { cls: "bg-success-100 text-success-800", icon: <CheckCircle2 className="w-3 h-3" />, label: "Pagado" },
@@ -183,13 +169,9 @@ export function PagoBadge({ estado }: { estado: "pagado" | "pendiente" | "vencid
   );
 }
 
-// ─── Card ─────────────────────────────────────────────────────────────────────
-
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`bg-white border border-stone-200 rounded-xl shadow-xs ${className}`}>{children}</div>;
 }
-
-// ─── Metric Card ──────────────────────────────────────────────────────────────
 
 export function MetricCard({ label, value, sub, icon, variant = "default" }: {
   label: string; value: string | number; sub?: string; icon?: ReactNode; variant?: "default" | "success" | "warning" | "danger";
@@ -214,8 +196,6 @@ export function MetricCard({ label, value, sub, icon, variant = "default" }: {
   );
 }
 
-// ─── Alert Banner ─────────────────────────────────────────────────────────────
-
 type AlertType = "info" | "success" | "warning" | "error";
 
 const ALERT_CFG: Record<AlertType, { cls: string; Icon: typeof Info }> = {
@@ -239,8 +219,6 @@ export function AlertBanner({ type, title, message, onClose }: { type: AlertType
   );
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
-
 export function Modal({ open, onClose, title, children, footer }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
 }) {
@@ -260,8 +238,6 @@ export function Modal({ open, onClose, title, children, footer }: {
   );
 }
 
-// ─── Drawer ───────────────────────────────────────────────────────────────────
-
 export function Drawer({ open, onClose, title, children, footer }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
 }) {
@@ -280,8 +256,6 @@ export function Drawer({ open, onClose, title, children, footer }: {
   );
 }
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
-
 export function Tabs({ tabs, active, onChange }: { tabs: string[]; active: string; onChange: (t: string) => void }) {
   return (
     <div className="flex gap-1 border-b border-stone-200">
@@ -299,8 +273,6 @@ export function Tabs({ tabs, active, onChange }: { tabs: string[]; active: strin
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
-
 export function EmptyState({ icon, title, description, action }: {
   icon?: ReactNode; title: string; description?: string; action?: ReactNode;
 }) {
@@ -313,8 +285,6 @@ export function EmptyState({ icon, title, description, action }: {
     </div>
   );
 }
-
-// ─── Stepper ──────────────────────────────────────────────────────────────────
 
 export function Stepper({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -341,8 +311,6 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
   );
 }
 
-// ─── Toggle ───────────────────────────────────────────────────────────────────
-
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer">
@@ -360,8 +328,6 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-// ─── Section Header ───────────────────────────────────────────────────────────
-
 export function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -373,8 +339,6 @@ export function SectionHeader({ title, subtitle, action }: { title: string; subt
     </div>
   );
 }
-
-// ─── Table utilities ──────────────────────────────────────────────────────────
 
 export function TH({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <th className={`px-4 py-2.5 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider ${className}`}>{children}</th>;

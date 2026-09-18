@@ -11,11 +11,6 @@ import {
   type AlumnoDto,
 } from "../../lib/api";
 
-// ─── Becas ────────────────────────────────────────────────────────────────────
-
-// El backend todavía no modela una mensualidad/pago recurrente por alumno,
-// así que se usa el monto base estándar del colegio (el mismo que aparece en
-// el módulo de Pagos) solo para mostrar el total estimado con descuento.
 const MENSUALIDAD_BASE = 1250;
 
 const MOTIVOS = ["Rendimiento académico", "Situación socioeconómica", "Hermano inscrito", "Hijo de catedrático", "Otro"];

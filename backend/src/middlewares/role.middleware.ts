@@ -2,11 +2,6 @@ import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from './auth.middleware.js';
 import { prisma } from '../lib/prisma.js';
 
-/**
- * Nombres de rol tal como están sembrados en prisma/seed.ts.
- * Se comparan por nombre y no por rolId porque los IDs cambian entre
- * ambientes (local, pruebas, produccion) y romperían las rutas.
- */
 export const ROL = {
     ADMIN: 'Admin',
     ADMIN_GENERAL: 'Administrador General',
@@ -19,8 +14,6 @@ export const ROL = {
 
 export type NombreRol = (typeof ROL)[keyof typeof ROL];
 
-// Cache en memoria: rolId -> nombre. Los roles casi no cambian, así que no
-// tiene sentido consultarlos en cada request.
 let cacheRoles: Map<number, string> | null = null;
 
 const cargarRoles = async (): Promise<Map<number, string>> => {
@@ -31,15 +24,10 @@ const cargarRoles = async (): Promise<Map<number, string>> => {
     return cacheRoles;
 };
 
-/** Llamar después de crear, editar o borrar un rol para invalidar el cache. */
 export const invalidarCacheRoles = () => {
     cacheRoles = null;
 };
 
-/**
- * Deja pasar solo si el rol del usuario autenticado está en la lista.
- * Uso: router.post('/', authenticateToken, verificarRol(ROL.ADMIN_GENERAL), createCurso);
- */
 export const verificarRol = (...rolesPermitidos: NombreRol[]) => {
     return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         if (!req.user) {
@@ -71,11 +59,6 @@ export const verificarRol = (...rolesPermitidos: NombreRol[]) => {
     };
 };
 
-/**
- * Regla de negocio del DERCAS: el Administrador de Sede solo opera sobre su
- * propia sede; el Administrador General sobre todas.
- * Devuelve true si el usuario puede tocar recursos de esa sede.
- */
 export const puedeOperarSede = async (
     req: AuthenticatedRequest,
     sedeId: number,

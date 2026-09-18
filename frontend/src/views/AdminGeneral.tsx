@@ -5,8 +5,6 @@ import type { View } from "../types";
 import { SEDES, METRICS_CONSOLIDADOS, MALLA_CNB } from "../data";
 import { Card, MetricCard, SectionHeader, Btn, Badge, TH, TD, EmptyState } from "../components/Ui";
 
-// ─── Dashboard consolidado ────────────────────────────────────────────────────
-
 function DashboardConsolidado() {
   const trendData = METRICS_CONSOLIDADOS.meses.map((m, i) => ({
     mes: m, aprobacion: METRICS_CONSOLIDADOS.tendencia[i]
@@ -102,8 +100,6 @@ function DashboardConsolidado() {
   );
 }
 
-// ─── Sedes ────────────────────────────────────────────────────────────────────
-
 function SedesView() {
   const [showNew, setShowNew] = useState(false);
 
@@ -178,8 +174,6 @@ function SedesView() {
   );
 }
 
-// ─── Malla Curricular ─────────────────────────────────────────────────────────
-
 function MallaCurricular() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["bas"]));
 
@@ -241,8 +235,6 @@ function MallaCurricular() {
     </div>
   );
 }
-
-// ─── Reportería ───────────────────────────────────────────────────────────────
 
 function Reporteria() {
   const [sede, setSede] = useState("todas");
@@ -309,8 +301,6 @@ function Reporteria() {
     </div>
   );
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 export default function AdminGeneral({ view }: { view: View }) {
   if (view === "ag-sedes") return <SedesView />;

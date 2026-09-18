@@ -4,8 +4,6 @@ import type { View } from "../types";
 import { NOTAS_ALUMNO, HORARIO_3A, DIAS, BLOQUES, EVENTOS } from "../data";
 import { Card, MetricCard, SectionHeader, Badge, EstadoBadge, TH, TD } from "../components/Ui";
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
-
 function DashboardAlu() {
   const cursosConNotas = NOTAS_ALUMNO.filter(c => c.u1 !== null);
   const promedioGeneral = Math.round(
@@ -99,8 +97,6 @@ function DashboardAlu() {
     </div>
   );
 }
-
-// ─── Mis Notas ────────────────────────────────────────────────────────────────
 
 function MisNotas() {
   const unidades = ["I", "II", "III", "IV"];
@@ -205,8 +201,6 @@ function MisNotas() {
   );
 }
 
-// ─── Mi Horario ───────────────────────────────────────────────────────────────
-
 function MiHorarioAlu() {
   return (
     <div className="space-y-5">
@@ -283,8 +277,6 @@ function MiHorarioAlu() {
   );
 }
 
-// ─── Calendario ───────────────────────────────────────────────────────────────
-
 const TIPO_BADGE: Record<string, string> = {
   clases:        "bg-stone-100 text-stone-700 border-stone-200",
   examen:        "bg-purple-100 text-purple-800 border-purple-200",
@@ -336,8 +328,6 @@ function CalendarioAlu() {
     </div>
   );
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 export default function Alumno({ view }: { view: View }) {
   if (view === "alu-notas") return <MisNotas />;

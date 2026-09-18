@@ -124,7 +124,6 @@ export const deleteUserById = async (req: Request, res: Response ) => {
     const { id } = req.params;
 
     try {
-        //No se elimina como tal, solo se le hace un soft-delete
         await prisma.usuario.update({
             where: { usuarioId: Number(id) },
             data: { deletedAt: new Date() }

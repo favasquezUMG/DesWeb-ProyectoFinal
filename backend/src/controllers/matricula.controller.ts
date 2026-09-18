@@ -12,16 +12,6 @@ const incluirDetalle = {
     seccion: { include: { grado: true, sede: true } },
 };
 
-/**
- * ACUERDO DEL EQUIPO: la sección del alumno vive en dos lugares
- * (Alumno.seccionId y Matricula.seccionId). Para que nunca se
- * desincronicen, SOLO este módulo escribe Alumno.seccionId, y siempre
- * dentro de la misma transacción que toca la matrícula.
- *
- * Si algún otro módulo necesita cambiar la sección de un alumno, tiene
- * que hacerlo pasando por aquí.
- */
-
 //Get All (filtros: ?alumnoId ?seccionId ?encargadoId ?anioLectivo ?estado)
 export const getMatriculas = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId, seccionId, encargadoId, anioLectivo, estado } = req.query;
@@ -83,15 +73,6 @@ export const getMatriculasDeAlumno = async (req: AuthenticatedRequest, res: Resp
     }
 };
 
-/**
- * Inscribe al alumno en una sección.
- * POST /api/matriculas
- *
- * Al quedar matriculado, el alumno automáticamente lleva todos los cursos
- * de la malla de ese grado, porque los cursos cuelgan de la sección
- * (CursoSeccion) y no del alumno individual. Por eso no se insertan
- * cursos aquí: se derivan solos.
- */
 export const createMatricula = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId, seccionId, encargadoId, anioLectivo } = req.body;
 
@@ -112,7 +93,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             return res.status(404).json({ status: 'error', message: `Sección con ID: ${seccionId} no encontrada` });
         }
 
-        // Si no mandan el año, se toma el de la sección
         const anio = anioLectivo ? Number(anioLectivo) : seccion.anioLectivo;
 
         if (anio !== seccion.anioLectivo) {
@@ -138,8 +118,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             return res.status(404).json({ status: 'error', message: `Encargado con ID: ${encargadoId} no encontrado` });
         }
 
-        // Regla: solo el padre/encargado matricula al alumno. Se verifica
-        // que ese encargado esté efectivamente vinculado a ese alumno.
         const vinculo = await prisma.alumnoEncargado.findUnique({
             where: {
                 alumnoId_encargadoId: { alumnoId: Number(alumnoId), encargadoId: Number(encargadoId) },
@@ -152,7 +130,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             });
         }
 
-        // Un encargado solo puede matricular a los alumnos a su cargo
         const esEncargadoLogueado = Number(req.user?.id) === Number(encargadoId);
         if (!esEncargadoLogueado && !(await puedeOperarSede(req, seccion.sedeId))) {
             return res.status(403).json({
@@ -161,7 +138,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             });
         }
 
-        // Un alumno no puede tener dos matrículas activas el mismo año
         const existente = await prisma.matricula.findFirst({
             where: { alumnoId: Number(alumnoId), anioLectivo: anio, estado: 'Activa' },
             include: { seccion: { include: { grado: true } } },
@@ -176,8 +152,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             });
         }
 
-        // La transacción es lo que garantiza que Matricula.seccionId y
-        // Alumno.seccionId nunca queden diciendo cosas distintas.
         const matricula = await prisma.$transaction(async (tx) => {
             const nueva = await tx.matricula.create({
                 data: {
@@ -194,7 +168,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
                 data: { seccionId: Number(seccionId) },
             });
 
-            // El usuario del alumno también se mueve a la sede de la sección
             await tx.usuario.update({
                 where: { usuarioId: Number(alumnoId) },
                 data: { sedeId: seccion.sedeId },
@@ -206,7 +179,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             });
         });
 
-        // Los cursos que le quedan asignados, para confirmárselos al encargado
         const cursos = await prisma.cursoSeccion.findMany({
             where: { seccionId: Number(seccionId) },
             include: { curso: true },
@@ -228,13 +200,6 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
     }
 };
 
-/**
- * Traslada al alumno a otra sección.
- * PUT /api/matriculas/:id
- *
- * No se crea una matrícula nueva: se actualiza la existente, junto con la
- * copia en Alumno.seccionId, en la misma transacción.
- */
 export const trasladarMatricula = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { seccionId } = req.body;
@@ -284,7 +249,6 @@ export const trasladarMatricula = async (req: AuthenticatedRequest, res: Respons
             });
         }
 
-        // El traslado lo autoriza la administración, no el encargado
         if (!(await puedeOperarSede(req, nuevaSeccion.sedeId))) {
             return res.status(403).json({
                 status: 'error',
@@ -324,10 +288,6 @@ export const trasladarMatricula = async (req: AuthenticatedRequest, res: Respons
     }
 };
 
-/**
- * Cambia el estado de la matrícula (retirar al alumno).
- * PUT /api/matriculas/:id/estado
- */
 export const cambiarEstadoMatricula = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { estado } = req.body;
