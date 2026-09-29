@@ -137,6 +137,8 @@ export const openapiSpec = {
     { name: "Eventos" },
     { name: "Mail" },
     { name: "Reportes" },
+    { name: "Conducta" },
+    { name: "Notificaciones" },
     { name: "Pagos" },
   ],
   components: {
@@ -696,6 +698,133 @@ export const openapiSpec = {
       listQuery: [q("sedeId", "Filtrar por sede")],
     }),
 
+    "/events/{id}/recordatorio": {
+      post: {
+        tags: ["Eventos"],
+        summary: "Enviar ya el recordatorio del evento a los encargados",
+        description:
+          "Los recordatorios se envían solos el día anterior al evento (a partir de RECORDATORIOS_HORA). " +
+          "Este endpoint lo envía de inmediato; el envío corre en segundo plano.",
+        security: bearer,
+        parameters: [idParam("id", "ID del evento")],
+        responses: { 200: messageResponse("Recordatorio en envío"), ...commonErrors },
+      },
+    },
+
+    "/notas/enviar-encargados": {
+      post: {
+        tags: ["Notas"],
+        summary: "Enviar por correo la boleta de notas a los encargados",
+        description:
+          "Con `cursoSeccionId` envía solo las notas de ese curso (el catedrático solo puede usar sus cursos). " +
+          "Con `seccionId` envía la boleta completa de la sección (solo administradores). " +
+          "`alumnoId` limita el envío a un alumno. El envío corre en segundo plano.",
+        security: bearer,
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            cursoSeccionId: { type: "integer" },
+            seccionId: { type: "integer" },
+            alumnoId: { type: "integer" },
+          },
+        }),
+        responses: { 200: { description: "Envío iniciado" }, ...commonErrors },
+      },
+    },
+
+    "/conducta": {
+      get: {
+        tags: ["Conducta"],
+        summary: "Listar reportes de conducta (filtrados según el rol del usuario)",
+        security: bearer,
+        parameters: [q("alumnoId", "Filtrar por alumno"), q("revisado", "true / false", "string")],
+        responses: { 200: { description: "Listado de reportes" }, 401: commonErrors[401], 500: commonErrors[500] },
+      },
+      post: {
+        tags: ["Conducta"],
+        summary: "Crear un reporte de conducta y notificar por correo a los encargados",
+        security: bearer,
+        requestBody: jsonBody({
+          type: "object",
+          required: ["alumnoId", "tipo", "titulo", "descripcion"],
+          properties: {
+            alumnoId: { type: "integer" },
+            tipo: { type: "string", enum: ["Positivo", "Leve", "Grave"] },
+            titulo: { type: "string", maxLength: 150 },
+            descripcion: { type: "string", maxLength: 1000 },
+          },
+        }),
+        responses: { 201: { description: "Reporte creado" }, ...commonErrors },
+      },
+    },
+    "/conducta/{id}/revisar": {
+      patch: {
+        tags: ["Conducta"],
+        summary: "El encargado marca el reporte como revisado",
+        security: bearer,
+        parameters: [idParam("id", "ID del reporte")],
+        requestBody: jsonBody({ type: "object", properties: { comentario: { type: "string", maxLength: 500 } } }),
+        responses: { 200: { description: "Reporte revisado" }, ...commonErrors },
+      },
+    },
+    "/conducta/{id}": {
+      delete: {
+        tags: ["Conducta"],
+        summary: "Eliminar un reporte (su autor o un administrador)",
+        security: bearer,
+        parameters: [idParam("id", "ID del reporte")],
+        responses: { 200: messageResponse("Eliminado"), ...commonErrors },
+      },
+    },
+
+    "/notificaciones/comunicados": {
+      get: {
+        tags: ["Notificaciones"],
+        summary: "Historial de comunicados enviados",
+        security: bearer,
+        responses: { 200: { description: "Listado de comunicados" }, 401: commonErrors[401], 500: commonErrors[500] },
+      },
+      post: {
+        tags: ["Notificaciones"],
+        summary: "Enviar un comunicado por correo a un grupo",
+        description:
+          "El admin de sede siempre envía a su sede; el admin general puede indicar `sedeId` o enviar a todas. " +
+          "El envío corre en segundo plano.",
+        security: bearer,
+        requestBody: jsonBody({
+          type: "object",
+          required: ["tipo", "titulo", "mensaje", "destino"],
+          properties: {
+            tipo: { type: "string", enum: ["Aviso", "Sancion", "Actividad", "Asueto"] },
+            titulo: { type: "string", maxLength: 150 },
+            mensaje: { type: "string", maxLength: 2000 },
+            destino: { type: "string", enum: ["encargados", "catedraticos", "alumnos", "todos", "seccion"] },
+            seccionId: { type: "integer", description: "Obligatorio si destino = seccion" },
+            sedeId: { type: "integer", description: "Solo admin general" },
+          },
+        }),
+        responses: { 201: { description: "Comunicado en envío" }, ...commonErrors },
+      },
+    },
+    "/notificaciones/mias": {
+      get: {
+        tags: ["Notificaciones"],
+        summary: "Notificaciones del usuario autenticado",
+        security: bearer,
+        parameters: [q("noLeidas", "true para solo las no leídas", "string")],
+        responses: { 200: { description: "Listado de notificaciones" }, 401: commonErrors[401], 500: commonErrors[500] },
+      },
+    },
+    "/notificaciones/{id}/leida": {
+      patch: {
+        tags: ["Notificaciones"],
+        summary: "Marcar una notificación propia como leída",
+        security: bearer,
+        parameters: [idParam("id", "ID de la notificación")],
+        responses: { 200: messageResponse("Marcada como leída"), ...commonErrors },
+      },
+    },
+
     "/mail/test": {
       post: {
         tags: ["Mail"],
@@ -709,6 +838,33 @@ export const openapiSpec = {
             titulo: { type: "string" },
             mensaje: { type: "string" },
           },
+        }),
+        responses: { 200: messageResponse("Correo enviado"), 400: commonErrors[400], 502: { description: "Falló el envío" } },
+      },
+    },
+
+    "/mail/test/{plantilla}": {
+      post: {
+        tags: ["Mail"],
+        summary: "Enviar un correo de prueba con una plantilla específica (sin auth)",
+        description: "Usa datos de ejemplo; cualquier campo de la plantilla enviado en el body los sobrescribe.",
+        parameters: [
+          {
+            name: "plantilla",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["general", "recordatorio-evento", "matricula", "boleta", "conducta", "comunicado"] },
+          },
+        ],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["to"],
+          properties: {
+            to: { type: "string", format: "email" },
+            usuarioId: { type: "integer" },
+            nombreDestinatario: { type: "string" },
+          },
+          additionalProperties: true,
         }),
         responses: { 200: messageResponse("Correo enviado"), 400: commonErrors[400], 502: { description: "Falló el envío" } },
       },

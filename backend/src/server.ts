@@ -23,6 +23,9 @@ import notaRoutes from "./routes/nota.routes.js";
 import eventRoutes from "./routes/event.routes.js";
 import mailRoutes from "./routes/mail.routes.js";
 import reporteRoutes from "./routes/reporte.routes.js";
+import conductaRoutes from "./routes/conducta.routes.js";
+import notificacionRoutes from "./routes/notificacion.routes.js";
+import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
 dotenv.config();
@@ -107,11 +110,14 @@ app.use('/api/notas', notaRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/reportes', reporteRoutes);
+app.use('/api/conducta', conductaRoutes);
+app.use('/api/notificaciones', notificacionRoutes);
 
 app.listen(PORT, async () => {
   try {
     await prisma.$connect();
     console.log(`🚀 Servidor ejecutándose en ${HOST}:${PORT} [ambiente: ${process.env.NODE_ENV ?? "development"}]`);
+    iniciarRecordatoriosEventos();
     
   } catch (error) {
     console.error("❌ Error al conectar la base de datos:", error);

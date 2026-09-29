@@ -9,19 +9,20 @@ datasource db {
 }
 
 model Sede {
-  sedeId    Int       @id @default(autoincrement())
-  nombre    String    @db.VarChar(150)
-  direccion String?   @db.VarChar(255)
-  telefono  String?   @db.VarChar(20)
-  activo    Boolean   @default(true)
-  
+  sedeId    Int     @id @default(autoincrement())
+  nombre    String  @db.VarChar(150)
+  direccion String? @db.VarChar(255)
+  telefono  String? @db.VarChar(20)
+  activo    Boolean @default(true)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  usuarios  Usuario[]
-  secciones Seccion[]
-  eventos   Evento[]
+  usuarios    Usuario[]
+  secciones   Seccion[]
+  eventos     Evento[]
+  comunicados Comunicado[]
 }
 
 model Rol {
@@ -32,24 +33,26 @@ model Rol {
 
 // *********** verificar que si funcione asi lo de los roles del usuario
 model Usuario {
-  usuarioId    Int       @id @default(autoincrement())
-  nombres      String    @db.VarChar(100)
-  apellidos    String    @db.VarChar(100)
-  email        String    @unique @db.VarChar(150)
-  passwordHash String    @db.VarChar(255)
+  usuarioId    Int    @id @default(autoincrement())
+  nombres      String @db.VarChar(100)
+  apellidos    String @db.VarChar(100)
+  email        String @unique @db.VarChar(150)
+  passwordHash String @db.VarChar(255)
   rolId        Int
   sedeId       Int?
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  rol            Rol            @relation(fields: [rolId], references: [rolId])
-  sede           Sede?          @relation(fields: [sedeId], references: [sedeId])
-  catedratico    Catedratico?
-  encargado      Encargado?
-  alumno         Alumno?
-  notificaciones Notificacion[]
+  rol              Rol               @relation(fields: [rolId], references: [rolId])
+  sede             Sede?             @relation(fields: [sedeId], references: [sedeId])
+  catedratico      Catedratico?
+  encargado        Encargado?
+  alumno           Alumno?
+  notificaciones   Notificacion[]
+  reportesConducta ReporteConducta[]
+  comunicados      Comunicado[]
 }
 
 model Catedratico {
@@ -77,12 +80,13 @@ model Alumno {
   usuario Usuario @relation(fields: [alumnoId], references: [usuarioId])
   seccion Seccion @relation(fields: [seccionId], references: [seccionId])
 
-  encargados  AlumnoEncargado[]
-  matriculas  Matricula[]
-  notas       Nota[]
-  asistencias Asistencia[]
-  becas       Beca[]
-  pagos       Pago[]
+  encargados       AlumnoEncargado[]
+  matriculas       Matricula[]
+  notas            Nota[]
+  asistencias      Asistencia[]
+  becas            Beca[]
+  pagos            Pago[]
+  reportesConducta ReporteConducta[]
 }
 
 model AlumnoEncargado {
@@ -115,7 +119,6 @@ model Curso {
   cursosSeccion CursoSeccion[]
 }
 
-
 // ********** Solo verificar sobre el nombre para no hacernos bolas
 model MallaCurricular {
   mallaId Int @id @default(autoincrement())
@@ -135,9 +138,9 @@ model Seccion {
   nombre      String @db.VarChar(10)
   anioLectivo Int
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   grado Grado @relation(fields: [gradoId], references: [gradoId])
   sede  Sede  @relation(fields: [sedeId], references: [sedeId])
@@ -269,13 +272,14 @@ model Pago {
 }
 
 model Evento {
-  eventoId           Int      @id @default(autoincrement())
-  sedeId             Int?
-  nombre             String   @db.VarChar(150)
-  descripcion        String?  @db.VarChar(255)
-  fecha              DateTime @db.Date
-  tipoEvento         String   @db.VarChar(20)
-  enviarRecordatorio Boolean  @default(true)
+  eventoId              Int       @id @default(autoincrement())
+  sedeId                Int?
+  nombre                String    @db.VarChar(150)
+  descripcion           String?   @db.VarChar(255)
+  fecha                 DateTime  @db.Date
+  tipoEvento            String    @db.VarChar(20)
+  enviarRecordatorio    Boolean   @default(true)
+  recordatorioEnviadoEn DateTime?
 
   sede Sede? @relation(fields: [sedeId], references: [sedeId])
 }
@@ -285,8 +289,42 @@ model Notificacion {
   usuarioId      Int
   titulo         String   @db.VarChar(150)
   mensaje        String   @db.VarChar(500)
+  tipo           String   @default("Aviso") @db.VarChar(20)
   fechaEnvio     DateTime @default(now())
   leida          Boolean  @default(false)
 
   usuario Usuario @relation(fields: [usuarioId], references: [usuarioId])
+}
+
+// Reporte de conducta de un alumno que el encargado debe revisar
+model ReporteConducta {
+  reporteId           Int       @id @default(autoincrement())
+  alumnoId            Int
+  autorId             Int
+  tipo                String    @db.VarChar(20) // Positivo, Leve, Grave
+  titulo              String    @db.VarChar(150)
+  descripcion         String    @db.VarChar(1000)
+  fecha               DateTime  @default(now())
+  revisado            Boolean   @default(false)
+  fechaRevision       DateTime?
+  comentarioEncargado String?   @db.VarChar(500)
+
+  alumno Alumno  @relation(fields: [alumnoId], references: [alumnoId])
+  autor  Usuario @relation(fields: [autorId], references: [usuarioId])
+}
+
+// Comunicado masivo enviado por la administración (el detalle por usuario queda en Notificacion)
+model Comunicado {
+  comunicadoId       Int      @id @default(autoincrement())
+  sedeId             Int?
+  autorId            Int
+  tipo               String   @db.VarChar(20) // Aviso, Sancion, Actividad, Asueto
+  titulo             String   @db.VarChar(150)
+  mensaje            String   @db.VarChar(2000)
+  destinatarios      String   @db.VarChar(150)
+  totalDestinatarios Int      @default(0)
+  fechaEnvio         DateTime @default(now())
+
+  sede  Sede?   @relation(fields: [sedeId], references: [sedeId])
+  autor Usuario @relation(fields: [autorId], references: [usuarioId])
 }

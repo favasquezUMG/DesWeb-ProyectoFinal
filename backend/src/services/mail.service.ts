@@ -2,6 +2,8 @@ import nodemailer from "nodemailer";
 import { prisma } from "../lib/prisma.js";
 
 const transporter = nodemailer.createTransport({
+    // pool reutiliza la conexion SMTP en los envios masivos (comunicados, boletas, recordatorios)
+    pool: true,
     host: process.env.MAIL_HOST,
     port: Number(process.env.MAIL_PORT) || 587,
     secure: Number(process.env.MAIL_PORT) === 465,
@@ -23,9 +25,10 @@ interface SendMailParams {
     html: string;
     usuarioId?: number;
     mensaje?: string;
+    tipo?: string;
 }
 
-export const sendMail = async ({ to, subject, html, usuarioId, mensaje }: SendMailParams): Promise<boolean> => {
+export const sendMail = async ({ to, subject, html, usuarioId, mensaje, tipo }: SendMailParams): Promise<boolean> => {
     let enviado = false;
 
     try {
@@ -47,6 +50,7 @@ export const sendMail = async ({ to, subject, html, usuarioId, mensaje }: SendMa
                     usuarioId,
                     titulo: subject.slice(0, 150),
                     mensaje: (mensaje ?? htmlATextoPlano(html)).slice(0, 500),
+                    ...(tipo ? { tipo: tipo.slice(0, 20) } : {}),
                 },
             });
         } catch (error) {

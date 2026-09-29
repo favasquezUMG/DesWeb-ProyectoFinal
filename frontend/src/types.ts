@@ -8,11 +8,11 @@ export type View =
   | "as-alumnos" | "as-grados" | "as-cursos" | "as-horarios"
   | "as-becas" | "as-notificaciones" | "as-calendario"
   // Catedrático
-  | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-asistencia" | "cat-horario"
+  | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-asistencia" | "cat-horario" | "cat-comunicacion"
   // Alumno
   | "alu-dashboard" | "alu-notas" | "alu-horario" | "alu-calendario"
   // Padre
-  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-pagos" | "pad-perfil";
+  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-pagos" | "pad-avisos" | "pad-perfil";
 
 export interface AppUser {
   id: string;
