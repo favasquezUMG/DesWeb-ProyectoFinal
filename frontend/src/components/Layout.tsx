@@ -6,7 +6,7 @@ import {
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
   ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard,
   User, ChevronLeft, ChevronRight, Menu, X, Search, ChevronDown,
-  LogOut, Settings, Award, BookText, Layers
+  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing
 } from "lucide-react";
 
 type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard };
@@ -37,6 +37,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Libreta de Notas", view: "cat-notas", Icon: BookText },
     { label: "Asistencia", view: "cat-asistencia", Icon: ClipboardList },
     { label: "Mi Horario", view: "cat-horario", Icon: CalendarCheck },
+    { label: "Comunicación con padres", view: "cat-comunicacion", Icon: MessageSquare },
   ],
   "alumno": [
     { label: "Dashboard", view: "alu-dashboard", Icon: LayoutDashboard },
@@ -49,6 +50,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Matrícula", view: "pad-matricula", Icon: BookMarked },
     { label: "Notas y Reportes", view: "pad-notas", Icon: Star },
     { label: "Pagos", view: "pad-pagos", Icon: CreditCard },
+    { label: "Avisos y Conducta", view: "pad-avisos", Icon: BellRing },
     { label: "Perfil", view: "pad-perfil", Icon: User },
   ],
 };

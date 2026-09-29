@@ -6,6 +6,7 @@ import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
   AlertBanner, Stepper, TH, TD
 } from "../components/Ui";
+import AvisosPadre from "./AvisosPadre";
 
 function DashboardPadre() {
   const [hijo, setHijo] = useState("María José Ajú Pac");
@@ -560,6 +561,7 @@ export default function Padre({ view }: { view: View }) {
   if (view === "pad-matricula") return <MatriculaView />;
   if (view === "pad-notas") return <NotasHijo />;
   if (view === "pad-pagos") return <PagosView />;
+  if (view === "pad-avisos") return <AvisosPadre />;
   if (view === "pad-perfil") return <PerfilView />;
   return <DashboardPadre />;
 }

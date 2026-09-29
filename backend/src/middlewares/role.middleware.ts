@@ -24,6 +24,15 @@ const cargarRoles = async (): Promise<Map<number, string>> => {
     return cacheRoles;
 };
 
+export const obtenerNombreRol = async (req: AuthenticatedRequest): Promise<string | undefined> => {
+    if (!req.user) return undefined;
+    const roles = await cargarRoles();
+    return roles.get(Number(req.user.rolId));
+};
+
+export const esAdministrador = (nombreRol: string | undefined): boolean =>
+    nombreRol === ROL.ADMIN || nombreRol === ROL.ADMIN_GENERAL || nombreRol === ROL.ADMIN_SEDE;
+
 export const invalidarCacheRoles = () => {
     cacheRoles = null;
 };
