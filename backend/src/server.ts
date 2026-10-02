@@ -3,11 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { openapiSpec } from "./docs/openapi.js";
-import { login } from "./controllers/auth.controller.js";
+import { login, cambiarRol, me } from "./controllers/auth.controller.js";
 import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
 import { authenticateToken } from "./middlewares/auth.middleware.js";
 import { stripeWebhook } from "./controllers/stripewebhook.controller.js";
 import { prisma } from "./lib/prisma.js";
+import sedeRoutes from "./routes/sede.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import rolRoutes from "./routes/rol.routes.js";
 import becaRoutes from "./routes/beca.routes.js";
@@ -23,6 +24,9 @@ import notaRoutes from "./routes/nota.routes.js";
 import eventRoutes from "./routes/event.routes.js";
 import mailRoutes from "./routes/mail.routes.js";
 import reporteRoutes from "./routes/reporte.routes.js";
+import conductaRoutes from "./routes/conducta.routes.js";
+import notificacionRoutes from "./routes/notificacion.routes.js";
+import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
 dotenv.config();
@@ -84,15 +88,11 @@ app.use(
 );
 
 app.post('/api/auth/login', login);
-
-app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
-  res.json({
-    status: 'success',
-    user: req.user
-  });
-});
+app.post('/api/auth/cambiar-rol', authenticateToken, cambiarRol);
+app.get('/api/auth/me', authenticateToken, me);
 
 app.use('/api/usuarios', userRoutes);
+app.use('/api/sedes', sedeRoutes);
 app.use('/api/roles', rolRoutes);
 app.use('/api/becas', becaRoutes);
 app.use('/api/alumnos', alumnoRoutes);
@@ -107,11 +107,14 @@ app.use('/api/notas', notaRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/reportes', reporteRoutes);
+app.use('/api/conducta', conductaRoutes);
+app.use('/api/notificaciones', notificacionRoutes);
 
 app.listen(PORT, async () => {
   try {
     await prisma.$connect();
     console.log(`🚀 Servidor ejecutándose en ${HOST}:${PORT} [ambiente: ${process.env.NODE_ENV ?? "development"}]`);
+    iniciarRecordatoriosEventos();
     
   } catch (error) {
     console.error("❌ Error al conectar la base de datos:", error);

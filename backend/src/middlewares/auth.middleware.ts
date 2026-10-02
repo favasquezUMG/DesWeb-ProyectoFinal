@@ -23,8 +23,9 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
 
     try{
         const secret = process.env.JWT_SECRET || 'secret';
-        const decode = jwt.verify(token, secret) as AuthenticatedRequest['user'];
-        req.user = decode;
+        const decode = jwt.verify(token, secret) as NonNullable<AuthenticatedRequest['user']> & { usuarioId?: number };
+        // El JWT trae usuarioId; se expone tambien como id, que es lo que usan los controladores
+        req.user = { ...decode, id: String(decode.usuarioId ?? decode.id) };
         next();
     } catch (error) {
         return res.status(403).json({

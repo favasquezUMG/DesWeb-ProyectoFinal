@@ -8,16 +8,29 @@ export type View =
   | "as-alumnos" | "as-grados" | "as-cursos" | "as-horarios"
   | "as-becas" | "as-notificaciones" | "as-calendario"
   // Catedrático
-  | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-asistencia" | "cat-horario"
+  | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-asistencia" | "cat-horario" | "cat-comunicacion"
   // Alumno
   | "alu-dashboard" | "alu-notas" | "alu-horario" | "alu-calendario"
   // Padre
-  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-pagos" | "pad-perfil";
+  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-pagos" | "pad-becas" | "pad-avisos" | "pad-perfil";
+
+export interface RolUsuario {
+  rolId: number;
+  nombre: string;
+}
 
 export interface AppUser {
   id: string;
   name: string;
+  /** Interfaz que se muestra. Los roles creados por el colegio usan la de "admin-sede". */
   role: Role;
+  /** Nombre real del rol activo (ej. "Secretaría") */
+  roleName?: string;
+  roleId?: number;
+  /** Todos los roles de la persona (ej. Catedrático + Encargado) */
+  roles?: RolUsuario[];
+  /** Módulos administrativos del rol activo */
+  permisos?: string[];
   email: string;
   initials: string;
   sede?: string;

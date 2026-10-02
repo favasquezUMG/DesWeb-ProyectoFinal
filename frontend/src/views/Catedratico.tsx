@@ -3,6 +3,7 @@ import { BookOpen, Clock, CheckCircle2, AlertCircle, Save, ChevronDown } from "l
 import type { View } from "../types";
 import { ALUMNOS, NOTAS_3A, HORARIO_3A, DIAS, BLOQUES } from "../data";
 import { Card, MetricCard, SectionHeader, Btn, Badge, EstadoBadge, AlertBanner, Tabs, TH, TD } from "../components/Ui";
+import ComunicacionCatedratico from "./ComunicacionCatedratico";
 
 function DashboardCat() {
   return (
@@ -484,5 +485,6 @@ export default function Catedratico({ view }: { view: View }) {
   if (view === "cat-notas") return <LibretaNotas />;
   if (view === "cat-asistencia") return <AsistenciaView />;
   if (view === "cat-horario") return <MiHorarioCat />;
+  if (view === "cat-comunicacion") return <ComunicacionCatedratico />;
   return <DashboardCat />;
 }

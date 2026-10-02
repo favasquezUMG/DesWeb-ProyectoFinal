@@ -8,7 +8,7 @@ import {
     deleteHorarioById
 } from '../controllers/horario.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
-import { verificarRol, ROL } from "../middlewares/role.middleware.js";
+import { permitir, ROL } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
@@ -17,10 +17,10 @@ router.use(authenticateToken)
 router.get('/', getHorarios);
 router.get('/:id', getHorarioById);
 
-router.post('/verificar', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), verificarChoque);
+router.post('/verificar', permitir('horarios'), verificarChoque);
 
-router.post('/', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), createHorario);
-router.put('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), updateHorario);
-router.delete('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), deleteHorarioById);
+router.post('/', permitir('horarios'), createHorario);
+router.put('/:id', permitir('horarios'), updateHorario);
+router.delete('/:id', permitir('horarios'), deleteHorarioById);
 
 export default router;
