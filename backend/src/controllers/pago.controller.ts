@@ -2,22 +2,20 @@ import type { Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { stripe, aCentavos, MONEDA, COLEGIATURA_MENSUAL, MESES } from '../config/stripe.config.js';
+import { descuentoColegiatura } from '../services/becas.service.js';
+import { puedeVerAlumno } from '../services/acceso.service.js';
+import { sedeDelAlcance } from '../middlewares/role.middleware.js';
+
+const sinAcceso = (res: Response) =>
+    res.status(403).json({ status: 'error', message: 'No tiene permisos para ver la información de pagos de este alumno.' });
 
 const CONCEPTO_COLEGIATURA = 'Colegiatura';
 
-const getDescuento = async (alumnoId: number, fecha: Date): Promise<number> => {
-    const beca = await prisma.beca.findFirst({
-        where: {
-            alumnoId,
-            activa: true,
-            fechaInicio: { lte: fecha },
-            OR: [{ fechaFin: null }, { fechaFin: { gte: fecha } }],
-        },
-        orderBy: { porcentaje: 'desc' },
-    });
+// Mes cubierto al 100% por beca (y/o descuento por hermanos): no se cobra, pero queda registrado
+const ESTADO_EXONERADO = 'Exonerado';
+const ESTADOS_AL_DIA = ['Pagado', ESTADO_EXONERADO];
 
-    return beca ? Number(beca.porcentaje) : 0;
-};
+const calcularMonto = (descuento: number) => Number((COLEGIATURA_MENSUAL * (1 - descuento / 100)).toFixed(2));
 
 export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId } = req.params;
@@ -31,6 +29,8 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
     }
 
     try {
+        if (!(await puedeVerAlumno(req, Number(alumnoId), 'pagos', 'pagos'))) return sinAcceso(res);
+
         const alumno = await prisma.alumno.findUnique({
             where: { alumnoId: Number(alumnoId) },
             include: { usuario: { select: { nombres: true, apellidos: true } } },
@@ -40,9 +40,9 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
         }
 
         const fechaReferencia = new Date(Date.UTC(anio, mesNum - 1, 1));
-        const descuento = await getDescuento(Number(alumnoId), fechaReferencia);
+        const descuento = await descuentoColegiatura(Number(alumnoId), fechaReferencia);
         const montoBase = COLEGIATURA_MENSUAL;
-        const montoFinal = Number((montoBase * (1 - descuento / 100)).toFixed(2));
+        const montoFinal = calcularMonto(descuento.total);
 
         const pagoExistente = await prisma.pago.findUnique({
             where: {
@@ -63,8 +63,13 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
                 mes: mesNum,
                 nombreMes: MESES[mesNum - 1],
                 montoBase,
-                descuentoPorcentaje: descuento,
+                descuentoPorcentaje: descuento.total,
+                descuentoBeca: descuento.beca,
+                descuentoHermanos: descuento.hermanos,
+                programaBeca: descuento.programa,
+                topeAplicado: descuento.topeAplicado,
                 montoFinal,
+                exonerado: montoFinal <= 0,
                 yaTienePago: pagoExistente !== null,
                 estadoPago: pagoExistente?.estado ?? null,
             },
@@ -94,27 +99,19 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             include: {
                 usuario: { select: { nombres: true, apellidos: true, email: true } },
                 seccion: { include: { grado: true } },
-                encargados: true,
             },
         });
         if (!alumno) {
             return res.status(404).json({ status: 'error', message: `Alumno con ID: ${alumnoId} no encontrado` });
         }
 
-        const esEncargadoDelAlumno = alumno.encargados.some(
-            (e) => e.encargadoId === Number(req.user?.id),
-        );
-        const esElAlumno = Number(req.user?.id) === Number(alumnoId);
-
-        if (!esEncargadoDelAlumno && !esElAlumno) {
-            const rol = await prisma.rol.findUnique({ where: { rolId: Number(req.user?.rolId) } });
-            const esAdmin = rol?.nombre?.toLowerCase().includes('admin') ?? false;
-            if (!esAdmin) {
-                return res.status(403).json({
-                    status: 'error',
-                    message: 'No tiene permisos para pagar la colegiatura de este alumno.',
-                });
-            }
+        // El alumno, un encargado con permiso de pagos vigente, o el personal con permiso de
+        // pagos en la sede del alumno. Un padre sin acceso a pagos (o con restriccion) no puede.
+        if (!(await puedeVerAlumno(req, Number(alumnoId), 'pagos', 'pagos'))) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'No tiene permisos para pagar la colegiatura de este alumno.',
+            });
         }
 
         const pagoExistente = await prisma.pago.findUnique({
@@ -128,27 +125,53 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             },
         });
 
-        if (pagoExistente?.estado === 'Pagado') {
+        if (pagoExistente && ESTADOS_AL_DIA.includes(pagoExistente.estado)) {
             return res.status(409).json({
                 status: 'error',
-                message: `La colegiatura de ${MESES[mesNum - 1]} ${anio} ya está pagada.`,
+                message: `La colegiatura de ${MESES[mesNum - 1]} ${anio} ya está ${pagoExistente.estado === 'Pagado' ? 'pagada' : 'exonerada'}.`,
             });
         }
 
         const fechaReferencia = new Date(Date.UTC(anio, mesNum - 1, 1));
-        const descuento = await getDescuento(Number(alumnoId), fechaReferencia);
-        const montoFinal = Number((COLEGIATURA_MENSUAL * (1 - descuento / 100)).toFixed(2));
+        const descuento = await descuentoColegiatura(Number(alumnoId), fechaReferencia);
+        const montoFinal = calcularMonto(descuento.total);
 
+        // Beca completa: no se manda a Stripe, el mes queda registrado como exonerado
         if (montoFinal <= 0) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'El monto a pagar es cero (beca del 100%). No se requiere pago.',
+            const exonerado = await prisma.pago.upsert({
+                where: {
+                    alumnoId_anioLectivo_mes_concepto: {
+                        alumnoId: Number(alumnoId),
+                        anioLectivo: anio,
+                        mes: mesNum,
+                        concepto: CONCEPTO_COLEGIATURA,
+                    },
+                },
+                update: { monto: 0, estado: ESTADO_EXONERADO, fechaPago: new Date(), stripeSessionId: null },
+                create: {
+                    alumnoId: Number(alumnoId),
+                    monto: 0,
+                    concepto: CONCEPTO_COLEGIATURA,
+                    anioLectivo: anio,
+                    mes: mesNum,
+                    estado: ESTADO_EXONERADO,
+                    fechaPago: new Date(),
+                },
+            });
+            return res.status(200).json({
+                status: 'success',
+                message: `La colegiatura de ${MESES[mesNum - 1]} ${anio} está cubierta al 100% y quedó registrada como exonerada.`,
+                data: { pagoId: exonerado.pagoId, monto: 0, descuentoAplicado: descuento.total, exonerado: true, checkoutUrl: null },
             });
         }
 
+        const detalleDescuento = [
+            descuento.beca > 0 ? `beca del ${descuento.beca}%` : '',
+            descuento.hermanos > 0 ? `descuento por hermanos del ${descuento.hermanos}%` : '',
+        ].filter(Boolean).join(' + ');
         const descripcion =
             `${alumno.seccion.grado.nombre} sección ${alumno.seccion.nombre}` +
-            (descuento > 0 ? ` — beca del ${descuento}% aplicada` : '');
+            (detalleDescuento ? ` — ${detalleDescuento} aplicado` : '');
 
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
@@ -207,7 +230,8 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             data: {
                 pagoId: pago.pagoId,
                 monto: montoFinal,
-                descuentoAplicado: descuento,
+                descuentoAplicado: descuento.total,
+                exonerado: false,
                 checkoutUrl: session.url,
                 sessionId: session.id,
             },
@@ -228,6 +252,8 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
     const anio = Number(anioLectivo) || new Date().getUTCFullYear();
 
     try {
+        if (!(await puedeVerAlumno(req, Number(alumnoId), 'pagos', 'pagos'))) return sinAcceso(res);
+
         const alumno = await prisma.alumno.findUnique({
             where: { alumnoId: Number(alumnoId) },
             include: {
@@ -245,19 +271,24 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
 
         const porMes = new Map(pagos.map((p) => [p.mes, p]));
 
-        const meses = Array.from({ length: 10 }, (_, i) => {
-            const mes = i + 1;
-            const pago = porMes.get(mes);
-            return {
-                mes,
-                nombreMes: MESES[i],
-                estado: pago?.estado ?? 'Sin registrar',
-                monto: pago ? Number(pago.monto) : null,
-                fechaPago: pago?.fechaPago ?? null,
-            };
-        });
+        const meses = await Promise.all(
+            Array.from({ length: 10 }, async (_, i) => {
+                const mes = i + 1;
+                const pago = porMes.get(mes);
+                // Un mes sin registro que la beca cubre al 100% no cuenta como pendiente
+                const cubierto = !pago && (await descuentoColegiatura(Number(alumnoId), new Date(Date.UTC(anio, i, 1)))).total >= 100;
+                return {
+                    mes,
+                    nombreMes: MESES[i],
+                    estado: pago?.estado ?? (cubierto ? ESTADO_EXONERADO : 'Sin registrar'),
+                    monto: pago ? Number(pago.monto) : cubierto ? 0 : null,
+                    fechaPago: pago?.fechaPago ?? null,
+                };
+            }),
+        );
 
         const pagados = meses.filter((m) => m.estado === 'Pagado');
+        const alDia = meses.filter((m) => ESTADOS_AL_DIA.includes(m.estado));
         const totalPagado = pagados.reduce((suma, m) => suma + (m.monto ?? 0), 0);
 
         return res.json({
@@ -268,7 +299,8 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
                 seccion: alumno.seccion.nombre,
                 anioLectivo: anio,
                 mesesPagados: pagados.length,
-                mesesPendientes: 10 - pagados.length,
+                mesesExonerados: alDia.length - pagados.length,
+                mesesPendientes: 10 - alDia.length,
                 totalPagado: Number(totalPagado.toFixed(2)),
                 detalle: meses,
             },
@@ -288,6 +320,8 @@ export const getPagos = async (req: AuthenticatedRequest, res: Response) => {
         if (anioLectivo) where.anioLectivo = Number(anioLectivo);
         if (mes) where.mes = Number(mes);
         if (estado) where.estado = estado;
+        const sedeId = await sedeDelAlcance(req);
+        if (sedeId !== null) where.alumno = { seccion: { sedeId } };
 
         const pagos = await prisma.pago.findMany({
             where,
@@ -318,6 +352,7 @@ export const getPagoById = async (req: AuthenticatedRequest, res: Response) => {
         if (!pago) {
             return res.status(404).json({ status: 'error', message: `Pago con ID: ${id} no encontrado` });
         }
+        if (!(await puedeVerAlumno(req, pago.alumnoId, 'pagos', 'pagos'))) return sinAcceso(res);
 
         return res.json({ status: 'success', data: pago });
     } catch (error) {

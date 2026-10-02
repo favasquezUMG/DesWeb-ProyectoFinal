@@ -2,9 +2,11 @@ import type { Response } from "express";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
-import { ROL, esAdministrador, obtenerNombreRol, puedeOperarSede } from "../middlewares/role.middleware.js";
+import { ROL, esAlcanceGlobal, obtenerNombreRol, puedeOperarSede, tienePermiso } from "../middlewares/role.middleware.js";
+import { encargadoTieneAcceso, hijosDe } from "../services/vinculos.service.js";
 import { encargadosDeAlumno, enviarADestinatarios } from "../services/notificacion.service.js";
 import { plantillaReporteConducta } from "../templates/mail.templates.js";
+import { suspenderPorConductaGrave } from "../services/becas.service.js";
 
 const TIPOS_CONDUCTA = ["Positivo", "Leve", "Grave"];
 
@@ -34,12 +36,13 @@ export const getReportesConducta = async (req: AuthenticatedRequest, res: Respon
         if (revisado === "true" || revisado === "false") where.revisado = revisado === "true";
 
         if (rol === ROL.ENCARGADO) {
-            where.alumno = { encargados: { some: { encargadoId: usuarioId } } };
+            where.alumno = hijosDe(usuarioId);
         } else if (rol === ROL.CATEDRATICO) {
             where.autorId = usuarioId;
         } else if (rol === ROL.ALUMNO) {
             where.alumnoId = usuarioId;
-        } else if (rol === ROL.ADMIN_SEDE) {
+        } else if (!esAlcanceGlobal(rol)) {
+            // Personal de sede (administrador de sede o roles del colegio): solo su sede
             where.alumno = { seccion: { sedeId: Number(req.user?.sedeId) } };
         }
 
@@ -100,6 +103,11 @@ export const createReporteConducta = async (req: AuthenticatedRequest, res: Resp
             include: incluirDetalle,
         });
 
+        // Las becas cuyo programa no admite faltas graves quedan suspendidas
+        const becasSuspendidas = tipo === "Grave"
+            ? await suspenderPorConductaGrave(alumno.alumnoId, reporte.titulo, autorId)
+            : 0;
+
         const nombreAlumno = `${alumno.usuario.nombres} ${alumno.usuario.apellidos}`;
         const autor = `${reporte.autor.nombres} ${reporte.autor.apellidos}`;
         const encargados = await encargadosDeAlumno(alumno.alumnoId);
@@ -124,9 +132,10 @@ export const createReporteConducta = async (req: AuthenticatedRequest, res: Resp
         return res.status(201).json({
             status: "success",
             message:
-                encargados.length === 0
+                (encargados.length === 0
                     ? "Reporte creado. El alumno no tiene encargados registrados para notificar."
-                    : `Reporte creado y enviado a ${enviados} de ${encargados.length} encargado(s).`,
+                    : `Reporte creado y enviado a ${enviados} de ${encargados.length} encargado(s).`) +
+                (becasSuspendidas > 0 ? " La beca del alumno quedó suspendida por la falta grave." : ""),
             data: reporte,
         });
     } catch (error) {
@@ -144,12 +153,11 @@ export const revisarReporteConducta = async (req: AuthenticatedRequest, res: Res
     try {
         const reporte = await prisma.reporteConducta.findUnique({
             where: { reporteId: Number(id) },
-            include: { alumno: { include: { encargados: true } } },
         });
         if (!reporte) {
             return res.status(404).json({ status: "error", message: `Reporte con ID: ${id} no encontrado` });
         }
-        if (!reporte.alumno.encargados.some((e) => e.encargadoId === encargadoId)) {
+        if (!(await encargadoTieneAcceso(encargadoId, reporte.alumnoId))) {
             return res.status(403).json({ status: "error", message: "Solo un encargado del alumno puede revisar este reporte." });
         }
 
@@ -182,9 +190,9 @@ export const deleteReporteConducta = async (req: AuthenticatedRequest, res: Resp
             return res.status(404).json({ status: "error", message: `Reporte con ID: ${id} no encontrado` });
         }
 
-        const rol = await obtenerNombreRol(req);
         const esAutor = reporte.autorId === Number(req.user?.id);
-        const esAdminDeLaSede = esAdministrador(rol) && (await puedeOperarSede(req, reporte.alumno.seccion.sedeId));
+        const esAdminDeLaSede =
+            (await tienePermiso(req, "conducta")) && (await puedeOperarSede(req, reporte.alumno.seccion.sedeId));
         if (!esAutor && !esAdminDeLaSede) {
             return res.status(403).json({ status: "error", message: "No tiene permisos para eliminar este reporte." });
         }

@@ -9,7 +9,7 @@ import {
     deleteMatriculaById
 } from '../controllers/matricula.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
-import { verificarRol, ROL } from "../middlewares/role.middleware.js";
+import { permitir, ROL } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
@@ -22,12 +22,12 @@ router.get('/:id', getMatriculaById);
 
 router.post(
     '/',
-    verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE, ROL.ENCARGADO),
+    permitir('matriculas', ROL.ENCARGADO),
     createMatricula
 );
 
-router.put('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), trasladarMatricula);
-router.put('/:id/estado', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), cambiarEstadoMatricula);
-router.delete('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), deleteMatriculaById);
+router.put('/:id', permitir('matriculas'), trasladarMatricula);
+router.put('/:id/estado', permitir('matriculas'), cambiarEstadoMatricula);
+router.delete('/:id', permitir('matriculas'), deleteMatriculaById);
 
 export default router;

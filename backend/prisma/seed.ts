@@ -103,15 +103,41 @@ async function findOrCreateCurso(data: typeof CURSOS[number]) {
 async function main() {
     console.log('Sembrando datos de prueba...');
 
-    // 1. Roles
+    // 1. Roles de sistema (no se renombran ni eliminan) y roles del personal creados por el colegio
+    const DESCRIPCION_ROL: Record<string, string> = {
+        'Administrador General': 'Administra toda la red de sedes, los roles y los permisos.',
+        'Administrador de Sede': 'Dirige una sede; su acceso se define en la matriz de permisos.',
+        'Catedratico': 'Ve y califica los cursos que tiene asignados.',
+        'Alumno': 'Consulta sus notas, horario y avisos.',
+        'Encargado': 'Padre, madre o tutor: ve la información de los alumnos a su cargo según su vínculo.',
+    };
     const roles = new Map<string, number>();
     for (const nombre of ROLES) {
         const rol = await prisma.rol.upsert({
             where: { nombre },
-            update: {},
-            create: { nombre },
+            update: { esSistema: true },
+            create: { nombre, esSistema: true, descripcion: DESCRIPCION_ROL[nombre] },
         });
         roles.set(nombre, rol.rolId);
+    }
+
+    const MODULOS = ['usuarios', 'alumnos', 'matriculas', 'horarios', 'notas', 'asistencia', 'conducta', 'becas', 'pagos', 'comunicados', 'calendario', 'reportes'];
+    const ROLES_PERSONAL = [
+        { nombre: 'Administrador de Sede', permisos: MODULOS },
+        { nombre: 'Secretaría', descripcion: 'Atención a padres: alumnos, encargados, matrículas y avisos.', permisos: ['alumnos', 'matriculas', 'comunicados', 'calendario', 'conducta'] },
+        { nombre: 'Contabilidad', descripcion: 'Cobros de colegiatura y becas.', permisos: ['pagos', 'becas', 'reportes'] },
+    ];
+    for (const r of ROLES_PERSONAL) {
+        const rol = await prisma.rol.upsert({
+            where: { nombre: r.nombre },
+            update: {},
+            create: { nombre: r.nombre, descripcion: r.descripcion ?? null },
+        });
+        roles.set(r.nombre, rol.rolId);
+        // Solo se siembran los permisos si el rol aún no tiene (no se pisan cambios hechos en la matriz)
+        if ((await prisma.permiso.count({ where: { rolId: rol.rolId } })) === 0) {
+            await prisma.permiso.createMany({ data: r.permisos.map((modulo) => ({ rolId: rol.rolId, modulo })) });
+        }
     }
     console.log(`Roles listos: ${roles.size}`);
 
@@ -306,7 +332,13 @@ async function main() {
         await prisma.alumnoEncargado.upsert({
             where: { alumnoId_encargadoId: { alumnoId: alumno.usuarioId, encargadoId: encargado.usuarioId } },
             update: {},
-            create: { alumnoId: alumno.usuarioId, encargadoId: encargado.usuarioId, esPrincipal: true },
+            create: {
+                alumnoId: alumno.usuarioId,
+                encargadoId: encargado.usuarioId,
+                esPrincipal: true,
+                responsableFinanciero: true,
+                parentesco: PARENTESCOS[(encargadoPrincipalDe(i) - 1) % PARENTESCOS.length],
+            },
         });
 
         if (i % 4 === 0) {
@@ -317,7 +349,12 @@ async function main() {
                 await prisma.alumnoEncargado.upsert({
                     where: { alumnoId_encargadoId: { alumnoId: alumno.usuarioId, encargadoId: secundario.usuarioId } },
                     update: {},
-                    create: { alumnoId: alumno.usuarioId, encargadoId: secundario.usuarioId, esPrincipal: false },
+                    create: {
+                        alumnoId: alumno.usuarioId,
+                        encargadoId: secundario.usuarioId,
+                        esPrincipal: false,
+                        parentesco: PARENTESCOS[(encargadoPrincipalDe(i) - 1) % PARENTESCOS.length] === 'Padre' ? 'Madre' : 'Padre',
+                    },
                 });
             }
         }
@@ -526,45 +563,152 @@ async function main() {
     const asistenciasCreadas = await prisma.asistencia.createMany({ data: asistenciasNuevas, skipDuplicates: true });
     console.log(`Asistencias registradas: ${asistenciasCreadas.count}`);
 
-    // 11. Becas: 1 de cada 4 alumnos tiene beca activa; algunas ya vencidas para probar el historial
+    // 10b. Casos reales de roles y encargados para probar el sistema
+    await sembrarCasosDeEncargados(roles, passwordHash);
+
+    // Personal con roles creados por el colegio (Secretaría y Contabilidad) en la primera sede
+    for (const [nombreRol, email, nombres] of [
+        ['Secretaría', 'secretaria1@dercas.edu.gt', 'Secretaria1'],
+        ['Contabilidad', 'contabilidad1@dercas.edu.gt', 'Contador1'],
+    ] as const) {
+        await prisma.usuario.upsert({
+            where: { email },
+            update: {},
+            create: { nombres, apellidos: 'Prueba', email, passwordHash, rolId: roles.get(nombreRol)!, sedeId: sedesConAlumnos[0].sedeId },
+        });
+    }
+
+    // 11. Becas. Cada sede con alumnos tiene sus programas (ciclo anterior y actual) con cupos y
+    // requisitos, una política (presupuesto, descuento por hermanos y tope) y becas en todos los
+    // estados para probar el flujo: activas, solicitadas, suspendidas y finalizadas.
     const alumnosSeed = await prisma.usuario.findMany({
         where: { email: { startsWith: 'alumno' }, alumno: { isNot: null } },
         orderBy: { usuarioId: 'asc' },
-        include: { alumno: true },
+        include: { alumno: { include: { seccion: true, encargados: true } } },
     });
-    const BECAS = [
-        { porcentaje: 25, descripcion: 'Beca por excelencia académica' },
-        { porcentaje: 50, descripcion: 'Beca socioeconómica' },
-        { porcentaje: 15, descripcion: 'Descuento por hermanos' },
-        { porcentaje: 100, descripcion: 'Beca completa por convenio' },
-        { porcentaje: 30, descripcion: 'Beca deportiva' },
+
+    // Becas del seed anterior (sin programa): se reemplazan por las nuevas
+    const DESCRIPCIONES_SEED_ANTERIOR = [
+        'Beca por excelencia académica', 'Beca socioeconómica', 'Descuento por hermanos',
+        'Beca completa por convenio', 'Beca deportiva',
     ];
+    const becasAnteriores = await prisma.beca.findMany({
+        where: { programaId: null, descripcion: { in: DESCRIPCIONES_SEED_ANTERIOR } },
+        select: { becaId: true },
+    });
+    if (becasAnteriores.length > 0) {
+        const ids = becasAnteriores.map((b) => b.becaId);
+        await prisma.becaHistorial.deleteMany({ where: { becaId: { in: ids } } });
+        await prisma.beca.deleteMany({ where: { becaId: { in: ids } } });
+    }
+
+    const PROGRAMAS_BECA = [
+        { nombre: 'Excelencia académica', tipo: 'Merito', porcentaje: 50, cupos: 3, promedioMinimo: 85, pierdePorConductaGrave: true, permiteSolicitud: true, descripcion: 'Para alumnos con promedio sobresaliente.' },
+        { nombre: 'Apoyo socioeconómico', tipo: 'Socioeconomica', porcentaje: 40, cupos: 4, promedioMinimo: 61, pierdePorConductaGrave: true, permiteSolicitud: true, descripcion: 'Familias con dificultades económicas comprobadas.' },
+        { nombre: 'Beca deportiva', tipo: 'Deportiva', porcentaje: 30, cupos: 2, promedioMinimo: 70, pierdePorConductaGrave: true, permiteSolicitud: true, descripcion: 'Alumnos que representan al colegio en competencias.' },
+        { nombre: 'Convenio institucional', tipo: 'Convenio', porcentaje: 100, cupos: 1, promedioMinimo: null, pierdePorConductaGrave: false, permiteSolicitud: false, descripcion: 'Hijos de personal según convenio.' },
+    ];
+
+    const programasPorSede = new Map<number, Map<string, { programaId: number; cupos: number | null; porcentaje: number }>>();
+    for (const sede of sedesConAlumnos) {
+        const delCiclo = new Map<string, { programaId: number; cupos: number | null; porcentaje: number }>();
+        for (const anio of [ANIO_LECTIVO - 1, ANIO_LECTIVO]) {
+            for (const p of PROGRAMAS_BECA) {
+                const programa = await prisma.programaBeca.upsert({
+                    where: { sedeId_anioLectivo_nombre: { sedeId: sede.sedeId, anioLectivo: anio, nombre: p.nombre } },
+                    update: {},
+                    create: { ...p, sedeId: sede.sedeId, anioLectivo: anio },
+                });
+                delCiclo.set(`${anio}:${p.nombre}`, { programaId: programa.programaId, cupos: programa.cupos, porcentaje: p.porcentaje });
+            }
+        }
+        programasPorSede.set(sede.sedeId, delCiclo);
+
+        await prisma.politicaBeca.upsert({
+            where: { sedeId_anioLectivo: { sedeId: sede.sedeId, anioLectivo: ANIO_LECTIVO } },
+            update: {},
+            create: { sedeId: sede.sedeId, anioLectivo: ANIO_LECTIVO, presupuestoMensual: 2500, descuentoHermanos: 10, descuentoMaximo: 75 },
+        });
+    }
+
+    const cuposOcupados = new Map<number, number>();
+    const inicioCiclo = (anio: number) => new Date(Date.UTC(anio, 0, 1));
+    const finCiclo = (anio: number) => new Date(Date.UTC(anio, 11, 31));
+
     let becasCreadas = 0;
-    for (const [idx, alumno] of alumnosSeed.entries()) {
-        if (idx % 4 !== 0 && idx % 9 !== 0) continue;
-        const existente = await prisma.beca.findFirst({ where: { alumnoId: alumno.usuarioId } });
-        if (existente) continue;
-        const beca = BECAS[idx % BECAS.length];
-        const vencida = idx % 9 === 0 && idx % 4 !== 0;
-        await prisma.beca.create({
+    for (const [idx, usuarioAlumno] of alumnosSeed.entries()) {
+        const alumno = usuarioAlumno.alumno!;
+        const programas = programasPorSede.get(alumno.seccion.sedeId);
+        if (!programas) continue;
+        if (await prisma.beca.findFirst({ where: { alumnoId: alumno.alumnoId } })) continue;
+
+        // Qué le toca a cada alumno según su posición (solo algunos tienen beca)
+        let plan: { anio: number; programa: string; estado: string; motivo: string } | null = null;
+        const desempeno = desempenoPorAlumno.get(alumno.alumnoId) ?? 70;
+        if (idx % 4 === 0) {
+            // Solo programas cuyo promedio mínimo cumple el alumno, para que "Evaluar requisitos"
+            // no las suspenda recién sembradas
+            const nombres = PROGRAMAS_BECA
+                .filter((p) => p.promedioMinimo === null || desempeno >= p.promedioMinimo)
+                .map((p) => p.nombre);
+            plan = { anio: ANIO_LECTIVO, programa: nombres[(idx / 4) % nombres.length], estado: 'Activa', motivo: 'Beca asignada por la administración.' };
+        } else if (idx % 9 === 0) {
+            plan = { anio: ANIO_LECTIVO - 1, programa: 'Apoyo socioeconómico', estado: 'Finalizada', motivo: 'Terminó la vigencia de la beca.' };
+        } else if (idx % 7 === 0) {
+            plan = { anio: ANIO_LECTIVO, programa: idx % 2 ? 'Beca deportiva' : 'Apoyo socioeconómico', estado: 'Solicitada', motivo: 'Solicitud enviada por el encargado.' };
+        } else if (idx % 11 === 0) {
+            plan = { anio: ANIO_LECTIVO, programa: 'Excelencia académica', estado: 'Suspendida', motivo: 'Promedio por debajo del mínimo que exige el programa.' };
+        }
+        if (!plan) continue;
+
+        const programa = programas.get(`${plan.anio}:${plan.programa}`)!;
+        const ocupaCupo = plan.estado === 'Activa' || plan.estado === 'Suspendida';
+        // Se cuentan tambien las becas de ejecuciones anteriores del seed para no pasarse del cupo
+        const ocupados = cuposOcupados.get(programa.programaId)
+            ?? await prisma.beca.count({ where: { programaId: programa.programaId, estado: { in: ['Activa', 'Suspendida'] } } });
+        if (ocupaCupo && programa.cupos !== null && ocupados >= programa.cupos) continue;
+        if (ocupaCupo) cuposOcupados.set(programa.programaId, ocupados + 1);
+
+        const encargadoPrincipal = alumno.encargados.find((e) => e.esPrincipal) ?? alumno.encargados[0];
+        const beca = await prisma.beca.create({
             data: {
-                alumnoId: alumno.usuarioId,
-                porcentaje: beca.porcentaje,
-                descripcion: beca.descripcion,
-                fechaInicio: new Date(Date.UTC(vencida ? ANIO_LECTIVO - 1 : ANIO_LECTIVO, 0, 1)),
-                fechaFin: vencida ? new Date(Date.UTC(ANIO_LECTIVO - 1, 11, 31)) : new Date(Date.UTC(ANIO_LECTIVO, 11, 31)),
-                activa: !vencida,
+                alumnoId: alumno.alumnoId,
+                programaId: programa.programaId,
+                anioLectivo: plan.anio,
+                porcentaje: programa.porcentaje,
+                descripcion: plan.estado === 'Solicitada'
+                    ? 'La familia atraviesa una situación económica difícil este año y solicita apoyo.'
+                    : null,
+                fechaInicio: inicioCiclo(plan.anio),
+                fechaFin: finCiclo(plan.anio),
+                estado: plan.estado,
+                solicitadaPorId: plan.estado === 'Solicitada' ? encargadoPrincipal?.encargadoId ?? null : null,
             },
         });
+
+        const inicial = plan.estado === 'Solicitada' ? 'Solicitada' : 'Activa';
+        await prisma.becaHistorial.create({
+            data: {
+                becaId: beca.becaId,
+                estadoAnterior: null,
+                estadoNuevo: inicial,
+                motivo: inicial === 'Solicitada' ? 'Solicitud enviada por el encargado.' : 'Beca asignada por la administración.',
+            },
+        });
+        if (plan.estado !== inicial) {
+            await prisma.becaHistorial.create({
+                data: { becaId: beca.becaId, estadoAnterior: inicial, estadoNuevo: plan.estado, motivo: plan.motivo },
+            });
+        }
         becasCreadas++;
     }
-    console.log(`Becas creadas: ${becasCreadas}`);
+    console.log(`Programas de beca listos: ${PROGRAMAS_BECA.length * 2} por sede. Becas creadas: ${becasCreadas}`);
 
     // 12. Pagos de colegiatura de enero al mes actual. La mayoría está al día;
     // 1 de cada 5 alumnos debe los últimos meses (Pendiente) para probar morosidad.
     const colegiatura = Number(process.env.COLEGIATURA_MENSUAL ?? 500);
     const mesActual = Math.min(new Date().getMonth() + 1, 10);
-    const becasActivas = await prisma.beca.findMany({ where: { activa: true } });
+    const becasActivas = await prisma.beca.findMany({ where: { estado: 'Activa', anioLectivo: ANIO_LECTIVO } });
     const pagosNuevos = [];
     for (const [idx, alumno] of alumnosSeed.entries()) {
         const beca = becasActivas.find((b) => b.alumnoId === alumno.usuarioId);
@@ -578,8 +722,9 @@ async function main() {
                 concepto: 'Colegiatura',
                 anioLectivo: ANIO_LECTIVO,
                 mes,
-                estado: pagado ? 'Pagado' : 'Pendiente',
-                fechaPago: pagado ? new Date(Date.UTC(ANIO_LECTIVO, mes - 1, 1 + (idx % 10))) : null,
+                // Beca completa: el mes no se cobra, queda exonerado
+                estado: monto === 0 ? 'Exonerado' : pagado ? 'Pagado' : 'Pendiente',
+                fechaPago: monto === 0 || pagado ? new Date(Date.UTC(ANIO_LECTIVO, mes - 1, 1 + (idx % 10))) : null,
             });
         }
     }
@@ -732,6 +877,77 @@ async function main() {
     console.log(`Conducta, notificaciones y comunicados listos (comunicados nuevos: ${comunicadosCreados})`);
 
     console.log(`Seed completado. Contraseña de prueba para todos los usuarios: ${DEFAULT_PASSWORD}`);
+}
+
+
+// Situaciones reales con varios encargados por alumno:
+//  - alumno3: padres divorciados. La madre tiene la custodia y es el contacto principal;
+//    el padre paga la colegiatura y ve notas, pero no está autorizado a recogerlo.
+//  - alumno6: el padre tiene una orden de alejamiento: sin acceso a nada.
+//  - alumno7: la abuela es tutora temporal mientras los padres trabajan fuera (con fecha de fin).
+//  - catedratico1 también es padre de alumno8 (un usuario con dos roles).
+async function sembrarCasosDeEncargados(roles: Map<string, number>, passwordHash: string) {
+    const usuarioDe = (email: string) => prisma.usuario.findUnique({ where: { email } });
+    const crearEncargado = async (email: string, nombres: string, apellidos: string) => {
+        const u = await prisma.usuario.upsert({
+            where: { email },
+            update: {},
+            create: { nombres, apellidos, email, passwordHash, rolId: roles.get('Encargado')! },
+        });
+        await prisma.encargado.upsert({ where: { encargadoId: u.usuarioId }, update: {}, create: { encargadoId: u.usuarioId } });
+        return u;
+    };
+    const vincular = async (alumnoEmail: string, encargadoId: number, datos: Record<string, unknown>) => {
+        const alumno = await usuarioDe(alumnoEmail);
+        if (!alumno) return;
+        await prisma.alumnoEncargado.upsert({
+            where: { alumnoId_encargadoId: { alumnoId: alumno.usuarioId, encargadoId } },
+            update: {},
+            create: { alumnoId: alumno.usuarioId, encargadoId, ...datos },
+        });
+        return alumno.usuarioId;
+    };
+
+    // Padres divorciados
+    const padreDivorciado = await crearEncargado('padre.alumno3@dercas.edu.gt', 'Roberto', 'Alumno3 Prueba');
+    const alumno3 = await vincular('alumno3@dercas.edu.gt', padreDivorciado.usuarioId, {
+        parentesco: 'Padre', responsableFinanciero: true, tieneCustodia: false, autorizadoRecoger: false,
+        observaciones: 'Padres divorciados. Custodia de la madre según convenio; el padre cubre la colegiatura.',
+    });
+    if (alumno3) {
+        await prisma.alumnoEncargado.updateMany({
+            where: { alumnoId: alumno3, encargadoId: { not: padreDivorciado.usuarioId } },
+            data: { parentesco: 'Madre', responsableFinanciero: false, tieneCustodia: true },
+        });
+    }
+
+    // Orden de alejamiento
+    const padreRestringido = await crearEncargado('padre.alumno6@dercas.edu.gt', 'Marvin', 'Alumno6 Prueba');
+    await vincular('alumno6@dercas.edu.gt', padreRestringido.usuarioId, {
+        parentesco: 'Padre', restringido: true,
+        motivoRestriccion: 'Orden de alejamiento No. 01080-2026-00118, Juzgado de Familia. No entregar al alumno ni dar información.',
+        tieneCustodia: false, autorizadoRecoger: false, puedeVerNotas: false, puedeVerPagos: false, recibeNotificaciones: false,
+    });
+
+    // Tutor temporal
+    const abuela = await crearEncargado('abuela.alumno7@dercas.edu.gt', 'Carmen', 'Alumno7 Prueba');
+    await vincular('alumno7@dercas.edu.gt', abuela.usuarioId, {
+        parentesco: 'Abuelo(a)', autorizadoRecoger: true, tieneCustodia: true,
+        vigenteHasta: new Date(Date.UTC(ANIO_LECTIVO, 11, 31)),
+        observaciones: 'Tutora temporal mientras los padres trabajan en el extranjero.',
+    });
+
+    // Catedrático que también es padre de familia
+    const catedratico = await usuarioDe('catedratico1@dercas.edu.gt');
+    if (catedratico) {
+        await prisma.usuarioRol.upsert({
+            where: { usuarioId_rolId: { usuarioId: catedratico.usuarioId, rolId: roles.get('Encargado')! } },
+            update: {},
+            create: { usuarioId: catedratico.usuarioId, rolId: roles.get('Encargado')! },
+        });
+        await prisma.encargado.upsert({ where: { encargadoId: catedratico.usuarioId }, update: {}, create: { encargadoId: catedratico.usuarioId } });
+        await vincular('alumno8@dercas.edu.gt', catedratico.usuarioId, { parentesco: 'Padre' });
+    }
 }
 
 main()

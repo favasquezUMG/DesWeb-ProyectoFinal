@@ -237,3 +237,22 @@ export const plantillaComunicado = (datos: {
         ),
     };
 };
+
+export const plantillaBeca = (datos: {
+    nombreDestinatario: string;
+    titulo: string;
+    mensaje: string;
+}): PlantillaResult => {
+    return {
+        subject: datos.titulo,
+        html: baseTemplate(
+            escapeHtml(datos.titulo),
+            `
+            <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+            ${parrafos(datos.mensaje)}
+            <p>Puede consultar el detalle en la sección de Becas del portal.</p>
+            ${botonIngresar()}
+            `
+        ),
+    };
+};

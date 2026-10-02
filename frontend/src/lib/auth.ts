@@ -4,6 +4,7 @@ const TOKEN_KEY = "dercas.token";
 const USER_KEY = "dercas.user";
 
 const ROLE_FROM_BACKEND: Record<string, Role> = {
+  "Admin": "admin-general",
   "Administrador General": "admin-general",
   "Administrador de Sede": "admin-sede",
   "Catedratico": "catedratico",
@@ -11,13 +12,13 @@ const ROLE_FROM_BACKEND: Record<string, Role> = {
   "Encargado": "padre",
 };
 
+// Los roles creados por el colegio (Secretaría, Contabilidad...) son personal administrativo:
+// usan la interfaz de sede y el menú se filtra con sus permisos.
 export function mapBackendRole(nombreRol: string): Role {
-  const role = ROLE_FROM_BACKEND[nombreRol];
-  if (!role) throw new Error(`Rol no reconocido: ${nombreRol}`);
-  return role;
+  return ROLE_FROM_BACKEND[nombreRol] ?? "admin-sede";
 }
 
-function getInitials(nombre: string): string {
+export function getInitials(nombre: string): string {
   return nombre
     .split(/\s+/)
     .filter(Boolean)
@@ -29,17 +30,28 @@ function getInitials(nombre: string): string {
 export interface BackendUsuario {
   usuarioId: number;
   nombre: string;
+  apellidos?: string;
   email: string;
   rol: string;
+  rolId?: number;
+  sede?: string | null;
+  roles?: { rolId: number; nombre: string }[];
+  permisos?: string[];
 }
 
 export function buildAppUser(usuario: BackendUsuario): AppUser {
+  const nombreCompleto = usuario.apellidos ? `${usuario.nombre} ${usuario.apellidos}` : usuario.nombre;
   return {
     id: String(usuario.usuarioId),
-    name: usuario.nombre,
+    name: nombreCompleto,
     role: mapBackendRole(usuario.rol),
+    roleName: usuario.rol,
+    roleId: usuario.rolId,
+    roles: usuario.roles ?? [],
+    permisos: usuario.permisos ?? [],
     email: usuario.email,
-    initials: getInitials(usuario.nombre),
+    initials: getInitials(nombreCompleto),
+    sede: usuario.sede ?? undefined,
   };
 }
 

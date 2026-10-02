@@ -2,7 +2,7 @@ import type { Response } from "express";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
-import { ROL, obtenerNombreRol, puedeOperarSede } from "../middlewares/role.middleware.js";
+import { esAlcanceGlobal, obtenerNombreRol, puedeOperarSede } from "../middlewares/role.middleware.js";
 import {
     buscarDestinatarios,
     encargadosDeAlumnos,
@@ -76,7 +76,7 @@ export const enviarComunicado = async (req: AuthenticatedRequest, res: Response)
     try {
         const rol = await obtenerNombreRol(req);
         let sedeId: number | null =
-            rol === ROL.ADMIN_SEDE ? Number(req.user?.sedeId) : req.body.sedeId ? Number(req.body.sedeId) : null;
+            !esAlcanceGlobal(rol) ? Number(req.user?.sedeId) : req.body.sedeId ? Number(req.body.sedeId) : null;
         let etiqueta = ETIQUETA_DESTINO[destino as Destino];
 
         if (destino === "seccion") {
@@ -138,7 +138,7 @@ export const getComunicados = async (req: AuthenticatedRequest, res: Response) =
     try {
         const rol = await obtenerNombreRol(req);
         const where: Prisma.ComunicadoWhereInput =
-            rol === ROL.ADMIN_SEDE ? { OR: [{ sedeId: Number(req.user?.sedeId) }, { sedeId: null }] } : {};
+            !esAlcanceGlobal(rol) ? { OR: [{ sedeId: Number(req.user?.sedeId) }, { sedeId: null }] } : {};
 
         const comunicados = await prisma.comunicado.findMany({
             where,

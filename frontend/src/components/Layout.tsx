@@ -6,10 +6,11 @@ import {
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
   ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard,
   User, ChevronLeft, ChevronRight, Menu, X, Search, ChevronDown,
-  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing
+  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat
 } from "lucide-react";
 
-type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard };
+// modulo: permiso que necesita el personal de sede para ver la opción del menú
+type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard; modulo?: string };
 
 const NAV: Record<Role, NavItem[]> = {
   "admin-general": [
@@ -17,19 +18,21 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Sedes", view: "ag-sedes", Icon: School },
     { label: "Malla Curricular", view: "ag-malla", Icon: Layers },
     { label: "Reportería", view: "ag-reporteria", Icon: FileBarChart },
+    { label: "Usuarios", view: "as-usuarios", Icon: Users },
+    { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck },
   ],
   "admin-sede": [
     { label: "Dashboard", view: "as-dashboard", Icon: LayoutDashboard },
-    { label: "Usuarios", view: "as-usuarios", Icon: Users },
-    { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck },
-    { label: "Catedráticos", view: "as-catedraticos", Icon: GraduationCap },
-    { label: "Alumnos", view: "as-alumnos", Icon: UserCheck },
-    { label: "Grados y Secciones", view: "as-grados", Icon: Grid3X3 },
-    { label: "Cursos", view: "as-cursos", Icon: BookMarked },
-    { label: "Horarios", view: "as-horarios", Icon: Clock },
-    { label: "Becas", view: "as-becas", Icon: Award },
-    { label: "Notificaciones", view: "as-notificaciones", Icon: Bell },
-    { label: "Calendario", view: "as-calendario", Icon: CalendarDays },
+    { label: "Usuarios", view: "as-usuarios", Icon: Users, modulo: "usuarios" },
+    { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck, modulo: "usuarios" },
+    { label: "Catedráticos", view: "as-catedraticos", Icon: GraduationCap, modulo: "usuarios" },
+    { label: "Alumnos y Encargados", view: "as-alumnos", Icon: UserCheck, modulo: "alumnos" },
+    { label: "Grados y Secciones", view: "as-grados", Icon: Grid3X3, modulo: "horarios" },
+    { label: "Cursos", view: "as-cursos", Icon: BookMarked, modulo: "horarios" },
+    { label: "Horarios", view: "as-horarios", Icon: Clock, modulo: "horarios" },
+    { label: "Becas", view: "as-becas", Icon: Award, modulo: "becas" },
+    { label: "Notificaciones", view: "as-notificaciones", Icon: Bell, modulo: "comunicados" },
+    { label: "Calendario", view: "as-calendario", Icon: CalendarDays, modulo: "calendario" },
   ],
   "catedratico": [
     { label: "Dashboard", view: "cat-dashboard", Icon: LayoutDashboard },
@@ -50,6 +53,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Matrícula", view: "pad-matricula", Icon: BookMarked },
     { label: "Notas y Reportes", view: "pad-notas", Icon: Star },
     { label: "Pagos", view: "pad-pagos", Icon: CreditCard },
+    { label: "Becas", view: "pad-becas", Icon: Award },
     { label: "Avisos y Conducta", view: "pad-avisos", Icon: BellRing },
     { label: "Perfil", view: "pad-perfil", Icon: User },
   ],
@@ -63,6 +67,29 @@ const ROLE_LABELS: Record<Role, string> = {
   "padre": "Padre / Encargado",
 };
 
+const NOMBRES_DE_SISTEMA: Record<string, string> = {
+  "Administrador General": "Administrador General",
+  "Administrador de Sede": "Director de Sede",
+  "Catedratico": "Catedrático",
+  "Alumno": "Alumno",
+  "Encargado": "Padre / Encargado",
+};
+
+// Nombre que se muestra para un rol (los creados por el colegio se muestran tal cual)
+export function etiquetaRol(nombre: string): string {
+  return NOMBRES_DE_SISTEMA[nombre] ?? nombre;
+}
+
+function etiquetaDe(user: AppUser): string {
+  return user.roleName ? etiquetaRol(user.roleName) : ROLE_LABELS[user.role];
+}
+
+// El personal de sede solo ve los módulos para los que su rol tiene permiso.
+// (Sesiones guardadas antes de los permisos no traen la lista: se muestra todo.)
+function navDe(user: AppUser): NavItem[] {
+  return NAV[user.role].filter(item => !item.modulo || user.role !== "admin-sede" || user.permisos === undefined || user.permisos.includes(item.modulo));
+}
+
 function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
   user: AppUser;
   currentView: View;
@@ -70,7 +97,7 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const navItems = NAV[user.role];
+  const navItems = navDe(user);
 
   return (
     <aside className={`hidden md:flex flex-col h-screen bg-primary-700 text-white shrink-0 sidebar-transition sticky top-0 ${collapsed ? "w-16" : "w-60"}`}>
@@ -121,7 +148,7 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0">{user.initials}</div>
             <div className="min-w-0">
               <p className="text-white text-xs font-semibold truncate">{user.name}</p>
-              <p className="text-primary-200 text-xs truncate">{ROLE_LABELS[user.role]}</p>
+              <p className="text-primary-200 text-xs truncate">{etiquetaDe(user)}</p>
             </div>
           </div>
         )}
@@ -130,13 +157,14 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
   );
 }
 
-function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen }: {
+function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen, onCambiarRol }: {
   user: AppUser;
   currentView: View;
   navItems: NavItem[];
   sede?: string;
   onLogout: () => void;
   onMenuOpen: () => void;
+  onCambiarRol?: (rolId: number) => void;
 }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const currentLabel = navItems.find(n => n.view === currentView)?.label ?? "";
@@ -197,7 +225,19 @@ function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen }: {
             <div className="px-4 py-2 border-b border-stone-100">
               <p className="text-sm font-semibold text-stone-900">{user.name}</p>
               <p className="text-xs text-stone-500">{user.email}</p>
+              <p className="text-xs text-primary-700 font-medium mt-0.5">{etiquetaDe(user)}</p>
             </div>
+            {onCambiarRol && (user.roles?.length ?? 0) > 1 && (
+              <div className="py-1 border-b border-stone-100">
+                <p className="px-4 pt-1 pb-0.5 text-[11px] font-semibold text-stone-400 uppercase tracking-wider">Entrar como</p>
+                {user.roles!.filter(r => r.rolId !== user.roleId).map(r => (
+                  <button key={r.rolId} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors cursor-pointer"
+                    onClick={() => { setUserMenuOpen(false); onCambiarRol(r.rolId); }}>
+                    <Repeat className="w-4 h-4 text-stone-400" />{etiquetaRol(r.nombre)}
+                  </button>
+                ))}
+              </div>
+            )}
             <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors" onClick={() => setUserMenuOpen(false)}>
               <Settings className="w-4 h-4 text-stone-400" />Configuración
             </button>
@@ -218,7 +258,7 @@ function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
   open: boolean;
   onClose: () => void;
 }) {
-  const navItems = NAV[user.role];
+  const navItems = navDe(user);
   return (
     <>
       <div className={`fixed inset-0 z-40 bg-stone-900/40 md:hidden transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={onClose} />
@@ -247,7 +287,7 @@ function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0">{user.initials}</div>
           <div className="min-w-0">
             <p className="text-white text-xs font-semibold truncate">{user.name}</p>
-            <p className="text-primary-200 text-xs truncate">{ROLE_LABELS[user.role]}</p>
+            <p className="text-primary-200 text-xs truncate">{etiquetaDe(user)}</p>
           </div>
         </div>
       </aside>
@@ -255,17 +295,18 @@ function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
   );
 }
 
-export function Layout({ user, currentView, onNavigate, onLogout, sede, children }: {
+export function Layout({ user, currentView, onNavigate, onLogout, onCambiarRol, sede, children }: {
   user: AppUser;
   currentView: View;
   onNavigate: (v: View) => void;
   onLogout: () => void;
+  onCambiarRol?: (rolId: number) => void;
   sede?: string;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navItems = NAV[user.role];
+  const navItems = navDe(user);
 
   return (
     <div className="flex h-screen overflow-hidden bg-sand-100">
@@ -273,7 +314,7 @@ export function Layout({ user, currentView, onNavigate, onLogout, sede, children
       <MobileSidebar user={user} currentView={currentView} onNavigate={onNavigate} open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar user={user} currentView={currentView} navItems={navItems} sede={sede} onLogout={onLogout} onMenuOpen={() => setMobileOpen(true)} />
+        <Topbar user={user} currentView={currentView} navItems={navItems} sede={sede} onLogout={onLogout} onMenuOpen={() => setMobileOpen(true)} onCambiarRol={onCambiarRol} />
         <main className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="p-4 md:p-6 max-w-screen-xl mx-auto">
             {children}

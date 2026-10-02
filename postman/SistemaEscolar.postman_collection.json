@@ -254,29 +254,22 @@
             }
           },
           "response": []
-        }
-      ]
-    },
-    {
-      "name": "02 - Usuarios",
-      "item": [
+        },
         {
-          "name": "Listar usuarios",
+          "name": "Login Secretaría (rol creado por el colegio)",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAdminGeneral}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "url": {
-              "raw": "http://localhost:4000/api/usuarios",
+              "raw": "http://localhost:4000/api/auth/login",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -284,29 +277,37 @@
               "port": "4000",
               "path": [
                 "api",
-                "usuarios"
+                "auth",
+                "login"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"secretaria1@dercas.edu.gt\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "response": []
         },
         {
-          "name": "Obtener usuario por ID (alumno1)",
+          "name": "Login catedrático entrando como Encargado (tiene 2 roles)",
           "request": {
-            "method": "GET",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAdminGeneral}}",
-                  "type": "string"
-                }
-              ]
+              "type": "noauth"
             },
             "url": {
-              "raw": "http://localhost:4000/api/usuarios/42",
+              "raw": "http://localhost:4000/api/auth/login",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -314,15 +315,25 @@
               "port": "4000",
               "path": [
                 "api",
-                "usuarios",
-                "42"
+                "auth",
+                "login"
               ]
-            }
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"catedratico1@dercas.edu.gt\",\n  \"password\": \"Password123!\",\n  \"rolId\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "rolId del rol Encargado. La respuesta trae 'roles' con todos los roles de la persona."
           },
           "response": []
         },
         {
-          "name": "Crear usuario (catedratico)",
+          "name": "Cambiar de rol sin cerrar sesión",
           "request": {
             "method": "POST",
             "header": [
@@ -336,7 +347,164 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{tokenAdminGeneral}}",
+                  "value": "{{tokenCatedratico}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/auth/cambiar-rol",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "auth",
+                "cambiar-rol"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rolId\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Usuarios",
+      "item": [
+        {
+          "name": "Listar usuarios activos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios?estado=activos",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "activos"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar usuarios dados de baja",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios?estado=inactivos&q=prueba",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "inactivos"
+                },
+                {
+                  "key": "q",
+                  "value": "prueba"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ficha de usuario (dependencias y bitácora)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios/2",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Crear usuario con contraseña temporal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
                   "type": "string"
                 }
               ]
@@ -355,7 +523,96 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombres\": \"Mariela\",\n  \"apellidos\": \"Castillo Ramírez\",\n  \"email\": \"mariela.castillo@dercas.edu.gt\",\n  \"password\": \"Password123!\",\n  \"rolId\": 4,\n  \"sedeId\": 1\n}",
+              "raw": "{\n  \"nombres\": \"Ana\",\n  \"apellidos\": \"López\",\n  \"email\": \"ana.lopez@dercas.edu.gt\",\n  \"rolId\": 7\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sin password se genera una temporal (passwordTemporal en la respuesta). rolId 7 = Contabilidad en el seed."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear catedrático que también es padre",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombres\": \"Luis\",\n  \"apellidos\": \"Pérez\",\n  \"email\": \"luis.perez@dercas.edu.gt\",\n  \"rolId\": 3,\n  \"rolesAdicionales\": [\n    5\n  ],\n  \"especialidad\": \"Matemática\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Intento de escalada: admin de sede crea un Administrador General (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombres\": \"X\",\n  \"apellidos\": \"Y\",\n  \"email\": \"x.y@dercas.edu.gt\",\n  \"rolId\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -380,13 +637,13 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{tokenAdminGeneral}}",
+                  "value": "{{tokenAdminSede}}",
                   "type": "string"
                 }
               ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/usuarios/64",
+              "raw": "http://localhost:4000/api/usuarios/2",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -395,26 +652,170 @@
               "path": [
                 "api",
                 "usuarios",
-                "64"
+                "2"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombres\": \"Mariela Alejandra\",\n  \"apellidos\": \"Castillo Ramírez\",\n  \"email\": \"mariela.castillo@dercas.edu.gt\",\n  \"rolId\": 4,\n  \"sedeId\": 2\n}",
+              "raw": "{\n  \"nombres\": \"Nuevo nombre\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Roles adicionales",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios/2/roles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios",
+                "2",
+                "roles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rolesAdicionales\": [\n    5\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dar de baja",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios/2/estado",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios",
+                "2",
+                "estado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false,\n  \"motivo\": \"Fin de contrato\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "description": "ID 64 = siguiente usuario (el creado en \"Crear usuario\"). Ajustalo si es otro."
+            "description": "Se rechaza si tiene cursos asignados o si es el único encargado de algún alumno."
           },
           "response": []
         },
         {
-          "name": "Eliminar usuario",
+          "name": "Reactivar",
           "request": {
-            "method": "DELETE",
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/usuarios/2/estado",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "usuarios",
+                "2",
+                "estado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": true,\n  \"motivo\": \"Recontratado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Los IDs dependen del seed; consulte primero los listados."
+    },
+    {
+      "name": "03 - Roles",
+      "item": [
+        {
+          "name": "Listar roles con permisos",
+          "request": {
+            "method": "GET",
             "header": [],
             "auth": {
               "type": "bearer",
@@ -425,36 +826,6 @@
                   "type": "string"
                 }
               ]
-            },
-            "url": {
-              "raw": "http://localhost:4000/api/usuarios/64",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "4000",
-              "path": [
-                "api",
-                "usuarios",
-                "64"
-              ]
-            },
-            "description": "ID 64 = usuario creado en \"Crear usuario\"."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "03 - Roles",
-      "item": [
-        {
-          "name": "Listar roles",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "auth": {
-              "type": "noauth"
             },
             "url": {
               "raw": "http://localhost:4000/api/roles/all",
@@ -473,15 +844,22 @@
           "response": []
         },
         {
-          "name": "Obtener rol por ID",
+          "name": "Módulos disponibles",
           "request": {
             "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminGeneral}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/roles/4",
+              "raw": "http://localhost:4000/api/roles/modulos",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -490,14 +868,14 @@
               "path": [
                 "api",
                 "roles",
-                "4"
+                "modulos"
               ]
             }
           },
           "response": []
         },
         {
-          "name": "Crear rol",
+          "name": "Crear rol del colegio",
           "request": {
             "method": "POST",
             "header": [
@@ -507,7 +885,14 @@
               }
             ],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminGeneral}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
               "raw": "http://localhost:4000/api/roles",
@@ -523,7 +908,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Orientador Escolar\"\n}",
+              "raw": "{\n  \"nombre\": \"Orientación\",\n  \"descripcion\": \"Psicología y orientación\",\n  \"permisos\": [\n    \"alumnos\",\n    \"conducta\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -534,7 +919,7 @@
           "response": []
         },
         {
-          "name": "Actualizar rol",
+          "name": "Guardar permisos de un rol",
           "request": {
             "method": "PUT",
             "header": [
@@ -544,10 +929,17 @@
               }
             ],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminGeneral}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/roles/23",
+              "raw": "http://localhost:4000/api/roles/7/permisos",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -556,19 +948,64 @@
               "path": [
                 "api",
                 "roles",
-                "23"
+                "7",
+                "permisos"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Orientador Vocacional\"\n}",
+              "raw": "{\n  \"permisos\": [\n    \"pagos\",\n    \"becas\",\n    \"reportes\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Renombrar rol de sistema (409)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminGeneral}}",
+                  "type": "string"
+                }
+              ]
             },
-            "description": "ID 23 = rol creado en \"Crear rol\"."
+            "url": {
+              "raw": "http://localhost:4000/api/roles/3",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "roles",
+                "3"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Profesor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
@@ -578,10 +1015,17 @@
             "method": "DELETE",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminGeneral}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/roles/23",
+              "raw": "http://localhost:4000/api/roles/8",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -590,25 +1034,33 @@
               "path": [
                 "api",
                 "roles",
-                "23"
+                "8"
               ]
             },
-            "description": "ID 23 = rol creado en \"Crear rol\"."
+            "description": "Solo roles del colegio sin usuarios."
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Los IDs dependen del seed; consulte primero los listados."
     },
     {
       "name": "04 - Alumnos",
       "item": [
         {
-          "name": "Listar alumnos",
+          "name": "Listar alumnos (con resumen de encargados)",
           "request": {
             "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
               "raw": "http://localhost:4000/api/alumnos/all",
@@ -627,12 +1079,19 @@
           "response": []
         },
         {
-          "name": "Listar alumnos por seccion",
+          "name": "Listar alumnos por sección",
           "request": {
             "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
               "raw": "http://localhost:4000/api/alumnos/all?seccionId=1",
@@ -655,22 +1114,334 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Encargados de un alumno",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/78/encargados",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "78",
+                "encargados"
+              ]
+            },
+            "description": "Use el alumnoId de alumno3 (padres divorciados en el seed)."
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar persona para vincular",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/encargados/buscar?q=catedratico",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "encargados",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "catedratico"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Agregar encargado nuevo (tutor temporal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/78/encargados",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "78",
+                "encargados"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nuevo\": {\n    \"nombres\": \"Carmen\",\n    \"apellidos\": \"Abuela\",\n    \"email\": \"carmen.abuela@gmail.com\"\n  },\n  \"parentesco\": \"Abuelo(a)\",\n  \"vigenteHasta\": \"2026-12-31\",\n  \"puedeVerPagos\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Vincular a un catedrático como padre",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/78/encargados",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "78",
+                "encargados"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 22,\n  \"parentesco\": \"Padre\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar orden de alejamiento",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/78/encargados/136",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "78",
+                "encargados",
+                "136"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restringido\": true,\n  \"motivoRestriccion\": \"Orden de alejamiento No. 01080-2026-00118, Juzgado de Familia\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar contacto principal",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/78/encargados/136",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "78",
+                "encargados",
+                "136"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"esPrincipal\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Quitar encargado",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/alumnos/78/encargados/136",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "alumnos",
+                "78",
+                "encargados",
+                "136"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Cambio de tutor legal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "Los IDs dependen del seed; consulte primero los listados."
     },
     {
       "name": "05 - Becas",
       "item": [
         {
-          "name": "Listar becas",
+          "name": "Resumen del ciclo",
           "request": {
             "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/becas/all",
+              "raw": "http://localhost:4000/api/becas/resumen?anioLectivo=2026",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -679,22 +1450,35 @@
               "path": [
                 "api",
                 "becas",
-                "all"
+                "resumen"
+              ],
+              "query": [
+                {
+                  "key": "anioLectivo",
+                  "value": "2026"
+                }
               ]
             }
           },
           "response": []
         },
         {
-          "name": "Listar becas activas",
+          "name": "Listar becas vigentes",
           "request": {
             "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/becas/all?activa=true",
+              "raw": "http://localhost:4000/api/becas/all?anioLectivo=2026&estado=Activa,Suspendida",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -707,8 +1491,12 @@
               ],
               "query": [
                 {
-                  "key": "activa",
-                  "value": "true"
+                  "key": "anioLectivo",
+                  "value": "2026"
+                },
+                {
+                  "key": "estado",
+                  "value": "Activa,Suspendida"
                 }
               ]
             }
@@ -716,15 +1504,22 @@
           "response": []
         },
         {
-          "name": "Obtener beca por ID",
+          "name": "Listar solicitudes pendientes",
           "request": {
             "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/becas/2",
+              "raw": "http://localhost:4000/api/becas/all?anioLectivo=2026&estado=Solicitada",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -733,14 +1528,55 @@
               "path": [
                 "api",
                 "becas",
-                "2"
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "anioLectivo",
+                  "value": "2026"
+                },
+                {
+                  "key": "estado",
+                  "value": "Solicitada"
+                }
               ]
             }
           },
           "response": []
         },
         {
-          "name": "Crear beca",
+          "name": "Obtener beca con historial",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Asignar beca",
           "request": {
             "method": "POST",
             "header": [
@@ -750,7 +1586,14 @@
               }
             ],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
               "raw": "http://localhost:4000/api/becas",
@@ -766,7 +1609,53 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"alumnoId\": 43,\n  \"porcentaje\": 40,\n  \"descripcion\": \"Beca por excelencia deportiva\",\n  \"fechaInicio\": \"2026-10-01\",\n  \"fechaFin\": \"2026-12-31\"\n}",
+              "raw": "{\n  \"alumnoId\": 115,\n  \"programaId\": 6,\n  \"descripcion\": \"Estudio socioeconómico No. 45\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Valida cupos del programa, promedio mínimo, conducta grave, presupuesto de la sede y que el alumno no tenga otra beca vigente."
+          },
+          "response": []
+        },
+        {
+          "name": "Modificar porcentaje / vigencia",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"porcentaje\": 35,\n  \"fechaFin\": \"2026-12-31\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -777,7 +1666,364 @@
           "response": []
         },
         {
-          "name": "Actualizar beca",
+          "name": "Aprobar solicitud",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1/estado",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1",
+                "estado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Activa\",\n  \"motivo\": \"Cumple con los requisitos del programa.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rechazar solicitud",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1/estado",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1",
+                "estado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Rechazada\",\n  \"motivo\": \"No presentó la documentación solicitada.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Suspender beca",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1/estado",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1",
+                "estado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Suspendida\",\n  \"motivo\": \"Promedio por debajo del mínimo en la tercera unidad.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Revocar beca",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"El alumno se retiró del colegio.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Renovar para el siguiente ciclo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/1/renovar",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "1",
+                "renovar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anioLectivo\": 2027\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Requiere que exista el programa con el mismo nombre en el ciclo destino."
+          },
+          "response": []
+        },
+        {
+          "name": "Evaluar requisitos (suspende las que no cumplen)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/evaluar",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "evaluar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anioLectivo\": 2026\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar programas con cupos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/programas?anioLectivo=2026",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "programas"
+              ],
+              "query": [
+                {
+                  "key": "anioLectivo",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Crear programa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/programas",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "programas"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anioLectivo\": 2026,\n  \"nombre\": \"Beca de arte\",\n  \"tipo\": \"Otro\",\n  \"porcentaje\": 25,\n  \"cupos\": 3,\n  \"promedioMinimo\": 70,\n  \"pierdePorConductaGrave\": true,\n  \"permiteSolicitud\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar programa",
           "request": {
             "method": "PUT",
             "header": [
@@ -787,10 +2033,17 @@
               }
             ],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/becas/7",
+              "raw": "http://localhost:4000/api/becas/programas/1",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -799,32 +2052,39 @@
               "path": [
                 "api",
                 "becas",
-                "7"
+                "programas",
+                "1"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"alumnoId\": 43,\n  \"porcentaje\": 35,\n  \"descripcion\": \"Beca por excelencia deportiva (ajustada)\",\n  \"fechaInicio\": \"2026-10-01\",\n  \"fechaFin\": \"2027-06-30\",\n  \"activa\": true\n}",
+              "raw": "{\n  \"cupos\": 5\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
-            "description": "ID 7 = beca creada en \"Crear beca\"."
+            }
           },
           "response": []
         },
         {
-          "name": "Eliminar beca",
+          "name": "Ver política de la sede",
           "request": {
-            "method": "DELETE",
+            "method": "GET",
             "header": [],
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
+              ]
             },
             "url": {
-              "raw": "http://localhost:4000/api/becas/7",
+              "raw": "http://localhost:4000/api/becas/politica?anioLectivo=2026",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -833,14 +2093,141 @@
               "path": [
                 "api",
                 "becas",
-                "7"
+                "politica"
+              ],
+              "query": [
+                {
+                  "key": "anioLectivo",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Guardar política de la sede",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminSede}}",
+                  "type": "string"
+                }
               ]
             },
-            "description": "ID 7 = beca creada en \"Crear beca\"."
+            "url": {
+              "raw": "http://localhost:4000/api/becas/politica",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "politica"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anioLectivo\": 2026,\n  \"presupuestoMensual\": 2500,\n  \"descuentoHermanos\": 10,\n  \"descuentoMaximo\": 75\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Encargado: mis becas y programas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEncargado}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/mias",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "mias"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Encargado: solicitar beca",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenEncargado}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:4000/api/becas/solicitar",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "4000",
+              "path": [
+                "api",
+                "becas",
+                "solicitar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alumnoId\": 115,\n  \"programaId\": 6,\n  \"justificacion\": \"Perdí mi empleo este año y necesitamos apoyo para la colegiatura.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Programas con cupos, política de la sede (presupuesto, hermanos, tope), estados con historial y solicitudes de encargados. Los IDs dependen del seed."
     },
     {
       "name": "06 - Cursos",

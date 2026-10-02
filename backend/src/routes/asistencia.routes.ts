@@ -8,7 +8,7 @@ import {
     deleteAsistenciaById
 } from '../controllers/asistencia.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
-import { verificarRol, ROL } from "../middlewares/role.middleware.js";
+import { permitir, ROL } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
@@ -21,19 +21,19 @@ router.get('/resumen/:cursoSeccionId', getResumenAsistencia);
 
 router.post(
     '/pasar-lista',
-    verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE, ROL.CATEDRATICO),
+    permitir('asistencia', ROL.CATEDRATICO),
     pasarLista
 );
 
 router.put(
     '/:id',
-    verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE, ROL.CATEDRATICO),
+    permitir('asistencia', ROL.CATEDRATICO),
     updateAsistencia
 );
 
 router.delete(
     '/:id',
-    verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE),
+    permitir('asistencia'),
     deleteAsistenciaById
 );
 

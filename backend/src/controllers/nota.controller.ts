@@ -5,6 +5,7 @@ import { ROL, obtenerNombreRol, puedeOperarSede } from "../middlewares/role.midd
 import { calcularNotasCursoSeccion, type ResultadoCursoSeccion } from "../services/notas.service.js";
 import { encargadosDeAlumno, enviarADestinatarios, enviarEnSegundoPlano } from "../services/notificacion.service.js";
 import { plantillaBoletaNotas } from "../templates/mail.templates.js";
+import { puedeVerAlumno } from "../services/acceso.service.js";
 
 //Get All
 export const getNotas = async (_req: Request, res: Response) => {
@@ -78,10 +79,15 @@ export const getNotasByActivity = async (req: Request, res: Response) => {
 }
 
 //Get By StudentId
-export const getNotasByStudent = async (req: Request, res: Response) => {
+export const getNotasByStudent = async (req: AuthenticatedRequest, res: Response) => {
     const { studentId } = req.params;
 
     try {
+        // Un padre sin permiso de ver notas (o con restriccion judicial) no las ve
+        if (!(await puedeVerAlumno(req, Number(studentId), "notas", "notas"))) {
+            return res.status(403).json({ status: "error", message: "No tiene permisos para ver las notas de este alumno." });
+        }
+
         const studentNotas = await prisma.nota.findMany({
         where: { alumnoId: Number(studentId) },
         select: {
@@ -240,7 +246,7 @@ export const enviarNotasAEncargados = async (req: AuthenticatedRequest, res: Res
     const envios = await Promise.all(
       alumnos.map(async (alumno) => ({
         alumno,
-        encargados: await encargadosDeAlumno(alumno.alumnoId),
+        encargados: await encargadosDeAlumno(alumno.alumnoId, "notas"),
         boleta: cursos.map((c) => {
           const fila = c.alumnos.find((a) => a.alumnoId === alumno.alumnoId);
           return { curso: c.cursoSeccion.curso.nombre, unidades: fila?.unidades ?? [], total: fila?.total ?? 0 };

@@ -2,6 +2,7 @@ import type { Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { puedeOperarSede, ROL } from '../middlewares/role.middleware.js';
+import { esResponsableDe } from '../services/vinculos.service.js';
 
 const ESTADOS = ['Activa', 'Retirada'] as const;
 type Estado = (typeof ESTADOS)[number];
@@ -123,14 +124,22 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
                 alumnoId_encargadoId: { alumnoId: Number(alumnoId), encargadoId: Number(encargadoId) },
             },
         });
-        if (!vinculo) {
+        if (!vinculo || !vinculo.activo || vinculo.restringido) {
             return res.status(400).json({
                 status: 'error',
-                message: 'Ese encargado no está registrado como responsable de este alumno.',
+                message: 'Ese encargado no está registrado (o no está habilitado) como responsable de este alumno.',
             });
         }
 
+        // Un encargado solo puede matricular si es el contacto principal o el responsable de pagos
+        // y su vinculo esta vigente (no restringido, no vencido)
         const esEncargadoLogueado = Number(req.user?.id) === Number(encargadoId);
+        if (esEncargadoLogueado && !(await esResponsableDe(Number(encargadoId), Number(alumnoId)))) {
+            return res.status(403).json({
+                status: 'error',
+                message: 'Solo el contacto principal o el responsable de pagos del alumno puede matricularlo.',
+            });
+        }
         if (!esEncargadoLogueado && !(await puedeOperarSede(req, seccion.sedeId))) {
             return res.status(403).json({
                 status: 'error',

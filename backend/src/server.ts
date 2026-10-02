@@ -3,11 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { openapiSpec } from "./docs/openapi.js";
-import { login } from "./controllers/auth.controller.js";
+import { login, cambiarRol, me } from "./controllers/auth.controller.js";
 import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
 import { authenticateToken } from "./middlewares/auth.middleware.js";
 import { stripeWebhook } from "./controllers/stripewebhook.controller.js";
 import { prisma } from "./lib/prisma.js";
+import sedeRoutes from "./routes/sede.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import rolRoutes from "./routes/rol.routes.js";
 import becaRoutes from "./routes/beca.routes.js";
@@ -87,15 +88,11 @@ app.use(
 );
 
 app.post('/api/auth/login', login);
-
-app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
-  res.json({
-    status: 'success',
-    user: req.user
-  });
-});
+app.post('/api/auth/cambiar-rol', authenticateToken, cambiarRol);
+app.get('/api/auth/me', authenticateToken, me);
 
 app.use('/api/usuarios', userRoutes);
+app.use('/api/sedes', sedeRoutes);
 app.use('/api/roles', rolRoutes);
 app.use('/api/becas', becaRoutes);
 app.use('/api/alumnos', alumnoRoutes);
