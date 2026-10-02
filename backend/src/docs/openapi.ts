@@ -174,20 +174,31 @@ export const openapiSpec = {
         properties: {
           email: { type: "string", format: "email" },
           password: { type: "string", format: "password" },
+          rolId: { type: "integer", description: "Opcional: con qué rol entrar si la persona tiene varios" },
         },
       },
       LoginResponse: {
         type: "object",
         properties: {
           status: { type: "string", example: "success" },
-          token: { type: "string" },
+          token: { type: "string", description: "JWT con el rol activo" },
           usuario: {
             type: "object",
             properties: {
               usuarioId: { type: "integer" },
               nombre: { type: "string" },
+              apellidos: { type: "string" },
               email: { type: "string" },
-              rol: { type: "string" },
+              rol: { type: "string", description: "Rol activo" },
+              rolId: { type: "integer" },
+              sedeId: { type: "integer", nullable: true },
+              sede: { type: "string", nullable: true },
+              roles: {
+                type: "array",
+                description: "Todos los roles de la persona (ej. Catedratico + Encargado)",
+                items: { type: "object", properties: { rolId: { type: "integer" }, nombre: { type: "string" } } },
+              },
+              permisos: { type: "array", items: { type: "string" }, description: "Módulos administrativos del rol activo" },
             },
           },
         },
@@ -200,31 +211,72 @@ export const openapiSpec = {
           nombres: { type: "string" },
           apellidos: { type: "string" },
           email: { type: "string" },
-          rolId: { type: "integer" },
+          rolId: { type: "integer", description: "Rol principal" },
           sedeId: { type: "integer", nullable: true },
+          deletedAt: { type: "string", format: "date-time", nullable: true, description: "Fecha de baja (null = activo)" },
+          rol: { type: "object", properties: { rolId: { type: "integer" }, nombre: { type: "string" } } },
+          rolesAdicionales: { type: "array", items: { type: "object", properties: { rolId: { type: "integer" } } } },
+          passwordTemporal: { type: "string", nullable: true, description: "Solo al crear sin contraseña: se muestra una única vez" },
         },
       },
       UsuarioInput: {
         type: "object",
-        required: ["nombres", "apellidos", "email", "password", "rolId"],
+        required: ["nombres", "apellidos", "email", "rolId"],
         properties: {
           nombres: { type: "string" },
           apellidos: { type: "string" },
           email: { type: "string" },
-          password: { type: "string" },
+          password: { type: "string", description: "Opcional: sin ella se genera una contraseña temporal" },
           rolId: { type: "integer" },
-          sedeId: { type: "integer", nullable: true },
+          rolesAdicionales: { type: "array", items: { type: "integer" } },
+          sedeId: { type: "integer", nullable: true, description: "Solo Administrador General; el resto crea en su sede" },
+          especialidad: { type: "string", description: "Si es catedrático" },
+          seccionId: { type: "integer", description: "Obligatorio si el rol es Alumno" },
+          fechaNacimiento: { type: "string", format: "date" },
         },
       },
 
       Rol: {
         type: "object",
-        properties: { rolId: { type: "integer" }, nombre: { type: "string" } },
+        properties: {
+          rolId: { type: "integer" },
+          nombre: { type: "string" },
+          descripcion: { type: "string", nullable: true },
+          esSistema: { type: "boolean", description: "Los roles de sistema no se renombran ni eliminan" },
+          tipo: { type: "string", enum: ["global", "comunidad", "personal"] },
+          permisos: { type: "array", items: { type: "string", enum: ["usuarios", "alumnos", "matriculas", "horarios", "notas", "asistencia", "conducta", "becas", "pagos", "comunicados", "calendario", "reportes"] } },
+          permisosEditables: { type: "boolean" },
+          usuarios: { type: "integer" },
+        },
       },
       RolInput: {
         type: "object",
         required: ["nombre"],
-        properties: { nombre: { type: "string" } },
+        properties: {
+          nombre: { type: "string", example: "Secretaría" },
+          descripcion: { type: "string" },
+          permisos: { type: "array", items: { type: "string", enum: ["usuarios", "alumnos", "matriculas", "horarios", "notas", "asistencia", "conducta", "becas", "pagos", "comunicados", "calendario", "reportes"] } },
+        },
+      },
+      VinculoEncargado: {
+        type: "object",
+        description: "Vínculo de un alumno con un adulto responsable",
+        properties: {
+          encargadoId: { type: "integer" },
+          parentesco: { type: "string", nullable: true, example: "Padre" },
+          esPrincipal: { type: "boolean", description: "Contacto principal (uno por alumno)" },
+          responsableFinanciero: { type: "boolean", description: "Paga la colegiatura (al menos uno)" },
+          tieneCustodia: { type: "boolean" },
+          autorizadoRecoger: { type: "boolean" },
+          puedeVerNotas: { type: "boolean" },
+          puedeVerPagos: { type: "boolean" },
+          recibeNotificaciones: { type: "boolean" },
+          restringido: { type: "boolean", description: "Orden judicial: sin ningún acceso" },
+          motivoRestriccion: { type: "string", nullable: true },
+          vigenteHasta: { type: "string", format: "date", nullable: true, description: "Tutor temporal" },
+          activo: { type: "boolean" },
+          observaciones: { type: "string", nullable: true },
+        },
       },
 
       Alumno: {
@@ -244,23 +296,106 @@ export const openapiSpec = {
         properties: {
           becaId: { type: "integer" },
           alumnoId: { type: "integer" },
+          programaId: { type: "integer", nullable: true },
+          anioLectivo: { type: "integer", example: 2026 },
           porcentaje: { type: "number" },
           descripcion: { type: "string", nullable: true },
           fechaInicio: { type: "string", format: "date" },
-          fechaFin: { type: "string", format: "date", nullable: true },
-          activa: { type: "boolean" },
+          fechaFin: { type: "string", format: "date" },
+          estado: { type: "string", enum: ["Solicitada", "Activa", "Rechazada", "Suspendida", "Revocada", "Finalizada"] },
+          solicitadaPorId: { type: "integer", nullable: true },
+          programa: {
+            type: "object",
+            nullable: true,
+            properties: { programaId: { type: "integer" }, nombre: { type: "string" }, tipo: { type: "string" } },
+          },
+          historial: { type: "array", items: { $ref: "#/components/schemas/BecaHistorial" } },
+        },
+      },
+      BecaHistorial: {
+        type: "object",
+        properties: {
+          historialId: { type: "integer" },
+          estadoAnterior: { type: "string", nullable: true },
+          estadoNuevo: { type: "string" },
+          motivo: { type: "string" },
+          usuarioId: { type: "integer", nullable: true, description: "null = cambio automático del sistema" },
+          fecha: { type: "string", format: "date-time" },
         },
       },
       BecaInput: {
         type: "object",
-        required: ["alumnoId", "porcentaje", "fechaInicio"],
+        required: ["alumnoId", "programaId"],
         properties: {
           alumnoId: { type: "integer" },
+          programaId: { type: "integer" },
+          porcentaje: { type: "number", description: "Opcional; por defecto el del programa" },
+          descripcion: { type: "string" },
+          fechaInicio: { type: "string", format: "date", description: "Por defecto hoy (dentro del ciclo)" },
+          fechaFin: { type: "string", format: "date", description: "Por defecto fin del ciclo" },
+        },
+      },
+      BecaUpdateInput: {
+        type: "object",
+        properties: {
           porcentaje: { type: "number" },
           descripcion: { type: "string" },
           fechaInicio: { type: "string", format: "date" },
           fechaFin: { type: "string", format: "date" },
-          activa: { type: "boolean" },
+        },
+      },
+      BecaEstadoInput: {
+        type: "object",
+        required: ["estado", "motivo"],
+        properties: {
+          estado: { type: "string", enum: ["Activa", "Rechazada", "Suspendida", "Revocada", "Finalizada"] },
+          motivo: { type: "string", example: "Cumple con los requisitos del programa." },
+        },
+      },
+      ProgramaBeca: {
+        type: "object",
+        properties: {
+          programaId: { type: "integer" },
+          sedeId: { type: "integer" },
+          anioLectivo: { type: "integer" },
+          nombre: { type: "string", example: "Excelencia académica" },
+          tipo: { type: "string", enum: ["Merito", "Socioeconomica", "Deportiva", "Convenio", "Otro"] },
+          descripcion: { type: "string", nullable: true },
+          porcentaje: { type: "number", example: 50 },
+          cupos: { type: "integer", nullable: true, description: "null = sin límite" },
+          cuposUsados: { type: "integer" },
+          cuposDisponibles: { type: "integer", nullable: true },
+          promedioMinimo: { type: "number", nullable: true },
+          pierdePorConductaGrave: { type: "boolean" },
+          permiteSolicitud: { type: "boolean" },
+          activo: { type: "boolean" },
+        },
+      },
+      ProgramaBecaInput: {
+        type: "object",
+        required: ["nombre", "tipo", "porcentaje"],
+        properties: {
+          sedeId: { type: "integer", description: "Solo el administrador general; el de sede usa la suya" },
+          anioLectivo: { type: "integer" },
+          nombre: { type: "string" },
+          tipo: { type: "string", enum: ["Merito", "Socioeconomica", "Deportiva", "Convenio", "Otro"] },
+          descripcion: { type: "string" },
+          porcentaje: { type: "number" },
+          cupos: { type: "integer", nullable: true },
+          promedioMinimo: { type: "number", nullable: true },
+          pierdePorConductaGrave: { type: "boolean" },
+          permiteSolicitud: { type: "boolean" },
+          activo: { type: "boolean" },
+        },
+      },
+      PoliticaBeca: {
+        type: "object",
+        properties: {
+          sedeId: { type: "integer" },
+          anioLectivo: { type: "integer" },
+          presupuestoMensual: { type: "number", nullable: true, description: "Monto máximo que la sede deja de cobrar al mes por becas" },
+          descuentoHermanos: { type: "number", description: "% para el 2do hijo en adelante" },
+          descuentoMaximo: { type: "number", description: "Tope de beca + hermanos" },
         },
       },
 
@@ -424,8 +559,13 @@ export const openapiSpec = {
           mes: { type: "integer" },
           nombreMes: { type: "string" },
           montoBase: { type: "number" },
-          descuentoPorcentaje: { type: "number" },
+          descuentoPorcentaje: { type: "number", description: "Descuento total aplicado (beca + hermanos, con tope)" },
+          descuentoBeca: { type: "number" },
+          descuentoHermanos: { type: "number" },
+          programaBeca: { type: "string", nullable: true },
+          topeAplicado: { type: "boolean" },
           montoFinal: { type: "number" },
+          exonerado: { type: "boolean", description: "true si el mes está cubierto al 100%" },
           yaTienePago: { type: "boolean" },
           estadoPago: { type: "string", nullable: true },
         },
@@ -438,6 +578,7 @@ export const openapiSpec = {
           seccion: { type: "string" },
           anioLectivo: { type: "integer" },
           mesesPagados: { type: "integer" },
+          mesesExonerados: { type: "integer" },
           mesesPendientes: { type: "integer" },
           totalPagado: { type: "number" },
           detalle: {
@@ -511,38 +652,389 @@ export const openapiSpec = {
     "/auth/me": {
       get: {
         tags: ["Auth"],
-        summary: "Obtener el usuario autenticado a partir del token",
+        summary: "Perfil del usuario con su rol activo, todos sus roles y permisos",
         security: bearer,
         responses: { 200: { description: "Usuario del token" }, 401: commonErrors[401], 403: commonErrors[403] },
       },
     },
+    "/auth/cambiar-rol": {
+      post: {
+        tags: ["Auth"],
+        summary: "Cambiar de rol sin cerrar sesión (ej. catedrático que también es padre)",
+        security: bearer,
+        requestBody: jsonBody({ type: "object", required: ["rolId"], properties: { rolId: { type: "integer" } } }),
+        responses: {
+          200: { description: "Token nuevo con el rol pedido", ...jsonBody(ref("LoginResponse")) },
+          403: { description: "No tiene asignado ese rol", ...jsonBody(ref("ErrorResponse")) },
+        },
+      },
+    },
 
-    ...crud({ tag: "Usuarios", base: "/usuarios", idName: "id", schema: "Usuario", inputSchema: "UsuarioInput" }),
+    "/usuarios": {
+      get: {
+        tags: ["Usuarios"],
+        summary: "Listar usuarios (permiso 'usuarios'; el personal de sede solo ve su sede y no ve administradores)",
+        security: bearer,
+        parameters: [
+          q("q", "Buscar por nombre o correo", "string"),
+          q("rolId", "Filtrar por rol (principal o adicional)"),
+          q("estado", "activos (defecto) | inactivos | todos", "string"),
+          q("sedeId", "Solo Administrador General"),
+        ],
+        responses: { 200: listResponse("Usuarios", ref("Usuario")), 401: commonErrors[401], 403: commonErrors[403] },
+      },
+      post: {
+        tags: ["Usuarios"],
+        summary: "Crear usuario. Nadie puede asignar un rol con más permisos que los propios",
+        security: bearer,
+        requestBody: jsonBody(ref("UsuarioInput")),
+        responses: { 201: dataResponse("Usuario creado", ref("Usuario")), 400: commonErrors[400], 403: commonErrors[403], 409: { description: "Correo repetido" } },
+      },
+    },
+    "/usuarios/{id}": {
+      get: {
+        tags: ["Usuarios"],
+        summary: "Ficha del usuario con dependencias (cursos, alumnos a cargo) y bitácora",
+        security: bearer,
+        parameters: [idParam("id", "ID de usuario")],
+        responses: { 200: dataResponse("Usuario", ref("Usuario")), ...commonErrors },
+      },
+      put: {
+        tags: ["Usuarios"],
+        summary: "Modificar datos, rol principal, sede o contraseña (no se puede cambiar el rol propio)",
+        security: bearer,
+        parameters: [idParam("id", "ID de usuario")],
+        requestBody: jsonBody(ref("UsuarioInput")),
+        responses: { 200: dataResponse("Usuario actualizado", ref("Usuario")), ...commonErrors, 409: { description: "El rol anterior tiene dependencias" } },
+      },
+      delete: {
+        tags: ["Usuarios"],
+        summary: "Dar de baja (equivale a PATCH estado con activo=false)",
+        security: bearer,
+        parameters: [idParam("id", "ID de usuario")],
+        responses: { 200: messageResponse("Cuenta dada de baja"), ...commonErrors },
+      },
+    },
+    "/usuarios/{id}/roles": {
+      put: {
+        tags: ["Usuarios"],
+        summary: "Definir los roles adicionales del usuario",
+        security: bearer,
+        parameters: [idParam("id", "ID de usuario")],
+        requestBody: jsonBody({ type: "object", properties: { rolesAdicionales: { type: "array", items: { type: "integer" } } } }),
+        responses: { 200: dataResponse("Roles actualizados", ref("Usuario")), ...commonErrors, 409: { description: "No se puede quitar el rol (cursos asignados, único encargado...)" } },
+      },
+    },
+    "/usuarios/{id}/estado": {
+      patch: {
+        tags: ["Usuarios"],
+        summary: "Dar de baja o reactivar una cuenta",
+        description:
+          "No se permite: darse de baja a sí mismo, dejar al colegio sin Administrador General, dar de baja a un catedrático " +
+          "con cursos asignados ni a un encargado que es el único responsable de algún alumno.",
+        security: bearer,
+        parameters: [idParam("id", "ID de usuario")],
+        requestBody: jsonBody({ type: "object", required: ["activo", "motivo"], properties: { activo: { type: "boolean" }, motivo: { type: "string" } } }),
+        responses: { 200: messageResponse("Estado actualizado"), ...commonErrors, 409: { description: "Tiene dependencias" } },
+      },
+    },
 
-    ...crud({
-      tag: "Roles",
-      base: "/roles/all",
-      idName: "id",
-      schema: "Rol",
-      inputSchema: "RolInput",
-      auth: false,
-    }),
-    ...crud({
-      tag: "Becas",
-      base: "/becas/all",
-      idName: "id",
-      schema: "Beca",
-      inputSchema: "BecaInput",
-      auth: false,
-      listQuery: [q("activa", "Filtrar por becas activas (true/false)", "string")],
-    }),
+    "/roles/all": {
+      get: {
+        tags: ["Roles"],
+        summary: "Listar roles con sus permisos y cantidad de usuarios",
+        security: bearer,
+        responses: { 200: listResponse("Roles", ref("Rol")), 401: commonErrors[401], 403: commonErrors[403] },
+      },
+    },
+    "/roles/modulos": {
+      get: {
+        tags: ["Roles"],
+        summary: "Módulos que se pueden asignar en la matriz de permisos",
+        security: bearer,
+        responses: { 200: { description: "Lista de módulos" } },
+      },
+    },
+    "/roles": {
+      post: {
+        tags: ["Roles"],
+        summary: "Crear rol del personal (solo Administrador General)",
+        security: bearer,
+        requestBody: jsonBody(ref("RolInput")),
+        responses: { 201: dataResponse("Rol creado", ref("Rol")), 400: commonErrors[400], 403: commonErrors[403], 409: { description: "Nombre repetido" } },
+      },
+    },
+    "/roles/{id}": {
+      get: {
+        tags: ["Roles"],
+        summary: "Obtener rol",
+        security: bearer,
+        parameters: [idParam("id", "ID de rol")],
+        responses: { 200: dataResponse("Rol", ref("Rol")), ...commonErrors },
+      },
+      put: {
+        tags: ["Roles"],
+        summary: "Renombrar o describir un rol (los de sistema no se renombran)",
+        security: bearer,
+        parameters: [idParam("id", "ID de rol")],
+        requestBody: jsonBody({ type: "object", properties: { nombre: { type: "string" }, descripcion: { type: "string" } } }),
+        responses: { 200: dataResponse("Rol actualizado", ref("Rol")), ...commonErrors, 409: { description: "Rol de sistema o nombre repetido" } },
+      },
+      delete: {
+        tags: ["Roles"],
+        summary: "Eliminar un rol del colegio sin usuarios",
+        security: bearer,
+        parameters: [idParam("id", "ID de rol")],
+        responses: { 200: messageResponse("Rol eliminado"), ...commonErrors, 409: { description: "Rol de sistema o con usuarios" } },
+      },
+    },
+    "/roles/{id}/permisos": {
+      put: {
+        tags: ["Roles"],
+        summary: "Guardar los módulos a los que tiene acceso un rol del personal (aplica de inmediato)",
+        security: bearer,
+        parameters: [idParam("id", "ID de rol")],
+        requestBody: jsonBody({ type: "object", required: ["permisos"], properties: { permisos: { type: "array", items: { type: "string" } } } }),
+        responses: { 200: dataResponse("Permisos guardados", ref("Rol")), ...commonErrors },
+      },
+    },
+    "/sedes": {
+      get: {
+        tags: ["Usuarios"],
+        summary: "Sedes activas (para formularios)",
+        security: bearer,
+        responses: { 200: { description: "Sedes" } },
+      },
+    },
+    "/becas/all": {
+      get: {
+        tags: ["Becas"],
+        summary: "Listar becas (administración; el admin de sede solo ve la suya)",
+        security: bearer,
+        parameters: [
+          q("estado", "Uno o varios estados separados por coma (Activa,Suspendida)", "string"),
+          q("anioLectivo", "Ciclo lectivo"),
+          q("programaId", "Filtrar por programa"),
+          q("alumnoId", "Filtrar por alumno"),
+          q("sedeId", "Solo administrador general"),
+        ],
+        responses: { 200: listResponse("Listado de becas", ref("Beca")), 401: commonErrors[401], 403: commonErrors[403], 500: commonErrors[500] },
+      },
+    },
+    "/becas/resumen": {
+      get: {
+        tags: ["Becas"],
+        summary: "Resumen del ciclo: colegiatura, presupuesto usado/disponible y conteo por estado",
+        security: bearer,
+        parameters: [q("anioLectivo", "Ciclo lectivo"), q("sedeId", "Solo administrador general")],
+        responses: { 200: { description: "Resumen" }, 401: commonErrors[401], 403: commonErrors[403] },
+      },
+    },
+    "/becas": {
+      post: {
+        tags: ["Becas"],
+        summary: "Asignar una beca (queda Activa). Valida cupos, promedio, conducta, presupuesto y que no tenga otra beca vigente",
+        security: bearer,
+        requestBody: jsonBody(ref("BecaInput")),
+        responses: {
+          201: dataResponse("Beca asignada", ref("Beca")),
+          400: commonErrors[400],
+          403: commonErrors[403],
+          404: commonErrors[404],
+          409: { description: "No cumple una regla (sin cupos, sin presupuesto, ya tiene beca...)", ...jsonBody(ref("ErrorResponse")) },
+        },
+      },
+    },
+    "/becas/{id}": {
+      get: {
+        tags: ["Becas"],
+        summary: "Obtener beca con su historial",
+        security: bearer,
+        parameters: [idParam("id", "ID de beca")],
+        responses: { 200: dataResponse("Beca", ref("Beca")), ...commonErrors },
+      },
+      put: {
+        tags: ["Becas"],
+        summary: "Modificar porcentaje, fechas u observaciones (queda en el historial)",
+        security: bearer,
+        parameters: [idParam("id", "ID de beca")],
+        requestBody: jsonBody(ref("BecaUpdateInput")),
+        responses: { 200: dataResponse("Beca actualizada", ref("Beca")), ...commonErrors },
+      },
+      delete: {
+        tags: ["Becas"],
+        summary: "Revocar la beca (no se borra)",
+        security: bearer,
+        parameters: [idParam("id", "ID de beca")],
+        requestBody: jsonBody({ type: "object", properties: { motivo: { type: "string" } } }),
+        responses: { 200: messageResponse("Beca revocada"), ...commonErrors },
+      },
+    },
+    "/becas/{id}/estado": {
+      patch: {
+        tags: ["Becas"],
+        summary: "Cambiar estado: aprobar/rechazar solicitud, suspender, reactivar o revocar",
+        description:
+          "Transiciones: Solicitada → Activa | Rechazada; Activa → Suspendida | Revocada | Finalizada; " +
+          "Suspendida → Activa | Revocada. Rechazada, Revocada y Finalizada son definitivas. El motivo es obligatorio y se notifica al encargado.",
+        security: bearer,
+        parameters: [idParam("id", "ID de beca")],
+        requestBody: jsonBody(ref("BecaEstadoInput")),
+        responses: { 200: dataResponse("Estado actualizado", ref("Beca")), ...commonErrors },
+      },
+    },
+    "/becas/{id}/renovar": {
+      post: {
+        tags: ["Becas"],
+        summary: "Renovar la beca para el siguiente ciclo (en el programa con el mismo nombre)",
+        security: bearer,
+        parameters: [idParam("id", "ID de beca")],
+        requestBody: jsonBody({ type: "object", properties: { anioLectivo: { type: "integer" }, programaId: { type: "integer" } } }),
+        responses: { 201: dataResponse("Beca renovada", ref("Beca")), ...commonErrors },
+      },
+    },
+    "/becas/evaluar": {
+      post: {
+        tags: ["Becas"],
+        summary: "Revisar requisitos de las becas activas y suspender las que ya no cumplen (promedio / conducta grave)",
+        security: bearer,
+        requestBody: jsonBody({ type: "object", properties: { anioLectivo: { type: "integer" } } }),
+        responses: { 200: { description: "Resultado de la evaluación" }, 401: commonErrors[401], 403: commonErrors[403] },
+      },
+    },
+    "/becas/programas": {
+      get: {
+        tags: ["Becas"],
+        summary: "Listar programas de beca con cupos usados y disponibles",
+        security: bearer,
+        parameters: [q("anioLectivo", "Ciclo lectivo"), q("sedeId", "Solo administrador general"), q("incluirInactivos", "true para ver también los cerrados", "string")],
+        responses: { 200: listResponse("Programas", ref("ProgramaBeca")), 401: commonErrors[401], 403: commonErrors[403] },
+      },
+      post: {
+        tags: ["Becas"],
+        summary: "Crear programa de beca",
+        security: bearer,
+        requestBody: jsonBody(ref("ProgramaBecaInput")),
+        responses: { 201: dataResponse("Programa creado", ref("ProgramaBeca")), 400: commonErrors[400], 409: { description: "Nombre repetido" } },
+      },
+    },
+    "/becas/programas/{id}": {
+      put: {
+        tags: ["Becas"],
+        summary: "Actualizar programa (los cupos no pueden quedar por debajo de los usados)",
+        security: bearer,
+        parameters: [idParam("id", "ID de programa")],
+        requestBody: jsonBody(ref("ProgramaBecaInput")),
+        responses: { 200: dataResponse("Programa actualizado", ref("ProgramaBeca")), ...commonErrors },
+      },
+    },
+    "/becas/politica": {
+      get: {
+        tags: ["Becas"],
+        summary: "Política de becas de la sede (presupuesto, hermanos, tope)",
+        security: bearer,
+        parameters: [q("anioLectivo", "Ciclo lectivo"), q("sedeId", "Solo administrador general")],
+        responses: { 200: dataResponse("Política", ref("PoliticaBeca")), 401: commonErrors[401], 403: commonErrors[403] },
+      },
+      put: {
+        tags: ["Becas"],
+        summary: "Guardar la política de becas de la sede",
+        security: bearer,
+        requestBody: jsonBody(ref("PoliticaBeca")),
+        responses: { 200: dataResponse("Política guardada", ref("PoliticaBeca")), 400: commonErrors[400], 409: { description: "Presupuesto menor a lo ya usado" } },
+      },
+    },
+    "/becas/mias": {
+      get: {
+        tags: ["Becas"],
+        summary: "Encargado: becas de sus hijos y programas que puede solicitar. Alumno: sus becas",
+        security: bearer,
+        responses: { 200: { description: "Becas del usuario" }, 401: commonErrors[401], 403: commonErrors[403] },
+      },
+    },
+    "/becas/solicitar": {
+      post: {
+        tags: ["Becas"],
+        summary: "Encargado: solicitar una beca para su hijo (queda Solicitada)",
+        security: bearer,
+        requestBody: jsonBody({
+          type: "object",
+          required: ["alumnoId", "programaId", "justificacion"],
+          properties: {
+            alumnoId: { type: "integer" },
+            programaId: { type: "integer" },
+            justificacion: { type: "string", minLength: 20 },
+          },
+        }),
+        responses: { 201: dataResponse("Solicitud enviada", ref("Beca")), 400: commonErrors[400], 403: commonErrors[403], 409: { description: "Ya tiene beca o solicitud, o no hay cupos" } },
+      },
+    },
 
     "/alumnos/all": {
       get: {
         tags: ["Alumnos"],
-        summary: "Listar alumnos",
-        parameters: [q("seccionId", "Filtrar por sección")],
-        responses: { 200: listResponse("Listado de alumnos", ref("Alumno")), 500: commonErrors[500] },
+        summary: "Listar alumnos (personal: su sede; catedrático: sus secciones) con resumen de encargados",
+        security: bearer,
+        parameters: [q("seccionId", "Filtrar por sección"), q("q", "Buscar por nombre", "string")],
+        responses: { 200: listResponse("Listado de alumnos", ref("Alumno")), 401: commonErrors[401], 403: commonErrors[403] },
+      },
+    },
+    "/alumnos/encargados/buscar": {
+      get: {
+        tags: ["Alumnos"],
+        summary: "Buscar personas con cuenta para vincularlas como encargado",
+        security: bearer,
+        parameters: [q("q", "Nombre o correo (mín. 3 letras)", "string")],
+        responses: { 200: { description: "Coincidencias" } },
+      },
+    },
+    "/alumnos/{id}/encargados": {
+      get: {
+        tags: ["Alumnos"],
+        summary: "Encargados del alumno (vigentes, restringidos, anteriores) y bitácora de cambios",
+        security: bearer,
+        parameters: [idParam("id", "ID de alumno")],
+        responses: { 200: listResponse("Vínculos", ref("VinculoEncargado")), ...commonErrors },
+      },
+      post: {
+        tags: ["Alumnos"],
+        summary: "Agregar encargado: vincular una cuenta existente (usuarioId) o crear una nueva (nuevo)",
+        description:
+          "Máximo 4 encargados activos. Siempre debe quedar un contacto principal y un responsable de pagos. " +
+          "Si la persona ya tiene cuenta con otro rol (ej. catedrático) se le agrega el rol Encargado.",
+        security: bearer,
+        parameters: [idParam("id", "ID de alumno")],
+        requestBody: jsonBody({
+          allOf: [
+            ref("VinculoEncargado"),
+            {
+              type: "object",
+              properties: {
+                usuarioId: { type: "integer" },
+                nuevo: { type: "object", properties: { nombres: { type: "string" }, apellidos: { type: "string" }, email: { type: "string" } } },
+              },
+            },
+          ],
+        }),
+        responses: { 201: { description: "Encargado vinculado (incluye passwordTemporal si se creó la cuenta)" }, ...commonErrors, 409: { description: "Regla de vínculos" } },
+      },
+    },
+    "/alumnos/{id}/encargados/{encargadoId}": {
+      put: {
+        tags: ["Alumnos"],
+        summary: "Cambiar permisos, custodia, contacto principal, vigencia o registrar una restricción judicial",
+        security: bearer,
+        parameters: [idParam("id", "ID de alumno"), idParam("encargadoId", "ID del encargado")],
+        requestBody: jsonBody(ref("VinculoEncargado")),
+        responses: { 200: messageResponse("Vínculo actualizado"), ...commonErrors, 409: { description: "Dejaría al alumno sin contacto principal o sin responsable de pagos" } },
+      },
+      delete: {
+        tags: ["Alumnos"],
+        summary: "Quitar encargado (el vínculo se termina y se conserva el historial)",
+        security: bearer,
+        parameters: [idParam("id", "ID de alumno"), idParam("encargadoId", "ID del encargado")],
+        requestBody: jsonBody({ type: "object", required: ["motivo"], properties: { motivo: { type: "string" } } }),
+        responses: { 200: messageResponse("Encargado retirado"), ...commonErrors },
       },
     },
 
@@ -919,7 +1411,7 @@ export const openapiSpec = {
     "/pagos/cotizar/{alumnoId}": {
       get: {
         tags: ["Pagos"],
-        summary: "Cotizar la colegiatura de un mes (aplica beca si tiene)",
+        summary: "Cotizar la colegiatura de un mes (aplica beca activa y descuento por hermanos)",
         security: bearer,
         parameters: [
           idParam("alumnoId", "ID de alumno"),
@@ -969,7 +1461,9 @@ export const openapiSpec = {
           "completar el pago con tarjeta. El pago solo queda 'Pagado' cuando llega el " +
           "webhook de Stripe (`POST /api/pagos/webhook`, fuera de esta documentación porque " +
           "no lleva JWT: Stripe no puede loguearse, se valida con la firma del webhook).\n\n" +
-          "Solo puede pagar el propio alumno, uno de sus encargados, o un administrador.",
+          "Solo puede pagar el propio alumno, uno de sus encargados, o un administrador.\n\n" +
+          "Si la beca (más el descuento por hermanos) cubre el 100%, no se crea sesión de Stripe: " +
+          "el mes queda registrado como 'Exonerado' y `checkoutUrl` es null.",
         security: bearer,
         requestBody: jsonBody(ref("CheckoutInput")),
         responses: {

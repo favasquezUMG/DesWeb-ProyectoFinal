@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import type { AppUser, View } from "./types";
 import { Layout } from "./components/Layout";
-import Login from "./views/Login";
+import Login, { type Screen } from "./views/Login";
+import Home, { type Portal } from "./views/Home";
 import AdminGeneral from "./views/AdminGeneral";
 import AdminSede from "./views/admin-sede";
 import Catedratico from "./views/Catedratico";
 import Alumno from "./views/Alumno";
 import Padre from "./views/Padre";
-import { clearSession, getSession } from "./lib/auth";
+import { buildAppUser, clearSession, getSession, saveSession } from "./lib/auth";
+import { cambiarRol } from "./lib/api";
 
 const DEFAULT_VIEWS: Record<string, View> = {
   "admin-general": "ag-dashboard",
@@ -21,6 +23,8 @@ export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [sede, setSede] = useState<string | undefined>(undefined);
   const [currentView, setCurrentView] = useState<View>("ag-dashboard");
+  // null = se muestra el home público; si no, la pantalla de acceso elegida
+  const [acceso, setAcceso] = useState<{ portal: Portal; screen: Screen } | null>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -37,14 +41,46 @@ export default function App() {
     setCurrentView(DEFAULT_VIEWS[loggedUser.role] as View);
   }
 
+  // Una persona con varios roles (ej. catedrático y padre) cambia de rol sin cerrar sesión
+  async function handleCambiarRol(rolId: number) {
+    try {
+      const result = await cambiarRol(rolId);
+      const nuevo = buildAppUser(result.usuario);
+      saveSession(result.token, nuevo);
+      setUser(nuevo);
+      setSede(nuevo.sede);
+      setCurrentView(DEFAULT_VIEWS[nuevo.role] as View);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "No se pudo cambiar de rol.");
+    }
+  }
+
   function handleLogout() {
     clearSession();
     setUser(null);
     setSede(undefined);
+    setAcceso(null);
   }
 
   if (!user) {
-    return <Login onLogin={handleLogin} />;
+    if (!acceso) {
+      return (
+        <Home
+          onLogin={(portal) => setAcceso({ portal, screen: "login" })}
+          onSolicitud={() => setAcceso({ portal: "estudiante", screen: "solicitud" })}
+          onConsulta={() => setAcceso({ portal: "estudiante", screen: "consulta" })}
+        />
+      );
+    }
+    return (
+      <Login
+        key={`${acceso.portal}-${acceso.screen}`}
+        initialPortal={acceso.portal}
+        initialScreen={acceso.screen}
+        onLogin={handleLogin}
+        onBack={() => setAcceso(null)}
+      />
+    );
   }
 
   function renderView() {
@@ -65,6 +101,7 @@ export default function App() {
       currentView={currentView}
       onNavigate={setCurrentView}
       onLogout={handleLogout}
+      onCambiarRol={handleCambiarRol}
       sede={sede}
     >
       {renderView()}

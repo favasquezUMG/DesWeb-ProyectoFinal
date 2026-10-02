@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { sendMail } from "./mail.service.js";
+import { filtroVinculo } from "./vinculos.service.js";
 
 export interface Destinatario {
     usuarioId: number;
@@ -27,12 +28,21 @@ export const buscarDestinatarios = async (where: Prisma.UsuarioWhereInput): Prom
     return usuarios.map(aDestinatario);
 };
 
-export const encargadosDeAlumno = (alumnoId: number) =>
-    buscarDestinatarios({ encargado: { alumnosEncargado: { some: { alumnoId } } } });
+// Solo los encargados con vinculo vigente que aceptan notificaciones. Con "notas" o "pagos"
+// ademas deben tener permiso de ver esa informacion (ej. un padre sin custodia que paga
+// pero no recibe boletas, o un encargado con restriccion judicial que no recibe nada).
+const vinculoNotificable = (tambien?: "notas" | "pagos"): Prisma.AlumnoEncargadoWhereInput => ({
+    ...filtroVinculo("notificaciones"),
+    ...(tambien === "notas" ? { puedeVerNotas: true } : {}),
+    ...(tambien === "pagos" ? { puedeVerPagos: true } : {}),
+});
+
+export const encargadosDeAlumno = (alumnoId: number, tambien?: "notas" | "pagos") =>
+    buscarDestinatarios({ encargado: { alumnosEncargado: { some: { alumnoId, ...vinculoNotificable(tambien) } } } });
 
 // Encargados de todos los alumnos que cumplan el filtro (por sede, seccion, etc.)
 export const encargadosDeAlumnos = (alumnoWhere: Prisma.AlumnoWhereInput) =>
-    buscarDestinatarios({ encargado: { alumnosEncargado: { some: { alumno: alumnoWhere } } } });
+    buscarDestinatarios({ encargado: { alumnosEncargado: { some: { alumno: alumnoWhere, ...vinculoNotificable() } } } });
 
 // Envia un correo personalizado a cada destinatario (y registra su Notificacion).
 // Es secuencial a proposito: el transporter usa pool y asi no se satura el SMTP.
