@@ -4,6 +4,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { View } from "../types";
 import { SEDES, METRICS_CONSOLIDADOS, MALLA_CNB } from "../data";
 import { Card, MetricCard, SectionHeader, Btn, Badge, TH, TD, EmptyState } from "../components/Ui";
+import UsuariosView from "./admin-sede/Usuarios";
+import RolesView from "./admin-sede/Roles";
 
 function DashboardConsolidado() {
   const trendData = METRICS_CONSOLIDADOS.meses.map((m, i) => ({
@@ -304,6 +306,8 @@ function Reporteria() {
 
 export default function AdminGeneral({ view }: { view: View }) {
   if (view === "ag-sedes") return <SedesView />;
+  if (view === "as-usuarios") return <UsuariosView />;
+  if (view === "as-roles") return <RolesView />;
   if (view === "ag-malla") return <MallaCurricular />;
   if (view === "ag-reporteria") return <Reporteria />;
   return <DashboardConsolidado />;

@@ -9,47 +9,102 @@ datasource db {
 }
 
 model Sede {
-  sedeId    Int       @id @default(autoincrement())
-  nombre    String    @db.VarChar(150)
-  direccion String?   @db.VarChar(255)
-  telefono  String?   @db.VarChar(20)
-  activo    Boolean   @default(true)
-  
+  sedeId    Int     @id @default(autoincrement())
+  nombre    String  @db.VarChar(150)
+  direccion String? @db.VarChar(255)
+  telefono  String? @db.VarChar(20)
+  activo    Boolean @default(true)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  usuarios  Usuario[]
-  secciones Seccion[]
-  eventos   Evento[]
+  usuarios      Usuario[]
+  secciones     Seccion[]
+  eventos       Evento[]
+  comunicados   Comunicado[]
+  programasBeca ProgramaBeca[]
+  politicasBeca PoliticaBeca[]
 }
 
+// Los roles de sistema (los 5 base) no se pueden renombrar ni eliminar porque el codigo
+// depende de su nombre. Los demas son roles del personal creados por el administrador general
+// (ej. "Secretaría", "Contabilidad") y su acceso se define con Permiso.
 model Rol {
-  rolId    Int       @id @default(autoincrement())
-  nombre   String    @unique @db.VarChar(50)
-  usuarios Usuario[]
+  rolId       Int     @id @default(autoincrement())
+  nombre      String  @unique @db.VarChar(50)
+  descripcion String? @db.VarChar(255)
+  esSistema   Boolean @default(false)
+
+  usuarios            Usuario[]
+  usuariosAdicionales UsuarioRol[]
+  permisos            Permiso[]
+}
+
+// Modulo administrativo al que tiene acceso un rol (usuarios, alumnos, becas, pagos...)
+model Permiso {
+  rolId  Int
+  modulo String @db.VarChar(30)
+
+  rol Rol @relation(fields: [rolId], references: [rolId], onDelete: Cascade)
+
+  @@id([rolId, modulo])
+}
+
+// Roles adicionales de un usuario, ademas de su rol principal (Usuario.rolId).
+// Ej.: un catedratico que tambien es padre de un alumno del colegio.
+model UsuarioRol {
+  usuarioId Int
+  rolId     Int
+  createdAt DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [usuarioId])
+  rol     Rol     @relation(fields: [rolId], references: [rolId])
+
+  @@id([usuarioId, rolId])
+}
+
+// Registro de cambios sensibles: roles, permisos, cuentas y vinculos alumno-encargado
+model Bitacora {
+  bitacoraId Int      @id @default(autoincrement())
+  usuarioId  Int? // quien hizo el cambio (null = sistema)
+  accion     String   @db.VarChar(50)
+  entidad    String   @db.VarChar(30) // Usuario, Rol, Alumno
+  entidadId  Int
+  detalle    String   @db.VarChar(1000)
+  fecha      DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [usuarioId])
+
+  @@index([entidad, entidadId])
 }
 
 // *********** verificar que si funcione asi lo de los roles del usuario
 model Usuario {
-  usuarioId    Int       @id @default(autoincrement())
-  nombres      String    @db.VarChar(100)
-  apellidos    String    @db.VarChar(100)
-  email        String    @unique @db.VarChar(150)
-  passwordHash String    @db.VarChar(255)
+  usuarioId    Int    @id @default(autoincrement())
+  nombres      String @db.VarChar(100)
+  apellidos    String @db.VarChar(100)
+  email        String @unique @db.VarChar(150)
+  passwordHash String @db.VarChar(255)
   rolId        Int
   sedeId       Int?
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  rol            Rol            @relation(fields: [rolId], references: [rolId])
-  sede           Sede?          @relation(fields: [sedeId], references: [sedeId])
-  catedratico    Catedratico?
-  encargado      Encargado?
-  alumno         Alumno?
-  notificaciones Notificacion[]
+  rol              Rol               @relation(fields: [rolId], references: [rolId])
+  sede             Sede?             @relation(fields: [sedeId], references: [sedeId])
+  catedratico      Catedratico?
+  encargado        Encargado?
+  alumno           Alumno?
+  notificaciones   Notificacion[]
+  reportesConducta ReporteConducta[]
+  comunicados      Comunicado[]
+  becasSolicitadas Beca[]            @relation("BecaSolicitante")
+  historialBecas   BecaHistorial[]
+  rolesAdicionales UsuarioRol[]
+  bitacora         Bitacora[]
 }
 
 model Catedratico {
@@ -77,18 +132,37 @@ model Alumno {
   usuario Usuario @relation(fields: [alumnoId], references: [usuarioId])
   seccion Seccion @relation(fields: [seccionId], references: [seccionId])
 
-  encargados  AlumnoEncargado[]
-  matriculas  Matricula[]
-  notas       Nota[]
-  asistencias Asistencia[]
-  becas       Beca[]
-  pagos       Pago[]
+  encargados       AlumnoEncargado[]
+  matriculas       Matricula[]
+  notas            Nota[]
+  asistencias      Asistencia[]
+  becas            Beca[]
+  pagos            Pago[]
+  reportesConducta ReporteConducta[]
 }
 
+// Vinculo de un alumno con cada adulto responsable. Un alumno puede tener varios
+// (padres divorciados, abuelos, tutor legal temporal...) y cada vinculo define que puede
+// hacer esa persona. Siempre debe quedar un contacto principal y un responsable de pagos.
 model AlumnoEncargado {
-  alumnoId    Int
-  encargadoId Int
-  esPrincipal Boolean @default(false)
+  alumnoId              Int
+  encargadoId           Int
+  parentesco            String?   @db.VarChar(30)
+  esPrincipal           Boolean   @default(false) // contacto principal del colegio
+  responsableFinanciero Boolean   @default(false) // paga la colegiatura
+  tieneCustodia         Boolean   @default(true)
+  autorizadoRecoger     Boolean   @default(true) // puede retirar al alumno del colegio
+  puedeVerNotas         Boolean   @default(true)
+  puedeVerPagos         Boolean   @default(true)
+  recibeNotificaciones  Boolean   @default(true)
+  restringido           Boolean   @default(false) // orden judicial: sin acceso a nada
+  motivoRestriccion     String?   @db.VarChar(500)
+  vigenteDesde          DateTime  @default(now()) @db.Date
+  vigenteHasta          DateTime? @db.Date // tutor temporal
+  activo                Boolean   @default(true) // false = vinculo terminado (se conserva el historial)
+  observaciones         String?   @db.VarChar(255)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now()) @updatedAt
 
   alumno    Alumno    @relation(fields: [alumnoId], references: [alumnoId])
   encargado Encargado @relation(fields: [encargadoId], references: [encargadoId])
@@ -115,7 +189,6 @@ model Curso {
   cursosSeccion CursoSeccion[]
 }
 
-
 // ********** Solo verificar sobre el nombre para no hacernos bolas
 model MallaCurricular {
   mallaId Int @id @default(autoincrement())
@@ -135,9 +208,9 @@ model Seccion {
   nombre      String @db.VarChar(10)
   anioLectivo Int
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   grado Grado @relation(fields: [gradoId], references: [gradoId])
   sede  Sede  @relation(fields: [sedeId], references: [sedeId])
@@ -239,16 +312,79 @@ model Asistencia {
   @@unique([cursoSeccionId, alumnoId, fecha])
 }
 
-model Beca {
-  becaId      Int       @id @default(autoincrement())
-  alumnoId    Int
-  porcentaje  Decimal   @db.Decimal(5, 2)
-  descripcion String?   @db.VarChar(255)
-  fechaInicio DateTime  @db.Date
-  fechaFin    DateTime? @db.Date
-  activa      Boolean   @default(true)
+// Programa de becas que ofrece una sede en un ciclo lectivo (ej. "Excelencia académica",
+// 50%, 10 cupos). Cada beca asignada pertenece a un programa y consume uno de sus cupos.
+model ProgramaBeca {
+  programaId             Int      @id @default(autoincrement())
+  sedeId                 Int
+  anioLectivo            Int
+  nombre                 String   @db.VarChar(100)
+  tipo                   String   @db.VarChar(20) // Merito, Socioeconomica, Deportiva, Convenio, Otro
+  descripcion            String?  @db.VarChar(255)
+  porcentaje             Decimal  @db.Decimal(5, 2)
+  cupos                  Int? // null = sin limite de cupos
+  promedioMinimo         Decimal? @db.Decimal(5, 2) // promedio requerido para obtenerla y mantenerla
+  pierdePorConductaGrave Boolean  @default(true)
+  permiteSolicitud       Boolean  @default(true) // los encargados pueden solicitarla desde el portal
+  activo                 Boolean  @default(true)
 
-  alumno Alumno @relation(fields: [alumnoId], references: [alumnoId])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sede  Sede   @relation(fields: [sedeId], references: [sedeId])
+  becas Beca[]
+
+  @@unique([sedeId, anioLectivo, nombre])
+}
+
+// Reglas de becas de una sede para un ciclo: presupuesto, descuento por hermanos y tope
+model PoliticaBeca {
+  politicaId         Int      @id @default(autoincrement())
+  sedeId             Int
+  anioLectivo        Int
+  presupuestoMensual Decimal? @db.Decimal(10, 2) // null = sin limite
+  descuentoHermanos  Decimal  @default(0) @db.Decimal(5, 2) // % para el 2do hijo en adelante
+  descuentoMaximo    Decimal  @default(100) @db.Decimal(5, 2) // tope de beca + hermanos
+
+  sede Sede @relation(fields: [sedeId], references: [sedeId])
+
+  @@unique([sedeId, anioLectivo])
+}
+
+// Estados: Solicitada, Activa, Rechazada, Suspendida, Revocada, Finalizada
+model Beca {
+  becaId          Int      @id @default(autoincrement())
+  alumnoId        Int
+  programaId      Int? // null solo en becas registradas antes de existir los programas
+  anioLectivo     Int
+  porcentaje      Decimal  @db.Decimal(5, 2)
+  descripcion     String?  @db.VarChar(255)
+  fechaInicio     DateTime @db.Date
+  fechaFin        DateTime @db.Date
+  estado          String   @default("Activa") @db.VarChar(20)
+  solicitadaPorId Int?
+  createdAt       DateTime @default(now())
+
+  alumno        Alumno          @relation(fields: [alumnoId], references: [alumnoId])
+  programa      ProgramaBeca?   @relation(fields: [programaId], references: [programaId])
+  solicitadaPor Usuario?        @relation("BecaSolicitante", fields: [solicitadaPorId], references: [usuarioId])
+  historial     BecaHistorial[]
+
+  @@index([alumnoId, estado])
+}
+
+// Bitacora de cada cambio de estado de una beca (usuarioId null = cambio automatico del sistema)
+model BecaHistorial {
+  historialId    Int      @id @default(autoincrement())
+  becaId         Int
+  estadoAnterior String?  @db.VarChar(20)
+  estadoNuevo    String   @db.VarChar(20)
+  motivo         String   @db.VarChar(500)
+  usuarioId      Int?
+  fecha          DateTime @default(now())
+
+  beca    Beca     @relation(fields: [becaId], references: [becaId])
+  usuario Usuario? @relation(fields: [usuarioId], references: [usuarioId])
 }
 
 model Pago {
@@ -269,13 +405,14 @@ model Pago {
 }
 
 model Evento {
-  eventoId           Int      @id @default(autoincrement())
-  sedeId             Int?
-  nombre             String   @db.VarChar(150)
-  descripcion        String?  @db.VarChar(255)
-  fecha              DateTime @db.Date
-  tipoEvento         String   @db.VarChar(20)
-  enviarRecordatorio Boolean  @default(true)
+  eventoId              Int       @id @default(autoincrement())
+  sedeId                Int?
+  nombre                String    @db.VarChar(150)
+  descripcion           String?   @db.VarChar(255)
+  fecha                 DateTime  @db.Date
+  tipoEvento            String    @db.VarChar(20)
+  enviarRecordatorio    Boolean   @default(true)
+  recordatorioEnviadoEn DateTime?
 
   sede Sede? @relation(fields: [sedeId], references: [sedeId])
 }
@@ -285,8 +422,42 @@ model Notificacion {
   usuarioId      Int
   titulo         String   @db.VarChar(150)
   mensaje        String   @db.VarChar(500)
+  tipo           String   @default("Aviso") @db.VarChar(20)
   fechaEnvio     DateTime @default(now())
   leida          Boolean  @default(false)
 
   usuario Usuario @relation(fields: [usuarioId], references: [usuarioId])
+}
+
+// Reporte de conducta de un alumno que el encargado debe revisar
+model ReporteConducta {
+  reporteId           Int       @id @default(autoincrement())
+  alumnoId            Int
+  autorId             Int
+  tipo                String    @db.VarChar(20) // Positivo, Leve, Grave
+  titulo              String    @db.VarChar(150)
+  descripcion         String    @db.VarChar(1000)
+  fecha               DateTime  @default(now())
+  revisado            Boolean   @default(false)
+  fechaRevision       DateTime?
+  comentarioEncargado String?   @db.VarChar(500)
+
+  alumno Alumno  @relation(fields: [alumnoId], references: [alumnoId])
+  autor  Usuario @relation(fields: [autorId], references: [usuarioId])
+}
+
+// Comunicado masivo enviado por la administración (el detalle por usuario queda en Notificacion)
+model Comunicado {
+  comunicadoId       Int      @id @default(autoincrement())
+  sedeId             Int?
+  autorId            Int
+  tipo               String   @db.VarChar(20) // Aviso, Sancion, Actividad, Asueto
+  titulo             String   @db.VarChar(150)
+  mensaje            String   @db.VarChar(2000)
+  destinatarios      String   @db.VarChar(150)
+  totalDestinatarios Int      @default(0)
+  fechaEnvio         DateTime @default(now())
+
+  sede  Sede?   @relation(fields: [sedeId], references: [sedeId])
+  autor Usuario @relation(fields: [autorId], references: [usuarioId])
 }
