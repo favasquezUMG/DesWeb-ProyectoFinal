@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, Download, Printer } from "lucide-react";
 import { Stepper, Input, Select, Textarea, Btn, AlertBanner } from "./Ui";
 import { MALLA_CNB } from "../data";
@@ -10,6 +10,7 @@ import {
   formatearFecha,
 } from "../lib/solicitudes";
 import { generarConstanciaPdf, etiquetaGradoSolicitud } from "../lib/constanciaPdf";
+import axios from "axios";
 
 export type SolicitudInscripcionModo = "publico" | "presencial";
 
@@ -18,6 +19,8 @@ interface SolicitudInscripcionProps {
   onFinalizar?: () => void;
   onCancelar?: () => void;
 }
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const STEPS = ["Encargado", "Alumno", "Documentos", "Confirmación"];
 
@@ -75,6 +78,11 @@ interface DatosAlumno {
   carrera: string; // usado cuando nivelId es "div"
   anio: string; // usado cuando nivelId es "div" (Cuarto/Quinto/Sexto)
   sede: string;
+}
+
+interface SedeItem {
+  sedeId: number;
+  nombre: string;
 }
 
 function calcularEdad(fechaISO: string): number | null {
@@ -221,6 +229,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   const [numeroSolicitud] = useState(generarNumeroSolicitud);
   const [fechaLimite] = useState(calcularFechaLimite);
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudGuardada | null>(null);
+  const [cargandoEmail, setCargandoEmail] = useState(false);
+  const [sedes, setSedes] = useState<SedeItem[]>([])
 
   const [encargado, setEncargado] = useState<DatosEncargado>({
     nombres: "", apellidos: "", dpi: "", telefono: "", correo: "", parentesco: "",
@@ -264,11 +274,39 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
     setErrorDocumentos("");
   }
 
-  function irSiguiente() {
+  async function irSiguiente() {
     if (step === 0) {
+
+      //Validacion de campos vacios, formato correo, DPI
       const errores = validarEncargado(encargado);
       setErroresEncargado(errores);
       if (Object.values(errores).some(Boolean)) return;
+
+      //Validacion de que no exista el correo ya en la DB
+      setCargandoEmail(true);
+      try{
+        const response = await axios.get(`${API_URL}/api/usuarios/verificar-email`, {
+          params: { email: encargado.correo.trim()}
+        })
+        
+        if(response.data.exists){
+          setErroresEncargado((prev) => ({
+            ...prev,
+            correo: "Este correo ya esta registrado en nuestro sistema."
+          }));
+          setCargandoEmail(false);
+          return;
+        }
+      } catch (error) {
+        setErroresEncargado((prev) => ({
+          ...prev,
+          correo: "No se pudo verificar disponibilidad del correo. Intente de nuevo."
+        }));
+        setCargandoEmail(false);
+        console.error()
+        return;
+      }
+      setCargandoEmail(false)
     } else if (step === 1) {
       const errores = validarAlumno(alumno);
       setErroresAlumno(errores);
@@ -313,6 +351,23 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   function irAnterior() {
     setStep((s) => Math.max(s - 1, 0));
   }
+
+  useEffect(() => {
+    async function cargarSedes() {
+      try{
+        const response = await axios.get(`${API_URL}/api/sedes`);
+        if(response.data?.status === 'success' && Array.isArray(response.data.data)) {
+          setSedes(response.data.data);
+        } else if(Array.isArray(response.data)){
+          setSedes(response.data);
+        }
+      } catch (error) {
+        console.error("Error al cargar datos desde el backend:", error)
+      }
+    }
+    cargarSedes();
+
+  }, [])
 
   const fechaLimiteTexto = formatearFecha(fechaLimite);
 
@@ -362,7 +417,11 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           <Input label="Fecha de nacimiento" type="date" value={alumno.fechaNacimiento} onChange={(e) => actualizarAlumno("fechaNacimiento", e.target.value)} error={erroresAlumno.fechaNacimiento} />
           <Select label="Sede" value={alumno.sede} onChange={(e) => actualizarAlumno("sede", e.target.value)} error={erroresAlumno.sede}>
             <option value="">Seleccione…</option>
-            {SEDES_DISPONIBLES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {sedes.map((s) => (
+              <option key={s.sedeId} value={s.nombre}>
+                {s.nombre}
+              </option>
+            ))}
           </Select>
 
           <Select label="Nivel educativo" value={alumno.nivelId} onChange={(e) => cambiarNivel(e.target.value)} error={erroresAlumno.nivelId}>
@@ -493,8 +552,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           ) : (
             <Btn variant="outline" size="md" onClick={irAnterior}>Anterior</Btn>
           )}
-          <Btn variant="primary" size="md" onClick={irSiguiente}>
-            {step === 2 ? "Enviar solicitud" : "Siguiente"}
+          <Btn variant="primary" size="md" onClick={irSiguiente} disabled={cargandoEmail}>
+            { cargandoEmail ? "Verificando..." : step === 2 ? "Enviar solicitud" : "Siguiente"}
           </Btn>
         </div>
       )}
