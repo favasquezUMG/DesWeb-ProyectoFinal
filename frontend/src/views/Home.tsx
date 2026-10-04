@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen, GraduationCap, Users2, ShieldCheck, MapPin, Phone, Mail, Clock,
   Award, Heart, Lightbulb, Menu, X, ArrowRight, FileSearch, ClipboardEdit, School,
 } from "lucide-react";
 import { Btn, Card, Badge } from "../components/Ui";
+import { getInfoInicio, type InfoInicioDto } from "../lib/api";
 
 export type Portal = "estudiante" | "personal";
 
@@ -27,42 +28,42 @@ const VALORES = [
   { Icon: Lightbulb, titulo: "Innovación", texto: "Tecnología al servicio del aprendizaje y de la comunicación con las familias." },
 ];
 
-const NIVELES = [
-  {
-    nivel: "Primaria",
-    grados: "Primero a Sexto",
-    texto: "Bases sólidas en lectura, matemática y ciencias, con grupos reducidos y acompañamiento personalizado.",
-  },
-  {
-    nivel: "Básico",
-    grados: "Primero a Tercero",
-    texto: "Desarrollo del pensamiento crítico, trabajo en equipo y orientación vocacional temprana.",
-  },
-  {
-    nivel: "Diversificado",
-    grados: "Bachillerato en Ciencias y Letras",
-    texto: "Preparación universitaria, proyectos de investigación y prácticas con enfoque profesional.",
-  },
-];
+// Textos descriptivos por nivel; los niveles y grados vienen de la base de datos
+const DESCRIPCION_NIVEL: Record<string, string> = {
+  Primaria: "Bases sólidas en lectura, matemática y ciencias, con grupos reducidos y acompañamiento personalizado.",
+  "Básico": "Desarrollo del pensamiento crítico, trabajo en equipo y orientación vocacional temprana.",
+  Diversificado: "Preparación universitaria, proyectos de investigación y prácticas con enfoque profesional.",
+};
 
-const SEDES = [
-  { nombre: "Sede Central", direccion: "Zona 1, Ciudad de Guatemala", telefono: "2255-0001" },
-  { nombre: "Sede Norte", direccion: "Zona 18, Ciudad de Guatemala", telefono: "2255-0002" },
-  { nombre: "Sede Sur", direccion: "Villa Nueva, Guatemala", telefono: "2255-0003" },
-  { nombre: "Sede Mixco", direccion: "Zona 4 de Mixco, Guatemala", telefono: "2255-0004" },
-  { nombre: "Sede Antigua", direccion: "Antigua Guatemala, Sacatepéquez", telefono: "7832-0005" },
-  { nombre: "Sede Quetzaltenango", direccion: "Zona 3, Quetzaltenango", telefono: "7761-0006" },
-];
+function formatearTelefono(telefono: string | null): string | null {
+  if (!telefono) return null;
+  return /^\d{8}$/.test(telefono) ? `${telefono.slice(0, 4)}-${telefono.slice(4)}` : telefono;
+}
 
-const CIFRAS = [
-  { valor: "10", label: "Sedes en el país" },
-  { valor: "+25", label: "Años de trayectoria" },
-  { valor: "3", label: "Niveles educativos" },
-  { valor: "100%", label: "Gestión en línea" },
-];
+function rangoGrados(grados: string[]): string {
+  if (grados.length <= 1) return grados[0] ?? "";
+  return `${grados[0]} a ${grados[grados.length - 1]}`;
+}
 
 export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [info, setInfo] = useState<InfoInicioDto | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getInfoInicio()
+      .then(setInfo)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setCargando(false));
+  }, []);
+
+  const sedes = info?.sedes ?? [];
+  const niveles = info?.niveles ?? [];
+  const rangoNiveles = niveles.length > 1
+    ? `de ${niveles[0].nivel} a ${niveles[niveles.length - 1].nivel}`
+    : niveles.length === 1 ? `de ${niveles[0].nivel}` : "";
+  const telefonoContacto = formatearTelefono(sedes.find(s => s.telefono)?.telefono ?? null);
 
   return (
     <div className="min-h-screen bg-sand-100">
@@ -109,7 +110,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
               Formamos a los líderes del mañana
             </h1>
             <p className="text-primary-200 mt-5 text-base sm:text-lg leading-relaxed max-w-xl">
-              Colegio Vanguardia ofrece educación de Primaria a Diversificado en sedes de todo el país,
+              Colegio Vanguardia ofrece educación {rangoNiveles} en sedes de todo el país,
               con un sistema académico en línea que mantiene a alumnos, familias y docentes conectados.
             </p>
             <div className="flex flex-wrap gap-3 mt-8">
@@ -141,18 +142,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
               </div>
             </Card>
           </div>
-        </div>
-      </section>
-
-      {/* Cifras */}
-      <section className="bg-white border-b border-stone-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {CIFRAS.map(c => (
-            <div key={c.label} className="text-center">
-              <p className="font-display text-3xl sm:text-4xl font-semibold text-primary-700">{c.valor}</p>
-              <p className="text-xs sm:text-sm text-stone-500 mt-1">{c.label}</p>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -197,13 +186,16 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
       <section id="niveles" className="scroll-mt-16 bg-white border-y border-stone-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
           <SectionTitle eyebrow="Oferta educativa" titulo="Niveles que impartimos" />
+          <EstadoCarga cargando={cargando} error={error} vacio={!!info && niveles.length === 0} textoVacio="Aún no hay niveles registrados." />
           <div className="grid md:grid-cols-3 gap-6 mt-8">
-            {NIVELES.map((n, i) => (
+            {niveles.map((n, i) => (
               <Card key={n.nivel} className="p-6 flex flex-col">
-                <span className="font-mono-data text-xs text-stone-400">0{i + 1}</span>
+                <span className="font-mono-data text-xs text-stone-400">{String(i + 1).padStart(2, "0")}</span>
                 <h3 className="font-display text-2xl font-semibold text-primary-700 mt-1">{n.nivel}</h3>
-                <Badge variant="primary" className="self-start mt-2">{n.grados}</Badge>
-                <p className="text-sm text-stone-600 leading-relaxed mt-4">{n.texto}</p>
+                <Badge variant="primary" className="self-start mt-2">{rangoGrados(n.grados)}</Badge>
+                <p className="text-sm text-stone-600 leading-relaxed mt-4">
+                  {DESCRIPCION_NIVEL[n.nivel] ?? `${n.grados.length} ${n.grados.length === 1 ? "grado" : "grados"}: ${n.grados.join(", ")}.`}
+                </p>
               </Card>
             ))}
           </div>
@@ -213,21 +205,21 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
       {/* Sedes */}
       <section id="sedes" className="scroll-mt-16 max-w-6xl mx-auto px-4 sm:px-6 py-16">
         <SectionTitle eyebrow="Presencia nacional" titulo="Nuestras sedes" />
+        <EstadoCarga cargando={cargando} error={error} vacio={!!info && sedes.length === 0} textoVacio="Aún no hay sedes registradas." />
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-          {SEDES.map(s => (
-            <Card key={s.nombre} className="p-5">
+          {sedes.map(s => (
+            <Card key={s.sedeId} className="p-5">
               <div className="flex items-start gap-3">
                 <span className="p-2 rounded-lg bg-primary-50 text-primary-700 shrink-0"><School className="w-4 h-4" /></span>
                 <div className="min-w-0">
                   <p className="font-semibold text-stone-900">{s.nombre}</p>
-                  <p className="text-sm text-stone-500 flex items-center gap-1.5 mt-1"><MapPin className="w-3.5 h-3.5 shrink-0" />{s.direccion}</p>
-                  <p className="text-sm text-stone-500 flex items-center gap-1.5 mt-0.5 font-mono-data"><Phone className="w-3.5 h-3.5 shrink-0" />{s.telefono}</p>
+                  {s.direccion && <p className="text-sm text-stone-500 flex items-center gap-1.5 mt-1"><MapPin className="w-3.5 h-3.5 shrink-0" />{s.direccion}</p>}
+                  {s.telefono && <p className="text-sm text-stone-500 flex items-center gap-1.5 mt-0.5 font-mono-data"><Phone className="w-3.5 h-3.5 shrink-0" />{formatearTelefono(s.telefono)}</p>}
                 </div>
               </div>
             </Card>
           ))}
         </div>
-        <p className="text-sm text-stone-500 mt-4">Y además en Escuintla, Cobán, Huehuetenango y Petén.</p>
       </section>
 
       {/* Admisiones */}
@@ -268,7 +260,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
       <section id="contacto" className="scroll-mt-16 max-w-6xl mx-auto px-4 sm:px-6 py-16">
         <SectionTitle eyebrow="Contacto" titulo="Estamos para servirle" />
         <div className="grid sm:grid-cols-3 gap-4 mt-8">
-          <ContactItem Icon={Phone} titulo="Teléfono" texto="2255-0001" />
+          {telefonoContacto && <ContactItem Icon={Phone} titulo="Teléfono" texto={telefonoContacto} />}
           <ContactItem Icon={Mail} titulo="Correo" texto="info@colegiovanguardia.edu.gt" />
           <ContactItem Icon={Clock} titulo="Horario de atención" texto="Lunes a viernes, 7:00 – 15:00" />
         </div>
@@ -297,6 +289,13 @@ function SectionTitle({ eyebrow, titulo }: { eyebrow: string; titulo: string }) 
       <h2 className="font-display text-3xl font-semibold text-stone-900 mt-1">{titulo}</h2>
     </div>
   );
+}
+
+function EstadoCarga({ cargando, error, vacio, textoVacio }: { cargando: boolean; error: string | null; vacio: boolean; textoVacio: string }) {
+  if (cargando) return <p className="text-sm text-stone-400 mt-8">Cargando…</p>;
+  if (error) return <p className="text-sm text-red-600 mt-8">{error}</p>;
+  if (vacio) return <p className="text-sm text-stone-500 mt-8">{textoVacio}</p>;
+  return null;
 }
 
 function PortalButton({ Icon, titulo, texto, onClick }: { Icon: typeof GraduationCap; titulo: string; texto: string; onClick: () => void }) {
