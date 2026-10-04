@@ -690,3 +690,15 @@ export async function getSedes(): Promise<SedeDto[]> {
   const body = await request<{ status: "success"; data: SedeDto[] }>("/api/sedes");
   return body.data;
 }
+
+// ---------- Página principal (pública) ----------
+
+export interface InfoInicioDto {
+  sedes: { sedeId: number; nombre: string; direccion: string | null; telefono: string | null }[];
+  niveles: { nivel: string; grados: string[] }[];
+}
+
+export async function getInfoInicio(): Promise<InfoInicioDto> {
+  const body = await request<{ status: "success"; data: InfoInicioDto }>("/api/publico/inicio");
+  return body.data;
+}
