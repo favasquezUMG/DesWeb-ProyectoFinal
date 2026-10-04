@@ -359,3 +359,29 @@ export const deleteUserById = async (req: AuthenticatedRequest, res: Response) =
     req.body = { activo: false, motivo: req.body?.motivo || 'Baja desde la administración' };
     return cambiarEstadoUsuario(req, res);
 };
+
+export const verificarEmailExistente = async (req: AuthenticatedRequest, res: Response) => {
+    const { email } = req.query;
+
+    if (!email || typeof email !== 'string') {
+        return res.status(400).json({ status: "Error", message: "El email es requerido"})
+    }
+
+    try{
+        const usr = await prisma.usuario.findUnique({
+            where: { 
+                email: email.trim().toLowerCase(),
+                deletedAt: null
+            },
+            select: {
+                usuarioId: true
+            }
+        })
+
+        console.log("»USER-CTRL: Verificacion de correo exitosa")
+        return res.json({ status: "success", exists: Boolean(usr) })
+    } catch (error) {
+        console.log("»USER-CTRL: Verificacion de correo fallida")
+        return res.status(500).json({ status: "Error", message: "No se pudo corroborar si existe el correo", error})
+    }
+}
