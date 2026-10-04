@@ -6,12 +6,15 @@ import {
     updateUser,
     setRolesAdicionales,
     cambiarEstadoUsuario,
-    deleteUserById
+    deleteUserById,
+    verificarEmailExistente
 } from '../controllers/user.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir } from "../middlewares/role.middleware.js";
 
 const router = Router();
+
+router.get('/verificar-email', verificarEmailExistente);
 
 router.use(authenticateToken, permitir('usuarios'))
 
