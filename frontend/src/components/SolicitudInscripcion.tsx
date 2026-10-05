@@ -24,8 +24,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const STEPS = ["Encargado", "Alumno", "Documentos", "Confirmación"];
 
-const SEDES_DISPONIBLES = ["Sede Central", "Sede Xela", "Sede Coatepeque"];
-
 const PARENTESCOS = ["Madre", "Padre", "Tutor Legal", "Otro"];
 
 const DOCUMENTOS_REQUERIDOS = [
@@ -342,8 +340,16 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         fechaSolicitud: new Date().toISOString(),
         fechaLimite: fechaLimite.toISOString(),
       };
-      guardarSolicitud(registro);
-      setSolicitudGuardada(registro);
+
+      try{
+        await guardarSolicitud(registro);
+        setSolicitudGuardada(registro);
+        setStep((s) => Math.min(s+1, STEPS.length - 1))
+        return;
+      } catch (error) {
+        console.error("Error al guardar la solicitud:", error);
+        setErrorDocumentos("Ocurrió un error al guardar la solicitud en el servidor. Vuelva a intentar.")
+      }
     }
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
