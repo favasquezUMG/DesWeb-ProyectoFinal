@@ -27,6 +27,7 @@ import reporteRoutes from "./routes/reporte.routes.js";
 import conductaRoutes from "./routes/conducta.routes.js";
 import notificacionRoutes from "./routes/notificacion.routes.js";
 import publicoRoutes from "./routes/publico.routes.js";
+import solicitudRoutes from "./routes/solicitud.routes.js";
 import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
@@ -111,6 +112,7 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/conducta', conductaRoutes);
 app.use('/api/notificaciones', notificacionRoutes);
 app.use('/api/publico', publicoRoutes);
+app.use('/api/solicitudes', solicitudRoutes);
 
 app.listen(PORT, async () => {
   try {
