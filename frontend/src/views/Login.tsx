@@ -42,11 +42,11 @@ const PORTALES: { id: Portal; label: string; Icon: typeof GraduationCap; titulo:
 const TABS_CONSULTA = ["Por número de solicitud", "Por DPI y correo"];
 
 const BADGE_POR_ESTADO: Record<EstadoSolicitud, { variant: "info" | "warning" | "success" | "danger" | "neutral" }> = {
-  "En revisión": { variant: "info" },
-  "Documentos pendientes": { variant: "warning" },
-  "Aprobada": { variant: "success" },
-  "Rechazada": { variant: "danger" },
-  "Vencida": { variant: "neutral" },
+  "REVISION": { variant: "info" },
+  "PENDIENTE": { variant: "warning" },
+  "APROBADA": { variant: "success" },
+  "RECHAZADA": { variant: "danger" },
+  "VENCIDA": { variant: "neutral" },
 };
 
 interface LoginProps {
@@ -68,7 +68,7 @@ function validarEmail(value: string): string {
 
 function validarPassword(value: string): string {
   if (!value) return "La contraseña es obligatoria.";
-  if (value.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
+  //if (value.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
   return "";
 }
 
@@ -176,7 +176,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     setConsultaResultado(null);
   }
 
-  function handleConsultar(e: React.FormEvent) {
+  async function handleConsultar(e: React.FormEvent) {
     e.preventDefault();
     setConsultaError("");
     setConsultaResultado(null);
@@ -187,7 +187,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
         setConsultaError("Ingrese el número de solicitud.");
         return;
       }
-      encontrada = buscarPorNumero(consultaNumero);
+      encontrada = await buscarPorNumero(consultaNumero);
     } else {
       if (!/^\d{13}$/.test(consultaDpi.trim())) {
         setConsultaError("El DPI debe tener 13 dígitos.");
@@ -198,7 +198,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
         setConsultaError(correoErr);
         return;
       }
-      encontrada = buscarPorDpiCorreo(consultaDpi, consultaCorreo);
+      encontrada = await buscarPorDpiCorreo(consultaDpi, consultaCorreo);
     }
 
     if (!encontrada) {
@@ -472,15 +472,15 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                         <Badge variant={cfg.variant}>{estado}</Badge>
                       </div>
 
-                      {estado === "Aprobada" && (
+                      {estado === "APROBADA" && (
                         <AlertBanner type="success" title="Solicitud aprobada"
                           message={`Sus credenciales de acceso fueron enviadas a ${consultaResultado.encargado.correo}.`} />
                       )}
-                      {(estado === "Rechazada" || estado === "Vencida") && (
-                        <AlertBanner type="error" title={estado === "Vencida" ? "Solicitud vencida" : "Solicitud rechazada"}
+                      {(estado === "RECHAZADA" || estado === "VENCIDA") && (
+                        <AlertBanner type="error" title={estado === "VENCIDA" ? "Solicitud vencida" : "Solicitud rechazada"}
                           message={motivo ?? ""} />
                       )}
-                      {(estado === "En revisión" || estado === "Documentos pendientes") && (
+                      {(estado === "REVISION" || estado === "PENDIENTE") && (
                         <AlertBanner type="info" title="Su solicitud sigue en proceso"
                           message={`Le avisaremos por correo a ${consultaResultado.encargado.correo} en cuanto haya una resolución (hasta 5 días hábiles).`} />
                       )}

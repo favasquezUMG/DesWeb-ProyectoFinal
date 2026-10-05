@@ -1,4 +1,11 @@
-export type EstadoSolicitud = "En revisión" | "Documentos pendientes" | "Aprobada" | "Rechazada" | "Vencida";
+import axios from "axios";
+
+export type EstadoSolicitud = 
+  | "PENDIENTE" 
+  | "REVISION" 
+  | "APROBADA" 
+  | "RECHAZADA" 
+  | "VENCIDA";
 
 export interface DatosEncargadoSolicitud {
   nombres: string;
@@ -21,8 +28,10 @@ export interface DatosAlumnoSolicitud {
 }
 
 export interface SolicitudGuardada {
+  solicitudId?: number;
   numero: string;
   modo: "publico" | "presencial";
+  estado?: EstadoSolicitud;
   encargado: DatosEncargadoSolicitud;
   alumno: DatosAlumnoSolicitud;
   documentos: string[];
@@ -31,41 +40,95 @@ export interface SolicitudGuardada {
   fechaLimite: string; // ISO
 }
 
-const STORAGE_KEY = "dercas.solicitudes";
+export interface EstadoResuelto {
+  estado: EstadoSolicitud;
+  motivo?: string;
+}
 
-function leerTodas(): SolicitudGuardada[] {
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
+
+export async function guardarSolicitud(solicitud: SolicitudGuardada): Promise<SolicitudGuardada> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+    const response = await axios.post(`${API_URL}/api/solicitudes`, solicitud);
+    return response.data.data;
+  } catch (error){
+    return solicitud;
   }
 }
 
-export function guardarSolicitud(solicitud: SolicitudGuardada): void {
-  try {
-    const todas = leerTodas();
-    todas.push(solicitud);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todas));
-  } catch {
+export async function buscarPorNumero(numero: string): Promise<SolicitudGuardada | null> {
+  try{
+    const response = await axios.get(`${API_URL}/api/solicitudes/numero`, {
+      params: {
+        numero: numero.trim()
+      }
+    })
+    return normalizarSolicitud(response.data.data)
+  } catch (error) {
+    return null;
   }
 }
 
-export function buscarPorNumero(numero: string): SolicitudGuardada | null {
-  const buscado = numero.trim().toLowerCase();
-  return leerTodas().find((s) => s.numero.toLowerCase() === buscado) ?? null;
+export async function buscarPorDpiCorreo(dpi: string, correo: string): Promise<SolicitudGuardada | null> {
+  try{
+    const response = await axios.get(`${API_URL}/api/solicitudes/dpi-correo`, {
+      params: {
+        dpi: dpi.trim(),
+        correo: correo.trim().toLocaleLowerCase()
+      }
+    });
+    return normalizarSolicitud(response.data.data)
+  } catch (error) {
+    return null;
+  }
 }
 
-export function buscarPorDpiCorreo(dpi: string, correo: string): SolicitudGuardada | null {
-  const dpiBuscado = dpi.trim();
-  const correoBuscado = correo.trim().toLowerCase();
-  return (
-    leerTodas().find(
-      (s) => s.encargado.dpi === dpiBuscado && s.encargado.correo.toLowerCase() === correoBuscado
-    ) ?? null
-  );
+export function resolverEstado(solicitud: SolicitudGuardada): EstadoResuelto {
+  const estadoBase = solicitud.estado || "PENDIENTE";
+
+  if(estadoBase === 'APROBADA') return { estado: "APROBADA" };
+  if(estadoBase === 'RECHAZADA') {
+    return {
+      estado: "RECHAZADA",
+      motivo: "La solicitud no cumple con los requisitos mínimos o no hay cupo disponible."
+    };
+  }
+
+  const fechaLimite = new Date(solicitud.fechaLimite);
+  const estaVencida = new Date() > fechaLimite;
+
+  if(estaVencida || estadoBase === 'VENCIDA'){
+    return {
+      estado: "VENCIDA",
+      motivo: "El plazo para entregar los documentos en ventanilla venció sin recibir la papelería completa. Debe iniciar un nuevo proceso."
+    };
+  }
+  
+  return { estado: estadoBase}
+}
+
+export async function actualizarEstadoSolicitud(
+  solicitudId: number,
+  nuevoEstado: EstadoSolicitud,
+  observaciones?: string,
+  token?: string
+): Promise<SolicitudGuardada | null> {
+  try{
+    const response = await axios.patch(
+      `${API_URL}/api/solicitudes/${solicitudId}/estado`,
+      {
+        estado: nuevoEstado,
+        observaciones
+      },
+      {
+        headers: token ? {Authorization: `Bearer ${token}` } : {}
+      }
+    );
+
+    return response.data.data;
+  } catch(error) {
+    return null
+  }
 }
 
 export function generarNumeroSolicitud(): string {
@@ -85,41 +148,38 @@ export function formatearFecha(fecha: string | Date): string {
   return d.toLocaleDateString("es-GT", { day: "numeric", month: "long", year: "numeric" });
 }
 
-export interface EstadoResuelto {
-  estado: EstadoSolicitud;
-  motivo?: string;
-}
+function normalizarSolicitud(soliBD: any): SolicitudGuardada {
+  if (!soliBD) return soliBD;
+  
+  // Si ya viene anidado, lo retorna tal cual
+  if (soliBD.encargado?.correo) return soliBD;
 
-const MOTIVOS_RECHAZO = [
-  "La documentación entregada no coincide con los datos registrados en la solicitud.",
-  "No hay cupo disponible en el grado y la sede solicitados.",
-  "La edad del alumno no corresponde al grado solicitado.",
-];
-
-function hashTexto(texto: string): number {
-  let hash = 0;
-  for (let i = 0; i < texto.length; i++) {
-    hash = (hash * 31 + texto.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-export function resolverEstado(solicitud: SolicitudGuardada): EstadoResuelto {
-  const hash = hashTexto(solicitud.numero);
-  const base = hash % 4; // 0: en revisión, 1: documentos pendientes, 2: aprobada, 3: rechazada
-
-  if (base === 2) return { estado: "Aprobada" };
-  if (base === 3) {
-    return { estado: "Rechazada", motivo: MOTIVOS_RECHAZO[hash % MOTIVOS_RECHAZO.length] };
-  }
-
-  const vencida = new Date() > new Date(solicitud.fechaLimite);
-  if (vencida) {
-    return {
-      estado: "Vencida",
-      motivo: "El plazo para entregar los documentos venció sin recibir la documentación completa. Debe iniciar una nueva solicitud.",
-    };
-  }
-
-  return { estado: base === 0 ? "En revisión" : "Documentos pendientes" };
+  return {
+    solicitudId: soliBD.solicitudId,
+    numero: soliBD.numero,
+    modo: soliBD.modo === "PUBLICO" ? "publico" : "presencial",
+    estado: soliBD.estado,
+    encargado: {
+      nombres: soliBD.encargadoNombres || "",
+      apellidos: soliBD.encargadoApellidos || "",
+      dpi: soliBD.encargadoDpi || "",
+      telefono: soliBD.encargadoTelefono || "",
+      correo: soliBD.encargadoCorreo || "",
+      parentesco: soliBD.encargadoParentesco || "",
+    },
+    alumno: {
+      nombres: soliBD.alumnoNombres || "",
+      apellidos: soliBD.alumnoApellidos || "",
+      fechaNacimiento: soliBD.alumnoFechaNacimiento || "",
+      nivel: soliBD.alumnoNivel || "",
+      carrera: soliBD.alumnoCarrera || undefined,
+      anio: soliBD.alumnoAnio || undefined,
+      grado: soliBD.alumnoGrado || undefined,
+      sede: soliBD.sede?.nombre || "",
+    },
+    documentos: soliBD.documentos || [],
+    observaciones: soliBD.observaciones || undefined,
+    fechaSolicitud: soliBD.fechaSolicitud,
+    fechaLimite: soliBD.fechaLimite,
+  };
 }
