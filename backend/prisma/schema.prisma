@@ -25,6 +25,7 @@ model Sede {
   comunicados   Comunicado[]
   programasBeca ProgramaBeca[]
   politicasBeca PoliticaBeca[]
+  solicitudes Solicitud[]
 }
 
 // Los roles de sistema (los 5 base) no se pueden renombrar ni eliminar porque el codigo
@@ -460,4 +461,54 @@ model Comunicado {
 
   sede  Sede?   @relation(fields: [sedeId], references: [sedeId])
   autor Usuario @relation(fields: [autorId], references: [usuarioId])
+}
+
+enum ModoInscripcion {
+  PUBLICO
+  PRESENCIAL
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  REVISION
+  APROBADA
+  RECHAZADA
+  VENCIDA
+}
+
+model Solicitud {
+  solicitudId     Int             @id @default(autoincrement())
+  numero          String          @unique
+  modo            ModoInscripcion
+  estado          EstadoSolicitud @default(PENDIENTE)
+  
+  // Datos Encargado
+  encargadoNombres    String
+  encargadoApellidos  String
+  encargadoDpi        String
+  encargadoTelefono   String
+  encargadoCorreo     String
+  encargadoParentesco String
+
+  // Datos Alumno
+  alumnoNombres         String
+  alumnoApellidos       String
+  alumnoFechaNacimiento DateTime
+  alumnoNivel           String
+  alumnoCarrera         String?
+  alumnoAnio            String?
+  alumnoGrado           String?
+  
+  // Sede
+  sedeId          Int?
+  sede            Sede?           @relation(fields: [sedeId], references: [sedeId])
+
+  // Metadatos
+  documentos      String[]
+  observaciones   String?
+  fechaSolicitud  DateTime        @default(now())
+  fechaLimite     DateTime
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
