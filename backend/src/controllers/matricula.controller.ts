@@ -153,7 +153,7 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
         }
 
         // Un encargado solo puede matricular a los alumnos a su cargo
-        const esEncargadoLogueado = Number(req.user?.id) === Number(encargadoId);
+        const esEncargadoLogueado = Number(req.user?.usuarioId) === Number(encargadoId);
         if (!esEncargadoLogueado && !(await puedeOperarSede(req, seccion.sedeId))) {
             return res.status(403).json({
                 status: 'error',

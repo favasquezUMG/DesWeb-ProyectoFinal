@@ -1,0 +1,183 @@
+===============================================================================
+  PASARELA DE PAGOS DE COLEGIATURA (STRIPE)
+  Proyecto Final - Desarrollo Web - UMG
+  Responsable del módulo: Rolando
+===============================================================================
+
+
+1. DESCRIPCIÓN GENERAL
+-------------------------------------------------------------------------------
+El módulo permite que el padre o encargado de un alumno consulte el estado de
+cuenta de sus hijos y pague la colegiatura mensual con tarjeta de crédito o
+débito, sin salir de la página del colegio.
+
+Se usa Stripe en MODO DE PRUEBA (llaves pk_test / sk_test): no se mueve dinero
+real y solo se aceptan las tarjetas de prueba de Stripe.
+
+  - Moneda: quetzales (GTQ)
+  - Colegiatura mensual base: Q500.00
+  - Ciclo escolar: enero a octubre (10 meses)
+  - Si el alumno tiene una beca activa, el descuento se aplica automáticamente
+    mes por mes (por ejemplo, con 40% de beca paga Q300.00).
+  - Con beca del 100% no se cobra nada: el mes aparece como becado y no
+    permite pagar.
+
+
+2. FLUJO DEL PAGO
+-------------------------------------------------------------------------------
+  1) El encargado inicia sesión y entra a la sección "Pagos".
+  2) El sistema carga sus hijos y el estado de cuenta del año: qué meses están
+     pagados, pendientes o en proceso, y cuánto le toca pagar en cada uno.
+  3) El encargado elige un mes pendiente y presiona "Pagar".
+  4) El backend calcula el monto final (con beca aplicada) y crea un
+     PaymentIntent en Stripe. El pago queda registrado como "Pendiente".
+  5) Se abre un formulario de tarjeta (Stripe Elements) dentro de nuestra
+     propia página, sin redirigir al usuario a Stripe.
+  6) Stripe procesa la tarjeta (incluida la verificación 3D Secure si el
+     banco la pide).
+  7) El pago se marca como "Pagado" en la base de datos de dos formas:
+       - Webhook: Stripe avisa al backend con el evento
+         payment_intent.succeeded. La firma del evento se verifica para
+         asegurar que realmente viene de Stripe.
+       - Verificación: el frontend consulta al backend, que a su vez le
+         pregunta el estado del pago directamente a Stripe. Esto cubre el
+         caso en que el webhook no llega (por ejemplo, en un entorno local).
+  8) El estado de cuenta se actualiza y muestra el mes como pagado.
+
+
+3. SEGURIDAD Y REGLAS DE NEGOCIO
+-------------------------------------------------------------------------------
+  - Todas las rutas requieren iniciar sesión (token JWT), excepto el webhook,
+    que se protege con la firma de Stripe.
+  - Un encargado solo puede ver y pagar la colegiatura de SUS hijos. Si cambia
+    el ID en la URL para consultar a otro alumno, el backend responde 403.
+    Los administradores sí pueden ver los pagos de cualquier alumno.
+  - No se puede pagar dos veces el mismo mes (responde 409).
+  - Si el encargado abre y cierra el formulario varias veces, se reutiliza el
+    mismo PaymentIntent para no generar cobros duplicados.
+  - El monto lo calcula SIEMPRE el backend; el navegador no puede alterarlo.
+  - Los datos de la tarjeta nunca pasan por nuestro servidor: van directo a
+    Stripe desde el navegador.
+  - El webhook es idempotente: si Stripe reenvía el mismo evento, no se
+    duplica nada.
+  - Si se hace un reembolso desde el panel de Stripe, el pago cambia a
+    "Reembolsado".
+
+
+4. ENDPOINTS DEL BACKEND (prefijo /api/pagos)
+-------------------------------------------------------------------------------
+  GET  /mis-hijos                          Hijos del encargado logueado
+  GET  /estado-cuenta/:alumnoId            Meses pagados y pendientes del año
+  GET  /cotizar/:alumnoId?mes=9            Monto a pagar de un mes (con beca)
+  POST /intent                             Crea el pago en Stripe
+                                           Body: { alumnoId, mes, anioLectivo }
+  GET  /verificar/:paymentIntentId         Consulta el estado real en Stripe
+  GET  /                                   Lista de pagos (con filtros)
+  GET  /:id                                Detalle de un pago
+  POST /webhook                            Lo llama Stripe (sin token)
+
+
+5. ARCHIVOS PRINCIPALES
+-------------------------------------------------------------------------------
+  Backend:
+    backend/src/config/stripe.config.ts               Configuración de Stripe
+    backend/src/controllers/pago.controller.ts        Lógica de pagos
+    backend/src/controllers/stripewebhook.controller.ts   Webhook
+    backend/src/routes/pago.routes.ts                 Rutas
+  Frontend:
+    frontend/src/views/Padre.tsx                      Vista de pagos del padre
+    frontend/src/components/PagoColegiatura.tsx       Formulario de tarjeta
+    frontend/src/lib/api.ts                           Llamadas al backend
+
+
+6. USUARIOS PARA PROBAR
+-------------------------------------------------------------------------------
+Contraseña de todos: Password123!
+
+  Correo                         Caso de prueba
+  -----------------------------  ---------------------------------------------
+  encargado1@dercas.edu.gt       Hijo con septiembre y octubre pendientes
+                                 (el más recomendado para probar un pago)
+  encargado13@dercas.edu.gt      Hijo con beca del 40% (paga Q300.00 al mes)
+  encargado33@dercas.edu.gt      Hijo con beca del 100% (no se le cobra)
+  encargado10@dercas.edu.gt      Hijo sin beca (paga Q500.00 al mes)
+
+Otros roles, con la misma contraseña:
+  admin.general1@dercas.edu.gt   Administrador general
+  admin.sede1@dercas.edu.gt      Administrador de sede
+  catedratico1@dercas.edu.gt     Catedrático
+  alumno1@dercas.edu.gt          Alumno
+
+Nota: la sesión dura 1 hora. Si aparece el mensaje "Token expired or invalid",
+cierre sesión y vuelva a iniciarla.
+
+
+7. TARJETAS DE PRUEBA DE STRIPE
+-------------------------------------------------------------------------------
+Use cualquier fecha de vencimiento futura (ej. 12/30) y cualquier CVC (ej. 123).
+
+  4242 4242 4242 4242     Pago aprobado
+  4000 0000 0000 0002     Tarjeta rechazada
+  4000 0025 0000 3155     Pide verificación 3D Secure (presionar "Complete")
+
+
+8. CÓMO LEVANTAR EL PROYECTO
+-------------------------------------------------------------------------------
+Requisitos: Node.js 20 o superior y npm.
+
+Paso 1 - Variables de entorno
+
+  backend/.env (además de las variables de base de datos y JWT del proyecto):
+      PORT=4000
+      CORS_ORIGIN="http://localhost:8443"
+      STRIPE_SECRET_KEY=sk_test_...
+      STRIPE_WEBHOOK_SECRET=whsec_...
+      COLEGIATURA_MENSUAL=500
+
+  frontend/.env:
+      VITE_API_URL=http://localhost:4000
+      VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+  (Las llaves se obtienen en https://dashboard.stripe.com/test/apikeys)
+
+Paso 2 - Levantar el backend (en una terminal)
+
+      cd backend
+      npm install
+      npm run generate
+      npm run dev
+
+  Queda corriendo en http://localhost:4000
+
+Paso 3 - Levantar el frontend (en OTRA terminal)
+
+      cd frontend
+      npm install
+      npm run dev
+
+  Queda corriendo en http://localhost:8443
+
+Paso 4 - Probar
+
+  Abrir http://localhost:8443 en el navegador, iniciar sesión con
+  encargado1@dercas.edu.gt / Password123!, entrar a "Pagos", elegir un mes
+  pendiente y pagar con la tarjeta 4242 4242 4242 4242.
+
+Paso 5 (opcional) - Recibir el webhook en local
+
+  No es obligatorio, porque el pago también se confirma consultando a Stripe
+  directamente. Para ver el webhook funcionando se usa la Stripe CLI en una
+  tercera terminal:
+
+      stripe login
+      stripe listen --forward-to localhost:4000/api/pagos/webhook
+
+  El comando muestra un secreto whsec_... que se coloca en
+  STRIPE_WEBHOOK_SECRET del backend/.env (luego hay que reiniciar el backend).
+
+Importante:
+  - Las dos terminales (backend y frontend) deben quedarse abiertas mientras
+    se usa la página.
+  - Si se modifica un archivo .env, hay que detener el servidor (Ctrl+C) y
+    volver a correr "npm run dev".
+===============================================================================

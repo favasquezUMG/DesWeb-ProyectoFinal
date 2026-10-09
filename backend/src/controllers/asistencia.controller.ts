@@ -40,7 +40,7 @@ const puedeGestionarCurso = async (
     cursoSeccion: { catedraticoId: number; seccion: { sedeId: number } },
 ): Promise<boolean> => {
     if (!req.user) return false;
-    if (Number(req.user.id) === cursoSeccion.catedraticoId) return true;
+    if (Number(req.user.usuarioId) === cursoSeccion.catedraticoId) return true;
     return puedeOperarSede(req, cursoSeccion.seccion.sedeId);
 };
 

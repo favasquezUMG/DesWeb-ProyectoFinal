@@ -160,3 +160,83 @@ export async function updateBeca(id: number, input: Partial<BecaInput> & { activ
 export function desactivarBeca(id: number): Promise<{ status: "success"; message: string }> {
   return request(`/api/becas/${id}`, { method: "DELETE" });
 }
+
+// ─── Pagos ────────────────────────────────────────────────────────────────────
+
+export interface HijoDto {
+  alumnoId: number;
+  nombre: string;
+  grado: string;
+  seccion: string;
+}
+
+/** "Sin registrar" = nunca se intentó pagar; "Pendiente" = se abrió el pago pero no se completó. */
+export type EstadoPagoBackend = "Pagado" | "Pendiente" | "Reembolsado" | "Sin registrar";
+
+export interface MesEstadoCuentaDto {
+  mes: number;
+  nombreMes: string;
+  estado: EstadoPagoBackend;
+  /** Monto registrado del pago (null si no hay registro). */
+  monto: number | null;
+  montoBase: number;
+  descuentoPorcentaje: number;
+  /** Lo que toca pagar ese mes, con beca aplicada. */
+  montoAPagar: number;
+  fechaPago: string | null;
+}
+
+export interface EstadoCuentaDto {
+  alumno: string;
+  grado: string;
+  seccion: string;
+  anioLectivo: number;
+  mesesPagados: number;
+  mesesPendientes: number;
+  totalPagado: number;
+  detalle: MesEstadoCuentaDto[];
+}
+
+export interface IntentPagoDto {
+  pagoId: number;
+  clientSecret: string;
+  paymentIntentId: string;
+  alumno: string;
+  concepto: string;
+  montoBase: number;
+  descuentoPorcentaje: number;
+  montoFinal: number;
+}
+
+export interface VerificacionPagoDto {
+  pagado: boolean;
+  estadoStripe: string;
+  estadoLocal: EstadoPagoBackend | null;
+  monto: number;
+  fechaPago: string | null;
+}
+
+export async function getMisHijos(): Promise<HijoDto[]> {
+  const body = await request<{ status: "success"; data: HijoDto[] }>("/api/pagos/mis-hijos");
+  return body.data;
+}
+
+export async function getEstadoCuenta(alumnoId: number, anioLectivo?: number): Promise<EstadoCuentaDto> {
+  const query = anioLectivo ? `?anioLectivo=${anioLectivo}` : "";
+  const body = await request<{ status: "success"; data: EstadoCuentaDto }>(`/api/pagos/estado-cuenta/${alumnoId}${query}`);
+  return body.data;
+}
+
+/** Prepara el cobro en Stripe y devuelve el clientSecret para montar el formulario de tarjeta. */
+export async function crearIntentPago(input: { alumnoId: number; anioLectivo: number; mes: number }): Promise<IntentPagoDto> {
+  const body = await request<{ status: "success"; data: IntentPagoDto }>("/api/pagos/intent", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return body.data;
+}
+
+export async function verificarPago(paymentIntentId: string): Promise<VerificacionPagoDto> {
+  const body = await request<{ status: "success"; data: VerificacionPagoDto }>(`/api/pagos/verificar/${paymentIntentId}`);
+  return body.data;
+}
