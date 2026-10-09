@@ -88,7 +88,6 @@ body {
 .font-display { font-family: var(--font-display); }
 .font-mono-data { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* Subtle Guatemalan textile line pattern */
 .textile-pattern {
   background-image:
     repeating-linear-gradient(90deg, transparent 0px, transparent 11px, rgba(255,255,255,0.07) 11px, rgba(255,255,255,0.07) 12px),
@@ -114,8 +113,6 @@ body {
 /* Recharts tooltip */
 .recharts-tooltip-wrapper { outline: none !important; }
 
-/* Constancia de solicitud de inscripción: oculta en pantalla, solo visible al
-   imprimir (window.print()). Ver ConstanciaImprimible en SolicitudInscripcion.tsx */
 #constancia-imprimible { display: none; }
 
 @media print {

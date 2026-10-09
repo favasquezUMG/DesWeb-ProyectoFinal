@@ -88,7 +88,12 @@ export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoCole
 
     let cancelado = false;
     crearIntentPago(periodo)
-      .then((data) => { if (!cancelado) setIntent(data); })
+      .then((data) => {
+        if (cancelado) return;
+        // Beca del 100%: el backend lo registra como exonerado y no hay nada que cobrar
+        if (data.exonerado || !data.clientSecret) setError("Este mes está cubierto al 100% por beca. No hay nada que pagar.");
+        else setIntent(data);
+      })
       .catch((e: Error) => { if (!cancelado) setError(e.message); });
     return () => { cancelado = true; };
   }, [periodo]);

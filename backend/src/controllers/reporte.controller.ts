@@ -5,61 +5,7 @@ import {
     plantillaReporteNotasPorCatedratico,
     plantillaReporteAlumnosPorRango,
 } from "../templates/reporte.templates.js";
-
-// Incluye lo necesario para calcular, por alumno, la nota de cada unidad
-// (suma de las notas de sus actividades) de un curso-sección específico.
-const incluirNotas = {
-    curso: true,
-    seccion: { include: { sede: true, grado: true } },
-    unidades: {
-        orderBy: { numero: "asc" as const },
-        include: {
-            actividades: { include: { notas: true } },
-        },
-    },
-};
-
-/**
- * Calcula, para un curso-sección, la nota de cada unidad de cada alumno
- * (suma de las notas de las actividades de esa unidad) y el total del curso.
- */
-const calcularNotasCursoSeccion = async (cursoSeccionId: number) => {
-    const cursoSeccion = await prisma.cursoSeccion.findUnique({
-        where: { cursoSeccionId },
-        include: incluirNotas,
-    });
-
-    if (!cursoSeccion) return null;
-
-    const alumnos = await prisma.alumno.findMany({
-        where: { seccionId: cursoSeccion.seccionId },
-        include: { usuario: { select: { nombres: true, apellidos: true } } },
-        orderBy: [{ usuario: { apellidos: "asc" } }, { usuario: { nombres: "asc" } }],
-    });
-
-    const filas = alumnos.map((alumno) => {
-        const unidades = cursoSeccion.unidades.map((unidad) => {
-            const nota = unidad.actividades.reduce((sumaUnidad, actividad) => {
-                const notaAlumno = actividad.notas.find((n) => n.alumnoId === alumno.alumnoId);
-                return sumaUnidad + (notaAlumno ? Number(notaAlumno.valor) : 0);
-            }, 0);
-            return { numero: unidad.numero, nota };
-        });
-
-        const total = unidades.reduce((acc, u) => acc + u.nota, 0);
-
-        return {
-            alumnoId: alumno.alumnoId,
-            nombre: `${alumno.usuario.nombres} ${alumno.usuario.apellidos}`,
-            unidades,
-            total,
-        };
-    });
-
-    return { cursoSeccion, alumnos: filas };
-};
-
-type ResultadoCursoSeccion = NonNullable<Awaited<ReturnType<typeof calcularNotasCursoSeccion>>>;
+import { calcularNotasCursoSeccion, type ResultadoCursoSeccion } from "../services/notas.service.js";
 
 // GET /api/reportes/notas-por-catedratico/:catedraticoId?formato=json|pdf
 export const getReporteNotasPorCatedratico = async (req: Request, res: Response) => {
@@ -159,7 +105,6 @@ export const getReporteAlumnosPorRango = async (req: Request, res: Response) => 
             orderBy: [{ usuario: { apellidos: "asc" } }, { usuario: { nombres: "asc" } }],
         });
 
-        // El promedio general del alumno es el promedio de los totales de cada curso-sección
         const filas = alumnos.map((alumno) => {
             const totales = resultadosPorCurso.map(
                 (c) => c.alumnos.find((a) => a.alumnoId === alumno.alumnoId)?.total ?? 0

@@ -3,8 +3,7 @@ import { BookOpen, Clock, CheckCircle2, AlertCircle, Save, ChevronDown } from "l
 import type { View } from "../types";
 import { ALUMNOS, NOTAS_3A, HORARIO_3A, DIAS, BLOQUES } from "../data";
 import { Card, MetricCard, SectionHeader, Btn, Badge, EstadoBadge, AlertBanner, Tabs, TH, TD } from "../components/Ui";
-
-// ─── Dashboard ────────────────────────────────────────────────────────────────
+import ComunicacionCatedratico from "./ComunicacionCatedratico";
 
 function DashboardCat() {
   return (
@@ -68,8 +67,6 @@ function DashboardCat() {
   );
 }
 
-// ─── Mis Cursos ───────────────────────────────────────────────────────────────
-
 function MisCursosView() {
   const [tab, setTab] = useState("Estudiantes");
   const alumnosDelCurso = ALUMNOS.filter(a => a.grado === "Tercero Básico" && a.seccion === "A");
@@ -124,8 +121,6 @@ function MisCursosView() {
     </div>
   );
 }
-
-// ─── Libreta de Notas ─────────────────────────────────────────────────────────
 
 type NotasState = Record<string, { u1: string; u2: string; u3: string; u4: string }>;
 
@@ -345,8 +340,6 @@ export function LibretaNotas() {
   );
 }
 
-// ─── Asistencia ───────────────────────────────────────────────────────────────
-
 type AsistenciaEstado = "presente" | "ausente" | "tarde" | "justificado";
 
 function AsistenciaView() {
@@ -437,8 +430,6 @@ function AsistenciaView() {
   );
 }
 
-// ─── Mi Horario ───────────────────────────────────────────────────────────────
-
 function MiHorarioCat() {
   const misCursos = ["Matemática"];
   return (
@@ -489,12 +480,11 @@ function MiHorarioCat() {
   );
 }
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 export default function Catedratico({ view }: { view: View }) {
   if (view === "cat-cursos") return <MisCursosView />;
   if (view === "cat-notas") return <LibretaNotas />;
   if (view === "cat-asistencia") return <AsistenciaView />;
   if (view === "cat-horario") return <MiHorarioCat />;
+  if (view === "cat-comunicacion") return <ComunicacionCatedratico />;
   return <DashboardCat />;
 }

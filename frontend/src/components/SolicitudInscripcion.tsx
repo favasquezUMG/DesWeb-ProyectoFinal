@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, Download, Printer } from "lucide-react";
 import { Stepper, Input, Select, Textarea, Btn, AlertBanner } from "./Ui";
 import { MALLA_CNB } from "../data";
@@ -10,27 +10,19 @@ import {
   formatearFecha,
 } from "../lib/solicitudes";
 import { generarConstanciaPdf, etiquetaGradoSolicitud } from "../lib/constanciaPdf";
-
-// ─── Solicitud de inscripción ──────────────────────────────────────────────────
-// Flujo simulado (sin backend) para solicitar el cupo de un alumno. Se usa en
-// dos contextos:
-//  - "publico": desde el login, un encargado sin cuenta solicita la inscripción.
-//  - "presencial": desde el panel de admin de sede, cuando la secretaría recibe
-//     al encargado en ventanilla y registra la solicitud por él.
+import axios from "axios";
 
 export type SolicitudInscripcionModo = "publico" | "presencial";
 
 interface SolicitudInscripcionProps {
   modo: SolicitudInscripcionModo;
-  /** Se llama al terminar el flujo (botón final de la pantalla de confirmación). */
   onFinalizar?: () => void;
-  /** Se llama si el usuario cancela antes de terminar (solo visible en el primer paso). */
   onCancelar?: () => void;
 }
 
-const STEPS = ["Encargado", "Alumno", "Documentos", "Confirmación"];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-const SEDES_DISPONIBLES = ["Sede Central", "Sede Xela", "Sede Coatepeque"];
+const STEPS = ["Encargado", "Alumno", "Documentos", "Confirmación"];
 
 const PARENTESCOS = ["Madre", "Padre", "Tutor Legal", "Otro"];
 
@@ -45,9 +37,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type NivelId = "pre" | "pri" | "bas" | "div";
 
-// Posición (0-14) de cada grado/año en la progresión completa del colegio:
-// 0-2 Preprimaria, 3-8 Primaria, 9-11 Básico, 12-14 Diversificado (Cuarto/Quinto/Sexto,
-// sin importar la carrera). Se usa solo para validar que la edad sea coherente.
 const OFFSET_POR_NIVEL: Record<NivelId, number> = { pre: 0, pri: 3, bas: 9, div: 12 };
 const ORDEN_ANIO_DIV: Record<string, number> = { Cuarto: 0, Quinto: 1, Sexto: 2 };
 
@@ -87,6 +76,11 @@ interface DatosAlumno {
   carrera: string; // usado cuando nivelId es "div"
   anio: string; // usado cuando nivelId es "div" (Cuarto/Quinto/Sexto)
   sede: string;
+}
+
+interface SedeItem {
+  sedeId: number;
+  nombre: string;
 }
 
 function calcularEdad(fechaISO: string): number | null {
@@ -163,7 +157,6 @@ function validarAlumno(d: DatosAlumno): Partial<Record<keyof DatosAlumno, string
   return errores;
 }
 
-/** Bloque imprimible de la constancia (oculto en pantalla, visible solo al imprimir). Ver @media print en index.css. */
 export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
   return (
     <div id="constancia-imprimible" className="p-10 text-stone-900 text-sm">
@@ -234,6 +227,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   const [numeroSolicitud] = useState(generarNumeroSolicitud);
   const [fechaLimite] = useState(calcularFechaLimite);
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudGuardada | null>(null);
+  const [cargandoEmail, setCargandoEmail] = useState(false);
+  const [sedes, setSedes] = useState<SedeItem[]>([])
 
   const [encargado, setEncargado] = useState<DatosEncargado>({
     nombres: "", apellidos: "", dpi: "", telefono: "", correo: "", parentesco: "",
@@ -277,11 +272,39 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
     setErrorDocumentos("");
   }
 
-  function irSiguiente() {
+  async function irSiguiente() {
     if (step === 0) {
+
+      //Validacion de campos vacios, formato correo, DPI
       const errores = validarEncargado(encargado);
       setErroresEncargado(errores);
       if (Object.values(errores).some(Boolean)) return;
+
+      //Validacion de que no exista el correo ya en la DB
+      setCargandoEmail(true);
+      try{
+        const response = await axios.get(`${API_URL}/api/usuarios/verificar-email`, {
+          params: { email: encargado.correo.trim()}
+        })
+        
+        if(response.data.exists){
+          setErroresEncargado((prev) => ({
+            ...prev,
+            correo: "Este correo ya esta registrado en nuestro sistema."
+          }));
+          setCargandoEmail(false);
+          return;
+        }
+      } catch (error) {
+        setErroresEncargado((prev) => ({
+          ...prev,
+          correo: "No se pudo verificar disponibilidad del correo. Intente de nuevo."
+        }));
+        setCargandoEmail(false);
+        console.error()
+        return;
+      }
+      setCargandoEmail(false)
     } else if (step === 1) {
       const errores = validarAlumno(alumno);
       setErroresAlumno(errores);
@@ -317,8 +340,16 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         fechaSolicitud: new Date().toISOString(),
         fechaLimite: fechaLimite.toISOString(),
       };
-      guardarSolicitud(registro);
-      setSolicitudGuardada(registro);
+
+      try{
+        await guardarSolicitud(registro);
+        setSolicitudGuardada(registro);
+        setStep((s) => Math.min(s+1, STEPS.length - 1))
+        return;
+      } catch (error) {
+        console.error("Error al guardar la solicitud:", error);
+        setErrorDocumentos("Ocurrió un error al guardar la solicitud en el servidor. Vuelva a intentar.")
+      }
     }
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
@@ -326,6 +357,23 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   function irAnterior() {
     setStep((s) => Math.max(s - 1, 0));
   }
+
+  useEffect(() => {
+    async function cargarSedes() {
+      try{
+        const response = await axios.get(`${API_URL}/api/sedes`);
+        if(response.data?.status === 'success' && Array.isArray(response.data.data)) {
+          setSedes(response.data.data);
+        } else if(Array.isArray(response.data)){
+          setSedes(response.data);
+        }
+      } catch (error) {
+        console.error("Error al cargar datos desde el backend:", error)
+      }
+    }
+    cargarSedes();
+
+  }, [])
 
   const fechaLimiteTexto = formatearFecha(fechaLimite);
 
@@ -342,7 +390,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
 
       <Stepper steps={STEPS} current={step} />
 
-      {/* ── Paso 1: Encargado ── */}
       {step === 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Nombres" value={encargado.nombres} onChange={(e) => actualizarEncargado("nombres", e.target.value)} error={erroresEncargado.nombres} placeholder="Nombres del encargado" />
@@ -369,7 +416,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Paso 2: Alumno ── */}
       {step === 1 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Nombres del alumno" value={alumno.nombres} onChange={(e) => actualizarAlumno("nombres", e.target.value)} error={erroresAlumno.nombres} />
@@ -377,7 +423,11 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           <Input label="Fecha de nacimiento" type="date" value={alumno.fechaNacimiento} onChange={(e) => actualizarAlumno("fechaNacimiento", e.target.value)} error={erroresAlumno.fechaNacimiento} />
           <Select label="Sede" value={alumno.sede} onChange={(e) => actualizarAlumno("sede", e.target.value)} error={erroresAlumno.sede}>
             <option value="">Seleccione…</option>
-            {SEDES_DISPONIBLES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {sedes.map((s) => (
+              <option key={s.sedeId} value={s.nombre}>
+                {s.nombre}
+              </option>
+            ))}
           </Select>
 
           <Select label="Nivel educativo" value={alumno.nivelId} onChange={(e) => cambiarNivel(e.target.value)} error={erroresAlumno.nivelId}>
@@ -407,7 +457,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Paso 3: Documentos ── */}
       {step === 2 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-4 py-3 bg-warning-50 border border-warning-200 rounded-lg">
@@ -457,7 +506,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Paso 4: Confirmación ── */}
       {step === 3 && solicitudGuardada && (
         <div className="text-center py-2 space-y-5">
           <div className="w-14 h-14 rounded-full bg-success-100 text-success-700 flex items-center justify-center mx-auto">
@@ -501,7 +549,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </div>
       )}
 
-      {/* ── Navegación entre pasos ── */}
       {step < 3 && (
         <div className="flex items-center justify-between pt-2">
           {step === 0 ? (
@@ -511,8 +558,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           ) : (
             <Btn variant="outline" size="md" onClick={irAnterior}>Anterior</Btn>
           )}
-          <Btn variant="primary" size="md" onClick={irSiguiente}>
-            {step === 2 ? "Enviar solicitud" : "Siguiente"}
+          <Btn variant="primary" size="md" onClick={irSiguiente} disabled={cargandoEmail}>
+            { cargandoEmail ? "Verificando..." : step === 2 ? "Enviar solicitud" : "Siguiente"}
           </Btn>
         </div>
       )}

@@ -1,8 +1,3 @@
-/**
- * Plantillas HTML para los reportes en PDF. No usan la plantilla de correo
- * porque van orientadas a impresión (tablas, márgenes, sin envoltorio de card).
- */
-
 const NOMBRE_COLEGIO = process.env.COLEGIO_NOMBRE || "DERCAS - Sistema Escolar";
 
 const documentoBase = (tituloReporte: string, contenidoHtml: string): string => `

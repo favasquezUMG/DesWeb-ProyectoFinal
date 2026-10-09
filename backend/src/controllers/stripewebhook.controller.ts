@@ -24,8 +24,6 @@ export const stripeWebhook = async (req: Request, res: Response) => {
     let evento: Stripe.Event;
 
     try {
-        // La firma confirma que el evento viene de Stripe y no de
-        // alguien que descubrió la URL del endpoint.
         evento = stripe.webhooks.constructEvent(req.body, firma as string, webhookSecret);
     } catch (error: any) {
         console.error('Firma de webhook inválida:', error?.message);
@@ -99,16 +97,12 @@ export const stripeWebhook = async (req: Request, res: Response) => {
             }
 
             default:
-                // Stripe manda muchos tipos de evento; los que no interesan se ignoran.
                 break;
         }
 
-        // Siempre 200: si se responde con error, Stripe sigue reintentando.
         return res.json({ received: true });
     } catch (error: any) {
         console.error('Error procesando webhook:', error?.message ?? error);
-        // Se responde 200 igual para que Stripe no reintente en bucle un
-        // evento que nuestro código no puede procesar.
         return res.json({ received: true, error: 'procesamiento fallido' });
     }
 };

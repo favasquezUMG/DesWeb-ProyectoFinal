@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download } from "lucide-react";
-import type { AppUser } from "../types";
+import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download, GraduationCap, ArrowLeft } from "lucide-react";
+import type { AppUser, Role } from "../types";
+import type { Portal } from "./Home";
 import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
 import { login } from "../lib/api";
-import { buildAppUser, saveSession } from "../lib/auth";
+import { buildAppUser, clearSession, mapBackendRole, saveSession } from "../lib/auth";
 import {
   type SolicitudGuardada,
   type EstadoSolicitud,
@@ -14,20 +15,45 @@ import {
 } from "../lib/solicitudes";
 import { generarConstanciaPdf } from "../lib/constanciaPdf";
 
-type Screen = "login" | "forgot" | "reset" | "sede" | "solicitud" | "consulta";
+export type Screen = "login" | "forgot" | "reset" | "sede" | "solicitud" | "consulta";
+
+// Qué roles pueden entrar por cada portal. Los encargados usan el portal de
+// estudiantes porque consultan la información de sus hijos.
+const ROLES_POR_PORTAL: Record<Portal, Role[]> = {
+  estudiante: ["alumno", "padre"],
+  personal: ["catedratico", "admin-sede", "admin-general"],
+};
+
+const PORTALES: { id: Portal; label: string; Icon: typeof GraduationCap; titulo: string; texto: string; placeholder: string }[] = [
+  {
+    id: "estudiante", label: "Estudiantes y familias", Icon: GraduationCap,
+    titulo: "Portal de estudiantes",
+    texto: "Ingrese con el correo de alumno o de encargado.",
+    placeholder: "alumno@colegio.edu.gt",
+  },
+  {
+    id: "personal", label: "Catedráticos y administración", Icon: ShieldCheck,
+    titulo: "Portal del personal",
+    texto: "Ingrese con su usuario y contraseña institucional.",
+    placeholder: "usuario@colegio.edu.gt",
+  },
+];
 
 const TABS_CONSULTA = ["Por número de solicitud", "Por DPI y correo"];
 
 const BADGE_POR_ESTADO: Record<EstadoSolicitud, { variant: "info" | "warning" | "success" | "danger" | "neutral" }> = {
-  "En revisión": { variant: "info" },
-  "Documentos pendientes": { variant: "warning" },
-  "Aprobada": { variant: "success" },
-  "Rechazada": { variant: "danger" },
-  "Vencida": { variant: "neutral" },
+  "REVISION": { variant: "info" },
+  "PENDIENTE": { variant: "warning" },
+  "APROBADA": { variant: "success" },
+  "RECHAZADA": { variant: "danger" },
+  "VENCIDA": { variant: "neutral" },
 };
 
 interface LoginProps {
   onLogin: (user: AppUser, sede?: string) => void;
+  onBack: () => void;
+  initialPortal?: Portal;
+  initialScreen?: Screen;
 }
 
 const SEDES_DEMO = ["Sede Central", "Sede Xela", "Sede Coatepeque"];
@@ -42,12 +68,13 @@ function validarEmail(value: string): string {
 
 function validarPassword(value: string): string {
   if (!value) return "La contraseña es obligatoria.";
-  if (value.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
+  //if (value.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
   return "";
 }
 
-export default function Login({ onLogin }: LoginProps) {
-  const [screen, setScreen] = useState<Screen>("login");
+export default function Login({ onLogin, onBack, initialPortal = "estudiante", initialScreen = "login" }: LoginProps) {
+  const [screen, setScreen] = useState<Screen>(initialScreen);
+  const [portal, setPortal] = useState<Portal>(initialPortal);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -79,11 +106,26 @@ export default function Login({ onLogin }: LoginProps) {
 
     setLoading(true);
     try {
-      const result = await login(email.trim(), password);
-      const appUser = buildAppUser(result.usuario);
+      let result = await login(email.trim(), password);
+      let appUser = buildAppUser(result.usuario);
+
+      if (!ROLES_POR_PORTAL[portal].includes(appUser.role)) {
+        // Si la persona tiene otro rol que sí corresponde a este portal (ej. un catedrático que
+        // también es padre y entra por el portal de familias), se entra con ese rol
+        const rolDelPortal = appUser.roles?.find(r => ROLES_POR_PORTAL[portal].includes(mapBackendRole(r.nombre)));
+        if (rolDelPortal) {
+          result = await login(email.trim(), password, rolDelPortal.rolId);
+          appUser = buildAppUser(result.usuario);
+        } else {
+          clearSession();
+          const otro = PORTALES.find(p => p.id !== portal)!;
+          setError(`Esta cuenta no pertenece a este portal. Ingrese desde "${otro.label}".`);
+          return;
+        }
+      }
+
       saveSession(result.token, appUser);
 
-      // Multi-sede users get the sede selector
       if (appUser.role === "admin-general") {
         setSelectedUser(appUser);
         setScreen("sede");
@@ -116,6 +158,15 @@ export default function Login({ onLogin }: LoginProps) {
     setScreen("login");
   }
 
+  function cambiarPortal(nuevo: Portal) {
+    setPortal(nuevo);
+    setError("");
+    setEmailError("");
+    setPasswordError("");
+  }
+
+  const portalActual = PORTALES.find(p => p.id === portal)!;
+
   function reiniciarConsulta() {
     setConsultaTab("numero");
     setConsultaNumero("");
@@ -125,7 +176,7 @@ export default function Login({ onLogin }: LoginProps) {
     setConsultaResultado(null);
   }
 
-  function handleConsultar(e: React.FormEvent) {
+  async function handleConsultar(e: React.FormEvent) {
     e.preventDefault();
     setConsultaError("");
     setConsultaResultado(null);
@@ -136,7 +187,7 @@ export default function Login({ onLogin }: LoginProps) {
         setConsultaError("Ingrese el número de solicitud.");
         return;
       }
-      encontrada = buscarPorNumero(consultaNumero);
+      encontrada = await buscarPorNumero(consultaNumero);
     } else {
       if (!/^\d{13}$/.test(consultaDpi.trim())) {
         setConsultaError("El DPI debe tener 13 dígitos.");
@@ -147,7 +198,7 @@ export default function Login({ onLogin }: LoginProps) {
         setConsultaError(correoErr);
         return;
       }
-      encontrada = buscarPorDpiCorreo(consultaDpi, consultaCorreo);
+      encontrada = await buscarPorDpiCorreo(consultaDpi, consultaCorreo);
     }
 
     if (!encontrada) {
@@ -172,7 +223,9 @@ export default function Login({ onLogin }: LoginProps) {
         <div className="flex-1 flex flex-col justify-center">
           <div>
             <p className="font-display text-white/60 text-sm tracking-widest uppercase">Portal Académico</p>
-            <h1 className="font-display text-white text-4xl lg:text-5xl font-bold mt-2 leading-tight">Colegio Vanguardia</h1>
+            <button type="button" onClick={onBack} className="text-left cursor-pointer">
+              <h1 className="font-display text-white text-4xl lg:text-5xl font-bold mt-2 leading-tight hover:text-primary-100 transition-colors">Colegio Vanguardia</h1>
+            </button>
             <p className="text-primary-200 mt-4 text-base leading-relaxed max-w-sm">
               Sistema integral de gestión académica: matrícula, notas, horarios, asistencia y pagos.
             </p>
@@ -206,23 +259,43 @@ export default function Login({ onLogin }: LoginProps) {
           </div>
         </div>
 
-        <p className="text-primary-300 text-xs">© 2025 Colegio Vanguardia · Todos los derechos reservados</p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-primary-300 text-xs">© {new Date().getFullYear()} Colegio Vanguardia · Todos los derechos reservados</p>
+          <button type="button" onClick={onBack} className="text-primary-200 hover:text-white text-xs flex items-center gap-1 cursor-pointer shrink-0">
+            <ArrowLeft className="w-3.5 h-3.5" /> Volver al inicio
+          </button>
+        </div>
       </div>
 
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center overflow-y-auto p-6 sm:p-10 bg-sand-100">
         <div className={`w-full ${screen === "solicitud" ? "max-w-2xl" : screen === "consulta" ? "max-w-md" : "max-w-sm"} transition-[max-width] duration-200`}>
           <div className="md:hidden mb-8 text-center">
-            <p className="font-display font-bold text-primary-700 text-2xl">Colegio Vanguardia</p>
+            <button type="button" onClick={onBack} className="cursor-pointer">
+              <p className="font-display font-bold text-primary-700 text-2xl">Colegio Vanguardia</p>
+            </button>
             <p className="text-stone-500 text-sm">Sistema Académico</p>
+            <button type="button" onClick={onBack} className="mt-2 text-xs text-stone-500 hover:text-stone-700 inline-flex items-center gap-1 cursor-pointer">
+              <ArrowLeft className="w-3.5 h-3.5" /> Volver al inicio
+            </button>
           </div>
 
           <Card className="p-6 sm:p-8">
-            {/* ── Login ── */}
             {screen === "login" && (
               <form onSubmit={handleLogin} noValidate>
-                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Iniciar sesión</h2>
-                <p className="text-stone-500 text-sm mb-6">Ingrese su usuario y contraseña institucional.</p>
+                <div className="grid grid-cols-2 gap-1 p-1 mb-6 rounded-lg bg-stone-100" role="tablist" aria-label="Tipo de acceso">
+                  {PORTALES.map(({ id, label, Icon }) => (
+                    <button key={id} type="button" role="tab" aria-selected={portal === id} onClick={() => cambiarPortal(id)}
+                      className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer
+                        ${portal === id ? "bg-white text-primary-700 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}>
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="leading-tight">{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">{portalActual.titulo}</h2>
+                <p className="text-stone-500 text-sm mb-6">{portalActual.texto}</p>
 
                 {error && (
                   <div className="mb-4">
@@ -238,7 +311,7 @@ export default function Login({ onLogin }: LoginProps) {
                     onChange={e => { setEmail(e.target.value); setEmailError(""); }}
                     onBlur={() => setEmailError(validarEmail(email))}
                     error={emailError}
-                    placeholder="usuario@colegio.edu.gt"
+                    placeholder={portalActual.placeholder}
                   />
 
                   <div>
@@ -267,18 +340,21 @@ export default function Login({ onLogin }: LoginProps) {
                   {loading ? "Verificando…" : "Ingresar al sistema"}
                 </Btn>
 
-                <button type="button" onClick={() => setScreen("solicitud")}
-                  className="w-full text-center text-sm text-primary-700 hover:underline font-medium mt-4 py-1">
-                  ¿Primer ingreso? Solicite la inscripción de su hijo
-                </button>
-                <button type="button" onClick={() => setScreen("consulta")}
-                  className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-1 py-1">
-                  Consultar estado de mi solicitud
-                </button>
+                {portal === "estudiante" && (
+                  <>
+                    <button type="button" onClick={() => setScreen("solicitud")}
+                      className="w-full text-center text-sm text-primary-700 hover:underline font-medium mt-4 py-1">
+                      ¿Primer ingreso? Solicite la inscripción de su hijo
+                    </button>
+                    <button type="button" onClick={() => setScreen("consulta")}
+                      className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-1 py-1">
+                      Consultar estado de mi solicitud
+                    </button>
+                  </>
+                )}
               </form>
             )}
 
-            {/* ── Forgot password ── */}
             {screen === "forgot" && (
               <form onSubmit={handleForgot} noValidate>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Recuperar contraseña</h2>
@@ -311,7 +387,6 @@ export default function Login({ onLogin }: LoginProps) {
               </form>
             )}
 
-            {/* ── Sede selector ── */}
             {screen === "sede" && selectedUser && (
               <div>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Seleccionar sede</h2>
@@ -339,12 +414,10 @@ export default function Login({ onLogin }: LoginProps) {
               </div>
             )}
 
-            {/* ── Solicitud de inscripción ── */}
             {screen === "solicitud" && (
               <SolicitudInscripcion modo="publico" onFinalizar={volverAlLogin} onCancelar={volverAlLogin} />
             )}
 
-            {/* ── Consultar estado de solicitud ── */}
             {screen === "consulta" && (
               <div>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Consultar estado de solicitud</h2>
@@ -399,15 +472,15 @@ export default function Login({ onLogin }: LoginProps) {
                         <Badge variant={cfg.variant}>{estado}</Badge>
                       </div>
 
-                      {estado === "Aprobada" && (
+                      {estado === "APROBADA" && (
                         <AlertBanner type="success" title="Solicitud aprobada"
                           message={`Sus credenciales de acceso fueron enviadas a ${consultaResultado.encargado.correo}.`} />
                       )}
-                      {(estado === "Rechazada" || estado === "Vencida") && (
-                        <AlertBanner type="error" title={estado === "Vencida" ? "Solicitud vencida" : "Solicitud rechazada"}
+                      {(estado === "RECHAZADA" || estado === "VENCIDA") && (
+                        <AlertBanner type="error" title={estado === "VENCIDA" ? "Solicitud vencida" : "Solicitud rechazada"}
                           message={motivo ?? ""} />
                       )}
-                      {(estado === "En revisión" || estado === "Documentos pendientes") && (
+                      {(estado === "REVISION" || estado === "PENDIENTE") && (
                         <AlertBanner type="info" title="Su solicitud sigue en proceso"
                           message={`Le avisaremos por correo a ${consultaResultado.encargado.correo} en cuanto haya una resolución (hasta 5 días hábiles).`} />
                       )}
