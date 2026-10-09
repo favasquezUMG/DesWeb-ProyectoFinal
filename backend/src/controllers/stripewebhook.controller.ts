@@ -6,7 +6,7 @@ import type Stripe from 'stripe';
 /**
  * Webhook de Stripe. ESTO es lo que marca una colegiatura como pagada,
  * no el redirect del navegador: el usuario puede cerrar la ventana antes
- * de que lo manden de vuelta, y el pago igual se completó.
+ * de ver la confirmación, y el pago igual se completó.
  *
  * REQUISITO: esta ruta necesita el body CRUDO (Buffer), no parseado.
  * express.json() rompe la verificación de firma. Por eso en server.ts se
@@ -34,66 +34,50 @@ export const stripeWebhook = async (req: Request, res: Response) => {
 
     try {
         switch (evento.type) {
-            case 'checkout.session.completed': {
-                const session = evento.data.object as Stripe.Checkout.Session;
-
-                if (session.payment_status !== 'paid') break;
-
-                const { alumnoId, anioLectivo, mes, concepto } = session.metadata ?? {};
+            case 'payment_intent.succeeded': {
+                const paymentIntent = evento.data.object as Stripe.PaymentIntent;
+                const { alumnoId, anioLectivo, mes, concepto } = paymentIntent.metadata ?? {};
 
                 if (!alumnoId || !anioLectivo || !mes || !concepto) {
-                    console.error('Webhook sin metadata completa:', session.id);
+                    console.error('Webhook sin metadata completa:', paymentIntent.id);
                     break;
                 }
 
-                const paymentIntentId =
-                    typeof session.payment_intent === 'string'
-                        ? session.payment_intent
-                        : session.payment_intent?.id;
-
-                // Idempotencia: Stripe reintenta el mismo evento varias veces.
-                // Si ese payment_intent ya está registrado, no se hace nada.
-                if (paymentIntentId) {
-                    const yaRegistrado = await prisma.pago.findUnique({
-                        where: { stripePaymentId: paymentIntentId },
-                    });
-                    if (yaRegistrado) {
-                        console.log(`Evento repetido ignorado: ${paymentIntentId}`);
-                        break;
-                    }
-                }
-
-                await prisma.pago.update({
+                // Idempotencia: Stripe reintenta el mismo evento varias veces,
+                // y /verificar también puede haberlo marcado ya. Solo se
+                // actualiza si todavía no está pagado.
+                const resultado = await prisma.pago.updateMany({
                     where: {
-                        alumnoId_anioLectivo_mes_concepto: {
-                            alumnoId: Number(alumnoId),
-                            anioLectivo: Number(anioLectivo),
-                            mes: Number(mes),
-                            concepto,
-                        },
+                        alumnoId: Number(alumnoId),
+                        anioLectivo: Number(anioLectivo),
+                        mes: Number(mes),
+                        concepto,
+                        estado: { not: 'Pagado' },
                     },
                     data: {
                         estado: 'Pagado',
                         fechaPago: new Date(),
-                        stripePaymentId: paymentIntentId ?? null,
+                        stripePaymentId: paymentIntent.id,
                     },
                 });
+
+                if (resultado.count === 0) {
+                    console.log(`Evento repetido ignorado: ${paymentIntent.id}`);
+                    break;
+                }
 
                 console.log(`✅ Pago confirmado: alumno ${alumnoId}, mes ${mes}/${anioLectivo}`);
                 break;
             }
 
-            case 'checkout.session.expired': {
-                const session = evento.data.object as Stripe.Checkout.Session;
+            case 'payment_intent.payment_failed': {
+                const paymentIntent = evento.data.object as Stripe.PaymentIntent;
 
-                // La sesión venció sin que pagaran. Se devuelve el pago a
-                // Pendiente para que puedan volver a intentarlo.
-                await prisma.pago.updateMany({
-                    where: { stripeSessionId: session.id, estado: 'Pendiente' },
-                    data: { estado: 'Pendiente' },
-                });
-
-                console.log(`Sesión expirada: ${session.id}`);
+                // El pago se queda en Pendiente para que puedan reintentar
+                // con otra tarjeta; solo se deja constancia del motivo.
+                console.log(
+                    `Pago rechazado: ${paymentIntent.id} — ${paymentIntent.last_payment_error?.message ?? 'sin detalle'}`,
+                );
                 break;
             }
 

@@ -71,6 +71,16 @@ export const verificarRol = (...rolesPermitidos: NombreRol[]) => {
     };
 };
 
+/** true si el usuario autenticado tiene alguno de los roles de administración. */
+export const esAdministrador = async (req: AuthenticatedRequest): Promise<boolean> => {
+    if (!req.user) return false;
+
+    const roles = await cargarRoles();
+    const nombreRol = roles.get(Number(req.user.rolId));
+
+    return nombreRol === ROL.ADMIN || nombreRol === ROL.ADMIN_GENERAL || nombreRol === ROL.ADMIN_SEDE;
+};
+
 /**
  * Regla de negocio del DERCAS: el Administrador de Sede solo opera sobre su
  * propia sede; el Administrador General sobre todas.

@@ -1,13 +1,13 @@
 import type { Request, Response, NextFunction } from 'express'; //Resolver este problema******
 import jwt from 'jsonwebtoken';
 
-//Una simple interface
+//Debe coincidir con el payload que firma auth.controller (login)
 export interface AuthenticatedRequest extends Request {
     user?: {
-        id: string;
+        usuarioId: number;
         email: string;
-        rolId: string;
-        sedeId?: string;
+        rolId: number;
+        sedeId: number | null;
     };
 }
 
