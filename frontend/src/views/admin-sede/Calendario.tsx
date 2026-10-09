@@ -3,10 +3,6 @@ import { Plus, Bell, X } from "lucide-react";
 import { EVENTOS } from "../../data";
 import { Card, SectionHeader, Btn } from "../../components/Ui";
 
-// ─── Calendario ───────────────────────────────────────────────────────────────
-
-// ─── Helpers de calendario ───────────────────────────────────────────────────
-
 type TipoEvento = "clases" | "examen" | "descanso" | "actividad" | "asueto" | "festivo" | "institucional";
 
 const TIPO_CFG: Record<TipoEvento, { label: string; dot: string; badge: string; bg: string }> = {

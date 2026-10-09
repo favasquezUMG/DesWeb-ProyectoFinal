@@ -8,8 +8,8 @@ import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
   AlertBanner, Stepper, TH, TD, Select, EmptyState
 } from "../components/Ui";
-
-// ─── Dashboard Padre ──────────────────────────────────────────────────────────
+import AvisosPadre from "./AvisosPadre";
+import BecasPadre from "./BecasPadre";
 
 function DashboardPadre() {
   const [hijo, setHijo] = useState("María José Ajú Pac");
@@ -105,8 +105,6 @@ function DashboardPadre() {
     </div>
   );
 }
-
-// ─── Matrícula ────────────────────────────────────────────────────────────────
 
 type MatriculaStep = 0 | 1 | 2 | 3;
 
@@ -304,8 +302,6 @@ function MatriculaView() {
   );
 }
 
-// ─── Notas del Hijo ───────────────────────────────────────────────────────────
-
 function NotasHijo() {
   return (
     <div className="space-y-5">
@@ -409,7 +405,7 @@ type EstadoMesUi = "pagado" | "pendiente" | "vencido" | "reembolsado" | "becado"
 function estadoMesUi(m: MesEstadoCuentaDto, anio: number): EstadoMesUi {
   if (m.estado === "Pagado") return "pagado";
   if (m.estado === "Reembolsado") return "reembolsado";
-  if (m.montoAPagar <= 0) return "becado";
+  if (m.estado === "Exonerado" || m.montoAPagar <= 0) return "becado";
   const hoy = new Date();
   const mesActual = anio < hoy.getFullYear() ? 13 : anio > hoy.getFullYear() ? 0 : hoy.getMonth() + 1;
   return m.mes < mesActual ? "vencido" : "pendiente";
@@ -708,12 +704,12 @@ function PerfilView() {
   );
 }
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 export default function Padre({ view }: { view: View }) {
   if (view === "pad-matricula") return <MatriculaView />;
   if (view === "pad-notas") return <NotasHijo />;
   if (view === "pad-pagos") return <PagosView />;
+  if (view === "pad-becas") return <BecasPadre />;
+  if (view === "pad-avisos") return <AvisosPadre />;
   if (view === "pad-perfil") return <PerfilView />;
   return <DashboardPadre />;
 }

@@ -1,13 +1,14 @@
 import type { Request, Response, NextFunction } from 'express'; //Resolver este problema******
 import jwt from 'jsonwebtoken';
 
-//Debe coincidir con el payload que firma auth.controller (login)
+//El JWT trae usuarioId (ver auth.controller); authenticateToken lo copia tambien en id
 export interface AuthenticatedRequest extends Request {
     user?: {
-        usuarioId: number;
+        id: string;
+        usuarioId?: number;
         email: string;
-        rolId: number;
-        sedeId: number | null;
+        rolId: string | number;
+        sedeId?: string | number | null;
     };
 }
 
@@ -23,8 +24,9 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
 
     try{
         const secret = process.env.JWT_SECRET || 'secret';
-        const decode = jwt.verify(token, secret) as AuthenticatedRequest['user'];
-        req.user = decode;
+        const decode = jwt.verify(token, secret) as NonNullable<AuthenticatedRequest['user']> & { usuarioId?: number };
+        // El JWT trae usuarioId; se expone tambien como id, que es lo que usan los controladores
+        req.user = { ...decode, id: String(decode.usuarioId ?? decode.id) };
         next();
     } catch (error) {
         return res.status(403).json({

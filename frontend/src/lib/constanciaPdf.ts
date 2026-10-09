@@ -12,7 +12,6 @@ export function etiquetaGradoSolicitud(alumno: SolicitudGuardada["alumno"]): str
   return alumno.grado ?? "";
 }
 
-/** Genera y descarga la constancia de la solicitud como PDF, en el cliente. */
 export function generarConstanciaPdf(solicitud: SolicitudGuardada): void {
   const doc = new jsPDF({ unit: "mm", format: "letter" });
   const margenX = 20;
@@ -111,7 +110,6 @@ export function generarConstanciaPdf(solicitud: SolicitudGuardada): void {
   doc.text(avisoCredenciales, margenX, y);
   y += avisoCredenciales.length * 5;
 
-  // Firma y sello — si no cabe en la página, se pasa a una nueva
   const yFirma = Math.max(y + 25, 245);
   if (yFirma > 265) {
     doc.addPage();

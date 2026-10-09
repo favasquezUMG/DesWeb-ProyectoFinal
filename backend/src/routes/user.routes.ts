@@ -4,19 +4,26 @@ import {
     getUserById,
     createUser,
     updateUser,
-    deleteUserById
+    setRolesAdicionales,
+    cambiarEstadoUsuario,
+    deleteUserById,
+    verificarEmailExistente
 } from '../controllers/user.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
+import { permitir } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
-// Todas las rutas de administración de usuarios quedan protegidas con el JWT
-router.use(authenticateToken)
+router.get('/verificar-email', verificarEmailExistente);
+
+router.use(authenticateToken, permitir('usuarios'))
 
 router.get('/', getUsers);
 router.get('/:id', getUserById);
 router.post('/', createUser);
 router.put('/:id', updateUser);
+router.put('/:id/roles', setRolesAdicionales);
+router.patch('/:id/estado', cambiarEstadoUsuario);
 router.delete('/:id', deleteUserById);
 
 export default router;

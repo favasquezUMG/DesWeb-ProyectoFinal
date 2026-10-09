@@ -1,8 +1,6 @@
 import { Plus, Edit } from "lucide-react";
 import { Card, SectionHeader, Btn } from "../../components/Ui";
 
-// ─── Grados y Secciones ───────────────────────────────────────────────────────
-
 export default function GradosView() {
   const grados = [
     { nombre: "Primero Básico", secciones: ["A", "B"], alumnos: [142, 144] },
