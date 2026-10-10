@@ -2,29 +2,12 @@ import type { Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { puedeOperarSede } from '../middlewares/role.middleware.js';
+import { formatFecha, parseFecha } from '../lib/fechas.js';
+import { aprobadasDelDia } from '../services/justificaciones.service.js';
 
-const ESTADOS = ['Presente', 'Ausente'] as const;
+const ESTADOS = ['Presente', 'Tarde', 'Ausente', 'Justificado'] as const;
 type Estado = (typeof ESTADOS)[number];
 
-const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * El campo fecha es @db.Date. Se ancla a medianoche UTC para que la zona
- * horaria de Guatemala (-6) no corra el día al guardar o al leer.
- */
-const parseFecha = (fecha: unknown): Date | null => {
-    if (typeof fecha !== 'string' || !FORMATO_FECHA.test(fecha.trim())) return null;
-
-    const [anio, mes, dia] = fecha.trim().split('-').map(Number);
-    const resultado = new Date(Date.UTC(anio, mes - 1, dia));
-
-    // Rechaza fechas que no existen, como 2026-02-31
-    if (resultado.getUTCMonth() !== mes - 1 || resultado.getUTCDate() !== dia) return null;
-
-    return resultado;
-};
-
-const formatFecha = (fecha: Date): string => fecha.toISOString().slice(0, 10);
 
 const hoyUTC = (): Date => {
     const ahora = new Date();
@@ -97,6 +80,22 @@ export const getListaParaPasar = async (req: AuthenticatedRequest, res: Response
 
         const porAlumno = new Map(registradas.map((a) => [a.alumnoId, a]));
 
+        // Días con justificación aprobada por la sede; y, para precargar a quien aún no tiene
+        // registro en esta clase, si otro catedrático ya lo marcó ausente hoy.
+        const justificados = await aprobadasDelDia(alumnos.map((a) => a.alumnoId), fechaDate);
+        const sinRegistro = alumnos.filter((a) => !porAlumno.has(a.alumnoId)).map((a) => a.alumnoId);
+        const ausentesEnOtraClase = new Set(
+            (await prisma.asistencia.findMany({
+                where: {
+                    alumnoId: { in: sinRegistro },
+                    fecha: fechaDate,
+                    estado: 'Ausente',
+                    cursoSeccionId: { not: cursoSeccion.cursoSeccionId },
+                },
+                select: { alumnoId: true },
+            })).map((a) => a.alumnoId),
+        );
+
         const lista = alumnos
             .filter((a) => !a.usuario.deletedAt)
             .map((a) => ({
@@ -105,6 +104,8 @@ export const getListaParaPasar = async (req: AuthenticatedRequest, res: Response
                 apellidos: a.usuario.apellidos,
                 estado: porAlumno.get(a.alumnoId)?.estado ?? null,
                 asistenciaId: porAlumno.get(a.alumnoId)?.asistenciaId ?? null,
+                diaJustificado: justificados.has(a.alumnoId),
+                ausenteEnOtraClase: ausentesEnOtraClase.has(a.alumnoId),
             }))
             .sort((a, b) => a.apellidos.localeCompare(b.apellidos));
 
@@ -218,6 +219,21 @@ export const pasarLista = async (req: AuthenticatedRequest, res: Response) => {
             });
         }
 
+        // "Justificado" solo procede si la sede aprobó la justificación de ese día; y en ese
+        // caso cualquier falta registrada ese día queda justificada.
+        const justificados = await aprobadasDelDia(ids, fechaDate);
+        const sinAprobacion = asistencias.filter(
+            (item: any) => item.estado === 'Justificado' && !justificados.has(Number(item.alumnoId)),
+        );
+        if (sinAprobacion.length > 0) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Solo se puede marcar "Justificado" cuando la sede aprobó la justificación de ese día.',
+            });
+        }
+        const estadoFinal = (item: any): Estado =>
+            item.estado === 'Ausente' && justificados.has(Number(item.alumnoId)) ? 'Justificado' : item.estado;
+
         const resultado = await prisma.$transaction(
             asistencias.map((item: any) =>
                 prisma.asistencia.upsert({
@@ -228,27 +244,37 @@ export const pasarLista = async (req: AuthenticatedRequest, res: Response) => {
                             fecha: fechaDate,
                         },
                     },
-                    update: { estado: item.estado },
+                    update: { estado: estadoFinal(item) },
                     create: {
                         cursoSeccionId: Number(cursoSeccionId),
                         alumnoId: Number(item.alumnoId),
                         fecha: fechaDate,
-                        estado: item.estado,
+                        estado: estadoFinal(item),
                     },
                 }),
             ),
         );
 
-        const presentes = resultado.filter((a) => a.estado === 'Presente').length;
+        const contar = (estado: Estado) => resultado.filter((a) => a.estado === estado).length;
+        const conteo = {
+            presentes: contar('Presente'),
+            tardes: contar('Tarde'),
+            ausentes: contar('Ausente'),
+            justificados: contar('Justificado'),
+        };
+
+        const partes = [`${conteo.presentes} presente(s)`];
+        if (conteo.tardes > 0) partes.push(`${conteo.tardes} tarde(s)`);
+        partes.push(`${conteo.ausentes} ausente(s)`);
+        if (conteo.justificados > 0) partes.push(`${conteo.justificados} justificado(s)`);
 
         return res.status(201).json({
             status: 'success',
-            message: `Lista registrada: ${presentes} presente(s), ${resultado.length - presentes} ausente(s).`,
+            message: `Lista registrada: ${partes.join(', ')}.`,
             data: {
                 fecha: formatFecha(fechaDate),
                 total: resultado.length,
-                presentes,
-                ausentes: resultado.length - presentes,
+                ...conteo,
             },
         });
     } catch (error) {
@@ -333,30 +359,46 @@ export const getResumenAsistencia = async (req: AuthenticatedRequest, res: Respo
         // Días distintos en que se pasó lista para este curso
         const diasRegistrados = new Set(registros.map((r) => formatFecha(r.fecha))).size;
 
-        const porAlumno = new Map<number, { nombres: string; apellidos: string; presentes: number; total: number }>();
+        const porAlumno = new Map<number, {
+            nombres: string; apellidos: string; presentes: number; tardes: number; ausentes: number; justificados: number; total: number;
+        }>();
 
         for (const r of registros) {
             const actual = porAlumno.get(r.alumnoId) ?? {
                 nombres: r.alumno.usuario.nombres,
                 apellidos: r.alumno.usuario.apellidos,
                 presentes: 0,
+                tardes: 0,
+                ausentes: 0,
+                justificados: 0,
                 total: 0,
             };
             actual.total += 1;
             if (r.estado === 'Presente') actual.presentes += 1;
+            else if (r.estado === 'Tarde') actual.tardes += 1;
+            else if (r.estado === 'Justificado') actual.justificados += 1;
+            else actual.ausentes += 1;
             porAlumno.set(r.alumnoId, actual);
         }
 
         const resumen = Array.from(porAlumno.entries())
-            .map(([alumnoId, d]) => ({
-                alumnoId,
-                nombres: d.nombres,
-                apellidos: d.apellidos,
-                presentes: d.presentes,
-                ausentes: d.total - d.presentes,
-                totalRegistrado: d.total,
-                porcentaje: d.total > 0 ? Number(((d.presentes / d.total) * 100).toFixed(2)) : 0,
-            }))
+            .map(([alumnoId, d]) => {
+                // Llegar tarde cuenta como asistencia; una ausencia justificada no cuenta
+                // en contra (se excluye del total con el que se calcula el porcentaje).
+                const asistio = d.presentes + d.tardes;
+                const computables = d.total - d.justificados;
+                return {
+                    alumnoId,
+                    nombres: d.nombres,
+                    apellidos: d.apellidos,
+                    presentes: d.presentes,
+                    tardes: d.tardes,
+                    ausentes: d.ausentes,
+                    justificados: d.justificados,
+                    totalRegistrado: d.total,
+                    porcentaje: computables > 0 ? Number(((asistio / computables) * 100).toFixed(2)) : 100,
+                };
+            })
             .sort((a, b) => a.apellidos.localeCompare(b.apellidos));
 
         return res.json({
@@ -407,9 +449,17 @@ export const updateAsistencia = async (req: AuthenticatedRequest, res: Response)
             });
         }
 
+        const diaJustificado = (await aprobadasDelDia([actual.alumnoId], actual.fecha)).has(actual.alumnoId);
+        if (estado === 'Justificado' && !diaJustificado) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Solo se puede marcar "Justificado" cuando la sede aprobó la justificación de ese día.',
+            });
+        }
+
         const actualizada = await prisma.asistencia.update({
             where: { asistenciaId: Number(id) },
-            data: { estado },
+            data: { estado: estado === 'Ausente' && diaJustificado ? 'Justificado' : estado },
         });
 
         return res.json({

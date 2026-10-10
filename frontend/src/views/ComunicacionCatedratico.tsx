@@ -9,7 +9,9 @@ import {
   createReporteConducta,
   deleteReporteConducta,
   enviarNotasAEncargados,
+  getDestinatariosConducta,
   type CursoSeccionDto,
+  type DestinatarioConductaDto,
   type AlumnoDto,
   type ReporteConductaDto,
   type TipoConducta,
@@ -26,13 +28,16 @@ interface FormState {
   tipo: TipoConducta;
   titulo: string;
   descripcion: string;
+  encargadoIds: number[];
 }
 
-const emptyForm = (): FormState => ({ seccionId: "", alumnoId: "", tipo: "Leve", titulo: "", descripcion: "" });
+const emptyForm = (): FormState => ({ seccionId: "", alumnoId: "", tipo: "Leve", titulo: "", descripcion: "", encargadoIds: [] });
 
 function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
   const [reportes, setReportes] = useState<ReporteConductaDto[]>([]);
   const [alumnos, setAlumnos] = useState<AlumnoDto[]>([]);
+  const [destinatarios, setDestinatarios] = useState<DestinatarioConductaDto[]>([]);
+  const [loadingDestinatarios, setLoadingDestinatarios] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -66,9 +71,40 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
     return () => { cancelled = true; };
   }, [form.seccionId]);
 
+  // Encargados que pueden recibir el correo; por defecto se seleccionan todos
+  useEffect(() => {
+    setDestinatarios([]);
+    setForm((f) => ({ ...f, encargadoIds: [] }));
+    if (!form.alumnoId) return;
+    let cancelled = false;
+    setLoadingDestinatarios(true);
+    getDestinatariosConducta(Number(form.alumnoId))
+      .then((data) => {
+        if (cancelled) return;
+        setDestinatarios(data);
+        setForm((f) => ({ ...f, encargadoIds: data.map((d) => d.encargadoId) }));
+      })
+      .catch(() => { if (!cancelled) setDestinatarios([]); })
+      .finally(() => { if (!cancelled) setLoadingDestinatarios(false); });
+    return () => { cancelled = true; };
+  }, [form.alumnoId]);
+
+  function toggleEncargado(encargadoId: number) {
+    setForm((f) => ({
+      ...f,
+      encargadoIds: f.encargadoIds.includes(encargadoId)
+        ? f.encargadoIds.filter((id) => id !== encargadoId)
+        : [...f.encargadoIds, encargadoId],
+    }));
+  }
+
   async function handleSubmit() {
     if (!form.alumnoId || !form.titulo.trim() || !form.descripcion.trim()) {
       setFormError("Seleccione un alumno y complete el título y la descripción.");
+      return;
+    }
+    if (destinatarios.length > 0 && form.encargadoIds.length === 0) {
+      setFormError("Seleccione al menos un encargado para enviar el reporte.");
       return;
     }
 
@@ -80,6 +116,7 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
         tipo: form.tipo,
         titulo: form.titulo.trim(),
         descripcion: form.descripcion.trim(),
+        encargadoIds: form.encargadoIds,
       });
       setReportes((prev) => [res.data, ...prev]);
       setSuccessMessage(res.message);
@@ -121,7 +158,7 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
       {showForm && (
         <Card className="p-5 border-2 border-primary-200">
           <h3 className="font-semibold text-stone-800 mb-1">Nuevo reporte de conducta</h3>
-          <p className="text-xs text-stone-500 mb-4">Se enviará por correo a los encargados del alumno y quedará pendiente de su revisión.</p>
+          <p className="text-xs text-stone-500 mb-4">Se enviará por correo a los encargados seleccionados y quedará pendiente de su revisión.</p>
 
           {formError && <div className="mb-4"><AlertBanner type="error" message={formError} /></div>}
 
@@ -153,6 +190,36 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
                 {TIPOS_CONDUCTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
+            {form.alumnoId && (
+              <div className="md:col-span-3">
+                <label className="text-sm font-medium text-stone-700 block mb-1">Enviar a</label>
+                {loadingDestinatarios ? (
+                  <p className="text-xs text-stone-500">Cargando encargados…</p>
+                ) : destinatarios.length === 0 ? (
+                  <p className="text-xs text-warning-700 bg-warning-50 border border-warning-100 rounded-lg p-2">
+                    El alumno no tiene encargados que reciban notificaciones. El reporte se registrará sin enviar correo.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {destinatarios.map((d) => (
+                      <label key={d.encargadoId} className="flex items-center gap-3 border border-stone-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-stone-50">
+                        <input type="checkbox" className="accent-primary-700"
+                          checked={form.encargadoIds.includes(d.encargadoId)}
+                          onChange={() => toggleEncargado(d.encargadoId)} />
+                        <div className="min-w-0">
+                          <p className="text-sm text-stone-800">
+                            {d.nombre}
+                            {d.parentesco && <span className="text-stone-500"> · {d.parentesco}</span>}
+                            {d.esPrincipal && <span className="ml-2"><Badge variant="neutral">Principal</Badge></span>}
+                          </p>
+                          <p className="text-xs text-stone-500 truncate">{d.email}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="md:col-span-3">
               <label className="text-sm font-medium text-stone-700 block mb-1">Título</label>
               <input className={INPUT_CLS} maxLength={150} value={form.titulo} placeholder="Ej. Uso del celular en clase"

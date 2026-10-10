@@ -138,7 +138,7 @@ export const plantillaReporteNotasPorCatedratico = (reporte: ReporteNotasPorCate
                     <tr>
                         <th>Alumno</th>
                         ${numerosUnidad.map((n) => `<th>Unidad ${n}</th>`).join("")}
-                        <th>Total</th>
+                        <th>Promedio</th>
                     </tr>
                 </thead>
                 <tbody>

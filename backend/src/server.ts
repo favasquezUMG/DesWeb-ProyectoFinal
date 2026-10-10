@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { openapiSpec } from "./docs/openapi.js";
-import { login, cambiarRol, me } from "./controllers/auth.controller.js";
+import { login, cambiarRol, me, olvidePassword, restablecerPassword, cambiarPassword } from "./controllers/auth.controller.js";
 import type { AuthenticatedRequest } from "./middlewares/auth.middleware.js";
 import { authenticateToken } from "./middlewares/auth.middleware.js";
 import { stripeWebhook } from "./controllers/stripewebhook.controller.js";
@@ -28,6 +28,7 @@ import conductaRoutes from "./routes/conducta.routes.js";
 import notificacionRoutes from "./routes/notificacion.routes.js";
 import publicoRoutes from "./routes/publico.routes.js";
 import solicitudRoutes from "./routes/solicitud.routes.js";
+import justificacionRoutes from "./routes/justificacion.routes.js";
 import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
@@ -92,6 +93,9 @@ app.use(
 app.post('/api/auth/login', login);
 app.post('/api/auth/cambiar-rol', authenticateToken, cambiarRol);
 app.get('/api/auth/me', authenticateToken, me);
+app.post('/api/auth/olvide-password', olvidePassword);
+app.post('/api/auth/restablecer-password', restablecerPassword);
+app.post('/api/auth/cambiar-password', authenticateToken, cambiarPassword);
 
 app.use('/api/usuarios', userRoutes);
 app.use('/api/sedes', sedeRoutes);
@@ -110,6 +114,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/conducta', conductaRoutes);
+app.use('/api/justificaciones', justificacionRoutes);
 app.use('/api/notificaciones', notificacionRoutes);
 app.use('/api/publico', publicoRoutes);
 app.use('/api/solicitudes', solicitudRoutes);
