@@ -4,7 +4,7 @@ import type { AppUser, Role } from "../types";
 import type { Portal } from "./Home";
 import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
-import { login } from "../lib/api";
+import { login, restablecerPassword, solicitarRecuperacion } from "../lib/api";
 import { buildAppUser, clearSession, mapBackendRole, saveSession } from "../lib/auth";
 import {
   type SolicitudGuardada,
@@ -54,6 +54,7 @@ interface LoginProps {
   onBack: () => void;
   initialPortal?: Portal;
   initialScreen?: Screen;
+  resetToken?: string;
 }
 
 const SEDES_DEMO = ["Sede Central", "Sede Xela", "Sede Coatepeque"];
@@ -72,7 +73,7 @@ function validarPassword(value: string): string {
   return "";
 }
 
-export default function Login({ onLogin, onBack, initialPortal = "estudiante", initialScreen = "login" }: LoginProps) {
+export default function Login({ onLogin, onBack, initialPortal = "estudiante", initialScreen = "login", resetToken }: LoginProps) {
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [portal, setPortal] = useState<Portal>(initialPortal);
   const [email, setEmail] = useState("");
@@ -84,6 +85,11 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
   const [loading, setLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetDone, setResetDone] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [selectedSede, setSelectedSede] = useState("Sede Central");
 
@@ -144,10 +150,39 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     }
   }
 
-  function handleForgot(e: React.FormEvent) {
+  async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
+    const err = validarEmail(forgotEmail);
+    setForgotError(err);
+    if (err) return;
+
     setLoading(true);
-    setTimeout(() => { setLoading(false); setForgotSent(true); }, 900);
+    try {
+      await solicitarRecuperacion(forgotEmail.trim());
+      setForgotSent(true);
+    } catch (error) {
+      setForgotError(error instanceof Error ? error.message : "No se pudo enviar el correo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) return setResetError("La contraseña debe tener al menos 8 caracteres.");
+    if (newPassword !== confirmPassword) return setResetError("Las contraseñas no coinciden.");
+    if (!resetToken) return setResetError("El enlace no es válido. Solicite uno nuevo.");
+
+    setResetError("");
+    setLoading(true);
+    try {
+      await restablecerPassword(resetToken, newPassword);
+      setResetDone(true);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "No se pudo restablecer la contraseña.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleSedeConfirm() {
@@ -362,7 +397,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
                 {forgotSent ? (
                   <div className="space-y-4">
-                    <AlertBanner type="success" title="Correo enviado" message={`Revise la bandeja de entrada de ${forgotEmail}. El enlace expira en 24 horas.`} />
+                    <AlertBanner type="success" title="Solicitud enviada" message={`Si ${forgotEmail} está registrado, recibirá un enlace para restablecer su contraseña. El enlace vence en 60 minutos.`} />
                     <Btn variant="outline" size="md" className="w-full justify-center" onClick={() => { setScreen("login"); setForgotSent(false); setForgotEmail(""); }}>
                       Volver al inicio de sesión
                     </Btn>
@@ -373,7 +408,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                       <Input
                         label="Correo electrónico"
                         id="forgot-email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                        placeholder="usuario@colegio.edu.gt"
+                        placeholder="usuario@colegio.edu.gt" error={forgotError}
                       />
                     </div>
                     <Btn type="submit" variant="primary" size="lg" loading={loading} className="w-full justify-center">
@@ -381,6 +416,46 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                     </Btn>
                     <button type="button" onClick={() => setScreen("login")} className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-3 py-1">
                       ← Volver al inicio de sesión
+                    </button>
+                  </>
+                )}
+              </form>
+            )}
+
+            {screen === "reset" && (
+              <form onSubmit={handleReset} noValidate>
+                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Nueva contraseña</h2>
+                <p className="text-stone-500 text-sm mb-6">Escriba la contraseña que usará a partir de ahora (mínimo 8 caracteres).</p>
+
+                {resetDone ? (
+                  <div className="space-y-4">
+                    <AlertBanner type="success" title="Contraseña actualizada" message="Ya puede iniciar sesión con su nueva contraseña." />
+                    <Btn variant="primary" size="md" className="w-full justify-center" onClick={() => setScreen("login")}>
+                      Ir a iniciar sesión
+                    </Btn>
+                  </div>
+                ) : (
+                  <>
+                    {resetError && <div className="mb-4"><AlertBanner type="error" message={resetError} /></div>}
+                    <div className="mb-4">
+                      <Input
+                        label="Nueva contraseña"
+                        id="reset-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <Input
+                        label="Confirmar contraseña"
+                        id="reset-confirm" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <Btn type="submit" variant="primary" size="lg" loading={loading} className="w-full justify-center">
+                      {loading ? "Guardando…" : "Guardar contraseña"}
+                    </Btn>
+                    <button type="button" onClick={() => setScreen("forgot")} className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-3 py-1">
+                      Solicitar un enlace nuevo
                     </button>
                   </>
                 )}
