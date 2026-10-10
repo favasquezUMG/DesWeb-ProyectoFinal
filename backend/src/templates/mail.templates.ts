@@ -173,11 +173,11 @@ export const plantillaBoletaNotas = (datos: {
                 <tr style="background-color:#f3f4f6;">
                     <th style="${celda} text-align:left;">Curso</th>
                     ${numerosUnidad.map((n) => `<th style="${celda}">U${n}</th>`).join("")}
-                    <th style="${celda}">Total</th>
+                    <th style="${celda}">Promedio</th>
                 </tr>
                 ${filas}
             </table>
-            <p style="font-size:12px; color:#6b7280;">La nota mínima de aprobación es 61 puntos.</p>
+            <p style="font-size:12px; color:#6b7280;">Cada unidad se califica sobre 100 puntos (60 de zona y 40 de examen). La nota final es el promedio de las unidades; la mínima de aprobación es 61 puntos.</p>
             ${botonIngresar()}
             `
         ),
@@ -251,6 +251,52 @@ export const plantillaBeca = (datos: {
             <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
             ${parrafos(datos.mensaje)}
             <p>Puede consultar el detalle en la sección de Becas del portal.</p>
+            ${botonIngresar()}
+            `
+        ),
+    };
+};
+
+export const plantillaRecuperarPassword = (datos: {
+    nombreDestinatario: string;
+    enlace: string;
+    minutosVigencia: number;
+}): PlantillaResult => {
+    return {
+        subject: "Restablecer contraseña",
+        html: baseTemplate(
+            "Restablecer contraseña",
+            `
+            <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de su cuenta. Haga clic en el botón para crear una nueva:</p>
+            <p style="margin-top:20px;"><a href="${datos.enlace}" style="background-color:#1d4ed8; color:#ffffff; padding:10px 18px; border-radius:6px; text-decoration:none; font-weight:bold;">Crear nueva contraseña</a></p>
+            <p style="margin-top:20px;">El enlace vence en ${datos.minutosVigencia} minutos y solo puede usarse una vez.</p>
+            <p>Si usted no lo solicitó, ignore este correo: su contraseña actual sigue funcionando.</p>
+            `
+        ),
+    };
+};
+
+export const plantillaJustificacion = (datos: {
+    nombreDestinatario: string;
+    nombreAlumno: string;
+    fecha: Date | string;
+    aprobada: boolean;
+    comentario?: string | null;
+}): PlantillaResult => {
+    const color = datos.aprobada ? "#16a34a" : "#dc2626";
+    const resultado = datos.aprobada ? "aprobada" : "rechazada";
+    return {
+        subject: `Justificación ${resultado} - ${datos.nombreAlumno}`,
+        html: baseTemplate(
+            `Justificación de ausencia ${resultado}`,
+            `
+            <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+            <p>La solicitud para justificar la ausencia de <strong>${escapeHtml(datos.nombreAlumno)}</strong>
+            del ${formatearFecha(datos.fecha)} fue
+            <strong style="color:${color};">${resultado}</strong>.</p>
+            ${datos.aprobada ? "<p>Las faltas de ese día quedan registradas como justificadas.</p>" : ""}
+            ${datos.comentario ? `<div style="border-left:3px solid ${color}; padding-left:12px; margin:12px 0;">${parrafos(datos.comentario)}</div>` : ""}
             ${botonIngresar()}
             `
         ),

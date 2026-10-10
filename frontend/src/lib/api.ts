@@ -69,6 +69,28 @@ export function cambiarRol(rolId: number): Promise<LoginResponse> {
   });
 }
 
+// Envía al correo un enlace para restablecer la contraseña
+export function solicitarRecuperacion(email: string): Promise<{ status: "success"; message: string }> {
+  return request("/api/auth/olvide-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function restablecerPassword(token: string, password: string): Promise<{ status: "success"; message: string }> {
+  return request("/api/auth/restablecer-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
+export function cambiarPassword(actual: string, nueva: string): Promise<MessageResponse> {
+  return request("/api/auth/cambiar-password", {
+    method: "POST",
+    body: JSON.stringify({ actual, nueva }),
+  });
+}
+
 // ---------- Roles y permisos ----------
 
 export type TipoRol = "global" | "comunidad" | "personal";
@@ -525,16 +547,177 @@ type MessageResponse = { status: "success"; message: string };
 
 // ---------- Cursos del catedrático ----------
 
+export interface HorarioCursoDto {
+  horarioId: number;
+  diaSemana: number; // 1 = Lunes ... 7 = Domingo
+  horaInicio: string; // "HH:MM"
+  horaFin: string;
+}
+
 export interface CursoSeccionDto {
   cursoSeccionId: number;
   seccionId: number;
   curso: { cursoId: number; nombre: string };
-  seccion: { seccionId: number; nombre: string; sedeId: number; grado: { nombre: string } };
+  seccion: { seccionId: number; nombre: string; sedeId: number; anioLectivo?: number; grado: { nombre: string }; sede?: { nombre: string } };
+  horarios?: HorarioCursoDto[];
 }
 
 export async function getCursosDeCatedratico(catedraticoId: number): Promise<CursoSeccionDto[]> {
   const body = await request<{ status: "success"; data: CursoSeccionDto[] }>(`/api/curso-seccion/catedratico/${catedraticoId}`);
   return body.data;
+}
+
+// ---------- Libreta de notas y actividades ----------
+
+// Cada unidad vale 100: zona (tareas, proyectos...) 60 y examen 40
+export type TipoActividad = "Zona" | "Examen";
+
+export interface ActividadDto {
+  actividadId: number;
+  nombre: string;
+  puntosMaximos: number;
+  tipo: TipoActividad;
+  fecha: string | null; // "YYYY-MM-DD"
+}
+
+export interface LibretaDto {
+  cursoSeccionId: number;
+  curso: string;
+  grado: string;
+  seccion: string;
+  unidades: { unidadId: number; numero: number; actividades: ActividadDto[] }[];
+  alumnos: { alumnoId: number; nombres: string; apellidos: string }[];
+  notas: { actividadId: number; alumnoId: number; valor: number }[];
+}
+
+export async function getLibreta(cursoSeccionId: number): Promise<LibretaDto> {
+  const body = await request<{ status: "success"; data: LibretaDto }>(`/api/notas/curso-seccion/${cursoSeccionId}`);
+  return body.data;
+}
+
+export interface ActividadInput {
+  unidadId: number;
+  nombre: string;
+  puntosMaximos: number;
+  tipo: TipoActividad;
+  fecha: string;
+}
+
+export function createActividad(input: ActividadInput): Promise<{ status: "success" }> {
+  return request("/api/actividades", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateActividad(id: number, input: Omit<ActividadInput, "unidadId">): Promise<{ status: "success" }> {
+  return request(`/api/actividades/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export function deleteActividad(id: number): Promise<MessageResponse> {
+  return request(`/api/actividades/${id}`, { method: "DELETE" });
+}
+
+// valor null borra la nota registrada
+export function guardarNotasActividad(actividadId: number, notas: { alumnoId: number; valor: number | null }[]): Promise<MessageResponse> {
+  return request("/api/notas/bulk", { method: "POST", body: JSON.stringify({ actividadId, notas }) });
+}
+
+// ---------- Asistencia ----------
+
+export type EstadoAsistencia = "Presente" | "Tarde" | "Ausente" | "Justificado";
+
+export interface ListaAsistenciaDto {
+  cursoSeccionId: number;
+  curso: string;
+  grado: string;
+  seccion: string;
+  fecha: string;
+  yaRegistrada: boolean;
+  alumnos: {
+    alumnoId: number; nombres: string; apellidos: string; estado: EstadoAsistencia | null; asistenciaId: number | null;
+    /** La sede aprobó la justificación de ese día: la falta se registra como "Justificado" */
+    diaJustificado: boolean;
+    /** Sin registro en esta clase, pero otro catedrático ya lo marcó ausente ese día */
+    ausenteEnOtraClase: boolean;
+  }[];
+}
+
+export async function getListaAsistencia(cursoSeccionId: number, fecha?: string): Promise<ListaAsistenciaDto> {
+  const query = fecha ? `?fecha=${encodeURIComponent(fecha)}` : "";
+  const body = await request<{ status: "success"; data: ListaAsistenciaDto }>(`/api/asistencia/lista/${cursoSeccionId}${query}`);
+  return body.data;
+}
+
+export function pasarLista(input: { cursoSeccionId: number; fecha: string; asistencias: { alumnoId: number; estado: EstadoAsistencia }[] }): Promise<MessageResponse> {
+  return request("/api/asistencia/pasar-lista", { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface ResumenAsistenciaDto {
+  curso: string;
+  grado: string;
+  seccion: string;
+  diasRegistrados: number;
+  alumnos: {
+    alumnoId: number; nombres: string; apellidos: string;
+    presentes: number; tardes: number; ausentes: number; justificados: number;
+    totalRegistrado: number; porcentaje: number;
+  }[];
+}
+
+export async function getResumenAsistencia(cursoSeccionId: number): Promise<ResumenAsistenciaDto> {
+  const body = await request<{ status: "success"; data: ResumenAsistenciaDto }>(`/api/asistencia/resumen/${cursoSeccionId}`);
+  return body.data;
+}
+
+// ---------- Justificación de ausencias ----------
+
+export type EstadoJustificacion = "Pendiente" | "Aprobada" | "Rechazada";
+
+export interface JustificacionDto {
+  justificacionId: number;
+  alumnoId: number;
+  fecha: string;
+  motivo: string;
+  estado: EstadoJustificacion;
+  comentario: string | null;
+  fechaSolicitud: string;
+  fechaRevision: string | null;
+  revisor?: { nombres: string; apellidos: string } | null;
+}
+
+export interface AsistenciaHijoDto {
+  alumnoId: number;
+  nombre: string;
+  grado: string;
+  resumen: { presentes: number; tardes: number; ausentes: number; justificados: number; total: number; porcentaje: number };
+  dias: { fecha: string; clases: { curso: string; estado: EstadoAsistencia }[] }[];
+  justificaciones: JustificacionDto[];
+}
+
+export interface JustificacionAdminDto extends JustificacionDto {
+  alumno: { alumnoId: number; usuario: { nombres: string; apellidos: string }; seccion: { nombre: string; grado: { nombre: string } } };
+  solicitante: { usuarioId: number; nombres: string; apellidos: string; email: string };
+  clases: { curso: string; estado: EstadoAsistencia }[];
+}
+
+export async function getAsistenciaHijos(): Promise<AsistenciaHijoDto[]> {
+  const body = await request<{ status: "success"; data: AsistenciaHijoDto[] }>("/api/justificaciones/mis-hijos");
+  return body.data;
+}
+
+export function solicitarJustificacion(input: { alumnoId: number; fecha: string; motivo: string }): Promise<{ status: "success"; message: string; data: JustificacionDto }> {
+  return request("/api/justificaciones", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function cancelarJustificacion(id: number): Promise<MessageResponse> {
+  return request(`/api/justificaciones/${id}`, { method: "DELETE" });
+}
+
+export async function getJustificaciones(estado?: EstadoJustificacion): Promise<JustificacionAdminDto[]> {
+  const body = await request<{ status: "success"; data: JustificacionAdminDto[] }>(`/api/justificaciones${estado ? `?estado=${estado}` : ""}`);
+  return body.data;
+}
+
+export function revisarJustificacion(id: number, estado: "Aprobada" | "Rechazada", comentario?: string): Promise<{ status: "success"; message: string; data: JustificacionDto }> {
+  return request(`/api/justificaciones/${id}/revisar`, { method: "PATCH", body: JSON.stringify({ estado, comentario }) });
 }
 
 // ---------- Envío de notas a encargados ----------
@@ -586,6 +769,21 @@ export interface ReporteConductaInput {
   tipo: TipoConducta;
   titulo: string;
   descripcion: string;
+  /** Encargados a notificar; si se omite se notifica a todos los que reciben notificaciones */
+  encargadoIds?: number[];
+}
+
+export interface DestinatarioConductaDto {
+  encargadoId: number;
+  nombre: string;
+  email: string;
+  parentesco: string | null;
+  esPrincipal: boolean;
+}
+
+export async function getDestinatariosConducta(alumnoId: number): Promise<DestinatarioConductaDto[]> {
+  const body = await request<{ status: "success"; data: DestinatarioConductaDto[] }>(`/api/conducta/destinatarios?alumnoId=${alumnoId}`);
+  return body.data;
 }
 
 export async function getReportesConducta(params?: { alumnoId?: number; revisado?: boolean }): Promise<ReporteConductaDto[]> {
@@ -672,7 +870,29 @@ export function marcarNotificacionLeida(id: number): Promise<MessageResponse> {
   return request(`/api/notificaciones/${id}/leida`, { method: "PATCH" });
 }
 
+export function marcarTodasNotificacionesLeidas(): Promise<MessageResponse> {
+  return request("/api/notificaciones/leidas", { method: "PATCH" });
+}
+
 // ---------- Eventos ----------
+
+export type TipoEvento = "Festivo" | "Academico" | "Deportivo" | "Reunion";
+
+export interface EventoDto {
+  eventoId: number;
+  sedeId: number | null;
+  nombre: string;
+  descripcion: string | null;
+  fecha: string;
+  tipoEvento: TipoEvento | string;
+  sede: { nombre: string } | null;
+}
+
+// Sin sedeId el backend devuelve los eventos generales y los de la sede del usuario
+export async function getEventos(): Promise<EventoDto[]> {
+  const body = await request<{ status: "success"; data: EventoDto[] }>("/api/events");
+  return body.data;
+}
 
 export function enviarRecordatorioEvento(eventoId: number): Promise<MessageResponse> {
   return request(`/api/events/${eventoId}/recordatorio`, { method: "POST" });

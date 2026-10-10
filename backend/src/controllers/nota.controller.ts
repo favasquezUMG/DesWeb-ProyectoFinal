@@ -5,7 +5,7 @@ import { ROL, obtenerNombreRol, puedeOperarSede } from "../middlewares/role.midd
 import { calcularNotasCursoSeccion, type ResultadoCursoSeccion } from "../services/notas.service.js";
 import { encargadosDeAlumno, enviarADestinatarios, enviarEnSegundoPlano } from "../services/notificacion.service.js";
 import { plantillaBoletaNotas } from "../templates/mail.templates.js";
-import { puedeVerAlumno } from "../services/acceso.service.js";
+import { puedeGestionarCursoSeccion, puedeVerAlumno } from "../services/acceso.service.js";
 
 //Get All
 export const getNotas = async (_req: Request, res: Response) => {
@@ -99,6 +99,7 @@ export const getNotasByStudent = async (req: AuthenticatedRequest, res: Response
                     actividadId: true,
                     nombre: true,
                     puntosMaximos: true,
+                    tipo: true,
                     unidad: { select: { numero: true } }
                 }
             }
@@ -115,8 +116,35 @@ export const getNotasByStudent = async (req: AuthenticatedRequest, res: Response
     }
 };
 
+// Valida que la actividad exista, que quien guarda pueda gestionar su curso y que
+// los alumnos pertenezcan a la seccion. Devuelve el error listo o el punteo de la actividad.
+const validarCargaNotas = async (req: AuthenticatedRequest, actividadId: number, alumnoIds: number[]) => {
+  const actividad = await prisma.actividad.findUnique({
+    where: { actividadId },
+    include: { unidad: { include: { cursoSeccion: { include: { seccion: { select: { sedeId: true } } } } } } },
+  });
+  if (!actividad) return { ok: false as const, codigo: 404, error: `No se encontró la actividad con ID: ${actividadId}.` };
+
+  const cursoSeccion = actividad.unidad.cursoSeccion;
+  if (!(await puedeGestionarCursoSeccion(req, cursoSeccion))) {
+    return { ok: false as const, codigo: 403, error: 'No tiene permisos para registrar notas en este curso.' };
+  }
+
+  const ids = new Set(alumnoIds);
+  const validos = await prisma.alumno.count({
+    where: { alumnoId: { in: [...ids] }, seccionId: cursoSeccion.seccionId },
+  });
+  if (validos !== ids.size) {
+    return { ok: false as const, codigo: 400, error: 'Hay alumnos que no pertenecen a la sección de este curso.' };
+  }
+
+  return { ok: true as const, puntosMaximos: Number(actividad.puntosMaximos) };
+};
+
+const esValorVacio = (valor: unknown) => valor === null || valor === '';
+
 //Post registrar o actualizar una nota
-export const upsertNota = async (req: Request, res: Response) => {
+export const upsertNota = async (req: AuthenticatedRequest, res: Response) => {
   const { actividadId, alumnoId, valor } = req.body;
 
   if (actividadId === undefined || alumnoId === undefined || valor === undefined) {
@@ -124,6 +152,16 @@ export const upsertNota = async (req: Request, res: Response) => {
   }
 
   try {
+    const validacion = await validarCargaNotas(req, Number(actividadId), [Number(alumnoId)]);
+    if (!validacion.ok) {
+      return res.status(validacion.codigo).json({ status: 'error', message: validacion.error });
+    }
+
+    const num = Number(valor);
+    if (isNaN(num) || num < 0 || num > validacion.puntosMaximos) {
+      return res.status(400).json({ status: 'error', message: `La nota debe estar entre 0 y ${validacion.puntosMaximos}.` });
+    }
+
     const nota = await prisma.nota.upsert({
       where: {
         actividadId_alumnoId: {
@@ -131,11 +169,11 @@ export const upsertNota = async (req: Request, res: Response) => {
           alumnoId: Number(alumnoId)
         }
       },
-      update: { valor: Number(valor) },
+      update: { valor: num },
       create: {
         actividadId: Number(actividadId),
         alumnoId: Number(alumnoId),
-        valor: Number(valor)
+        valor: num
       }
     });
 
@@ -145,37 +183,123 @@ export const upsertNota = async (req: Request, res: Response) => {
   }
 };
 
-//Post registrar o editar varias notas
-export const bulkUpsertNotas = async (req: Request, res: Response) => {
+//Post registrar o editar varias notas de una actividad.
+// Una nota con valor null o "" se borra (el catedratico limpio la casilla).
+export const bulkUpsertNotas = async (req: AuthenticatedRequest, res: Response) => {
   const { actividadId, notas } = req.body; // notas es un array: [{ alumnoId: 1, valor: 85 }, ...]
 
   if (!actividadId || !Array.isArray(notas)) {
     return res.status(400).json({ status: 'error', message: 'Se requiere actividadId y un arreglo de notas' });
   }
 
+  if (notas.some((n: any) => !n?.alumnoId || n.valor === undefined)) {
+    return res.status(400).json({ status: 'error', message: 'Cada nota debe traer alumnoId y valor' });
+  }
+
   try {
-    const transacciones = notas.map((n) =>
-      prisma.nota.upsert({
-        where: {
-          actividadId_alumnoId: {
+    const validacion = await validarCargaNotas(req, Number(actividadId), notas.map((n: any) => Number(n.alumnoId)));
+    if (!validacion.ok) {
+      return res.status(validacion.codigo).json({ status: 'error', message: validacion.error });
+    }
+
+    const { puntosMaximos } = validacion;
+    const invalida = notas.some((n: any) => {
+      if (esValorVacio(n.valor)) return false;
+      const num = Number(n.valor);
+      return isNaN(num) || num < 0 || num > puntosMaximos;
+    });
+    if (invalida) {
+      return res.status(400).json({ status: 'error', message: `Las notas de esta actividad deben estar entre 0 y ${puntosMaximos}.` });
+    }
+
+    const transacciones = notas.map((n: any) =>
+      esValorVacio(n.valor)
+        ? prisma.nota.deleteMany({ where: { actividadId: Number(actividadId), alumnoId: Number(n.alumnoId) } })
+        : prisma.nota.upsert({
+          where: {
+            actividadId_alumnoId: {
+              actividadId: Number(actividadId),
+              alumnoId: Number(n.alumnoId)
+            }
+          },
+          update: { valor: Number(n.valor) },
+          create: {
             actividadId: Number(actividadId),
-            alumnoId: Number(n.alumnoId)
+            alumnoId: Number(n.alumnoId),
+            valor: Number(n.valor)
           }
-        },
-        update: { valor: Number(n.valor) },
-        create: {
-          actividadId: Number(actividadId),
-          alumnoId: Number(n.alumnoId),
-          valor: Number(n.valor)
-        }
-      })
+        })
     );
 
-    const resultados = await prisma.$transaction(transacciones);
+    await prisma.$transaction(transacciones);
 
-    return res.json({ status: 'success', data: resultados });
+    return res.json({ status: 'success', message: 'Notas guardadas correctamente.' });
   } catch (error) {
     return res.status(500).json({ status: 'error', message: 'Error al guardar el listado de notas', error });
+  }
+};
+
+// GET /api/notas/curso-seccion/:cursoSeccionId
+// Libreta del curso: unidades con sus actividades, alumnos de la seccion y las notas registradas
+export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Response) => {
+  const { cursoSeccionId } = req.params;
+
+  try {
+    const cursoSeccion = await prisma.cursoSeccion.findUnique({
+      where: { cursoSeccionId: Number(cursoSeccionId) },
+      include: {
+        curso: true,
+        seccion: { include: { grado: true } },
+        unidades: {
+          orderBy: { numero: 'asc' },
+          include: { actividades: { orderBy: [{ fecha: 'asc' }, { actividadId: 'asc' }] } },
+        },
+      },
+    });
+
+    if (!cursoSeccion) {
+      return res.status(404).json({ status: 'error', message: `Asignación curso-sección con ID: ${cursoSeccionId} no encontrada` });
+    }
+
+    if (!(await puedeGestionarCursoSeccion(req, cursoSeccion))) {
+      return res.status(403).json({ status: 'error', message: 'No tiene permisos para ver la libreta de este curso.' });
+    }
+
+    const alumnos = await prisma.alumno.findMany({
+      where: { seccionId: cursoSeccion.seccionId, usuario: { deletedAt: null } },
+      select: { alumnoId: true, usuario: { select: { nombres: true, apellidos: true } } },
+      orderBy: [{ usuario: { apellidos: 'asc' } }, { usuario: { nombres: 'asc' } }],
+    });
+
+    const notas = await prisma.nota.findMany({
+      where: { actividad: { unidad: { cursoSeccionId: cursoSeccion.cursoSeccionId } } },
+      select: { actividadId: true, alumnoId: true, valor: true },
+    });
+
+    return res.json({
+      status: 'success',
+      data: {
+        cursoSeccionId: cursoSeccion.cursoSeccionId,
+        curso: cursoSeccion.curso.nombre,
+        grado: cursoSeccion.seccion.grado.nombre,
+        seccion: cursoSeccion.seccion.nombre,
+        unidades: cursoSeccion.unidades.map((u) => ({
+          unidadId: u.unidadId,
+          numero: u.numero,
+          actividades: u.actividades.map((a) => ({
+            actividadId: a.actividadId,
+            nombre: a.nombre,
+            puntosMaximos: Number(a.puntosMaximos),
+            tipo: a.tipo,
+            fecha: a.fecha ? a.fecha.toISOString().slice(0, 10) : null,
+          })),
+        })),
+        alumnos: alumnos.map((a) => ({ alumnoId: a.alumnoId, nombres: a.usuario.nombres, apellidos: a.usuario.apellidos })),
+        notas: notas.map((n) => ({ actividadId: n.actividadId, alumnoId: n.alumnoId, valor: Number(n.valor) })),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', message: 'Error al obtener la libreta del curso.', error });
   }
 };
 

@@ -30,3 +30,17 @@ export const puedeVerAlumno = async (
 
     return (await tienePermiso(req, modulo)) && (await puedeOperarSede(req, alumno.seccion.sedeId));
 };
+
+// ¿Quien hace la peticion puede gestionar este curso (actividades, notas)?
+//  - El catedratico que lo imparte (y solo ese).
+//  - El personal con permiso del modulo en la sede del curso.
+export const puedeGestionarCursoSeccion = async (
+    req: AuthenticatedRequest,
+    cursoSeccion: { catedraticoId: number; seccion: { sedeId: number } },
+    modulo: Modulo = "notas",
+): Promise<boolean> => {
+    const rol = await obtenerNombreRol(req);
+    if (rol === ROL.CATEDRATICO) return Number(req.user?.id) === cursoSeccion.catedraticoId;
+    if (rol === ROL.ALUMNO || rol === ROL.ENCARGADO) return false;
+    return (await tienePermiso(req, modulo)) && (await puedeOperarSede(req, cursoSeccion.seccion.sedeId));
+};
