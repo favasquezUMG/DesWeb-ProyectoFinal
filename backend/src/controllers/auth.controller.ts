@@ -4,6 +4,10 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { permisosDeRol } from '../middlewares/role.middleware.js';
+import { sendMail } from '../services/mail.service.js';
+import { validarPassword } from '../services/usuarios.service.js';
+import { ReglaNegocioError } from '../lib/errores.js';
+import { plantillaRecuperarPassword } from '../templates/mail.templates.js';
 
 const incluirRoles = {
     rol: true,
@@ -122,5 +126,119 @@ export const me = async (req: AuthenticatedRequest, res: Response) => {
         return res.json({ status: 'success', user: req.user, usuario });
     } catch (error) {
         return res.status(500).json({ status: 'error', message: 'Error al obtener el perfil.', error });
+    }
+};
+
+// El token de recuperacion se firma con el hash actual de la contraseña: en cuanto se cambia,
+// el enlace deja de servir (un solo uso) sin necesidad de guardarlo en la base de datos
+const MINUTOS_VIGENCIA_RESET = 60;
+const secretoReset = (passwordHash: string) => `${process.env.JWT_SECRET || 'secret'}${passwordHash}`;
+
+// POST /api/auth/olvide-password  { email }
+// Siempre responde lo mismo para no revelar que correos estan registrados
+export const olvidePassword = async (req: Request, res: Response) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+    if (!email) {
+        return res.status(400).json({ status: 'error', message: 'El correo electrónico es obligatorio.' });
+    }
+
+    try {
+        const user = await prisma.usuario.findFirst({
+            where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null },
+        });
+
+        if (user) {
+            const token = jwt.sign(
+                { usuarioId: user.usuarioId, tipo: 'reset' },
+                secretoReset(user.passwordHash),
+                { expiresIn: MINUTOS_VIGENCIA_RESET * 60 },
+            );
+            const baseUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, '');
+            const { subject, html } = plantillaRecuperarPassword({
+                nombreDestinatario: user.nombres,
+                enlace: `${baseUrl}/?reset=${encodeURIComponent(token)}`,
+                minutosVigencia: MINUTOS_VIGENCIA_RESET,
+            });
+            const enviado = await sendMail({ to: user.email, subject, html });
+            if (!enviado) {
+                return res.status(502).json({ status: 'error', message: 'No se pudo enviar el correo. Intente de nuevo más tarde.' });
+            }
+        }
+
+        return res.json({
+            status: 'success',
+            message: 'Si el correo está registrado, recibirá un enlace para restablecer su contraseña.',
+        });
+    } catch (error) {
+        return res.status(500).json({ status: 'error', message: 'Error al procesar la solicitud.', error });
+    }
+};
+
+// POST /api/auth/restablecer-password  { token, password }
+export const restablecerPassword = async (req: Request, res: Response) => {
+    const { token, password } = req.body ?? {};
+    const invalido = () =>
+        res.status(400).json({ status: 'error', message: 'El enlace no es válido o ya venció. Solicite uno nuevo.' });
+
+    if (typeof token !== 'string' || !token) return invalido();
+
+    try {
+        const datos = jwt.decode(token) as { usuarioId?: number; tipo?: string } | null;
+        if (!datos?.usuarioId || datos.tipo !== 'reset') return invalido();
+
+        const user = await prisma.usuario.findFirst({ where: { usuarioId: datos.usuarioId, deletedAt: null } });
+        if (!user) return invalido();
+
+        try {
+            jwt.verify(token, secretoReset(user.passwordHash));
+        } catch {
+            return invalido();
+        }
+
+        const passwordHash = await bcrypt.hash(validarPassword(password), 10);
+        await prisma.usuario.update({ where: { usuarioId: user.usuarioId }, data: { passwordHash } });
+
+        return res.json({ status: 'success', message: 'Contraseña actualizada. Ya puede iniciar sesión.' });
+    } catch (error) {
+        if (error instanceof ReglaNegocioError) {
+            return res.status(error.status).json({ status: 'error', message: error.message });
+        }
+        return res.status(500).json({ status: 'error', message: 'Error al restablecer la contraseña.', error });
+    }
+};
+
+// POST /api/auth/cambiar-password  { actual, nueva }
+// El usuario con sesion iniciada cambia su propia contraseña (debe confirmar la actual)
+export const cambiarPassword = async (req: AuthenticatedRequest, res: Response) => {
+    const { actual, nueva } = req.body ?? {};
+
+    if (typeof actual !== 'string' || !actual) {
+        return res.status(400).json({ status: 'error', message: 'Ingrese su contraseña actual.' });
+    }
+
+    try {
+        const user = await prisma.usuario.findFirst({ where: { usuarioId: Number(req.user?.id), deletedAt: null } });
+        if (!user) {
+            return res.status(401).json({ status: 'error', message: 'Su usuario ya no está activo.' });
+        }
+
+        if (!(await bcrypt.compare(actual, user.passwordHash))) {
+            return res.status(400).json({ status: 'error', message: 'La contraseña actual no es correcta.' });
+        }
+
+        const valida = validarPassword(nueva);
+        if (valida === actual) {
+            return res.status(400).json({ status: 'error', message: 'La nueva contraseña debe ser distinta de la actual.' });
+        }
+
+        const passwordHash = await bcrypt.hash(valida, 10);
+        await prisma.usuario.update({ where: { usuarioId: user.usuarioId }, data: { passwordHash } });
+
+        return res.json({ status: 'success', message: 'Contraseña actualizada correctamente.' });
+    } catch (error) {
+        if (error instanceof ReglaNegocioError) {
+            return res.status(error.status).json({ status: 'error', message: error.message });
+        }
+        return res.status(500).json({ status: 'error', message: 'Error al cambiar la contraseña.', error });
     }
 };

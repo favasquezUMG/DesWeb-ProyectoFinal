@@ -1,12 +1,15 @@
 import { useState, type ReactNode } from "react";
 import type { Role, View } from "../types";
 import type { AppUser } from "../types";
+import NotificacionesMenu from "./NotificacionesMenu";
+import BuscadorSecciones from "./BuscadorSecciones";
+import MiCuentaModal from "./MiCuentaModal";
 import {
   LayoutDashboard, School, BookOpen, FileBarChart, Users, ShieldCheck,
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
   ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard,
-  User, ChevronLeft, ChevronRight, Menu, X, Search, ChevronDown,
-  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat
+  User, ChevronLeft, ChevronRight, Menu, X, ChevronDown,
+  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2
 } from "lucide-react";
 
 // modulo: permiso que necesita el personal de sede para ver la opción del menú
@@ -31,6 +34,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Cursos", view: "as-cursos", Icon: BookMarked, modulo: "horarios" },
     { label: "Horarios", view: "as-horarios", Icon: Clock, modulo: "horarios" },
     { label: "Becas", view: "as-becas", Icon: Award, modulo: "becas" },
+    { label: "Justificaciones", view: "as-justificaciones", Icon: FileCheck2, modulo: "asistencia" },
     { label: "Notificaciones", view: "as-notificaciones", Icon: Bell, modulo: "comunicados" },
     { label: "Calendario", view: "as-calendario", Icon: CalendarDays, modulo: "calendario" },
   ],
@@ -40,6 +44,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Libreta de Notas", view: "cat-notas", Icon: BookText },
     { label: "Asistencia", view: "cat-asistencia", Icon: ClipboardList },
     { label: "Mi Horario", view: "cat-horario", Icon: CalendarCheck },
+    { label: "Calendario", view: "cat-calendario", Icon: CalendarDays },
     { label: "Comunicación con padres", view: "cat-comunicacion", Icon: MessageSquare },
   ],
   "alumno": [
@@ -52,6 +57,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Dashboard", view: "pad-dashboard", Icon: LayoutDashboard },
     { label: "Matrícula", view: "pad-matricula", Icon: BookMarked },
     { label: "Notas y Reportes", view: "pad-notas", Icon: Star },
+    { label: "Asistencia", view: "pad-asistencia", Icon: ClipboardList },
     { label: "Pagos", view: "pad-pagos", Icon: CreditCard },
     { label: "Becas", view: "pad-becas", Icon: Award },
     { label: "Avisos y Conducta", view: "pad-avisos", Icon: BellRing },
@@ -157,16 +163,18 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
   );
 }
 
-function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen, onCambiarRol }: {
+function Topbar({ user, currentView, navItems, sede, onNavigate, onLogout, onMenuOpen, onCambiarRol }: {
   user: AppUser;
   currentView: View;
   navItems: NavItem[];
+  onNavigate: (v: View) => void;
   sede?: string;
   onLogout: () => void;
   onMenuOpen: () => void;
   onCambiarRol?: (rolId: number) => void;
 }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [cuentaOpen, setCuentaOpen] = useState(false);
   const currentLabel = navItems.find(n => n.view === currentView)?.label ?? "";
 
   return (
@@ -197,15 +205,10 @@ function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen, onCam
       )}
 
       {/* Search */}
-      <button className="p-2 rounded-md text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors" aria-label="Buscar">
-        <Search className="w-4.5 h-4.5" />
-      </button>
+      <BuscadorSecciones secciones={navItems} onNavigate={onNavigate} />
 
       {/* Notifications */}
-      <button className="relative p-2 rounded-md text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors" aria-label="Notificaciones">
-        <Bell className="w-4.5 h-4.5" />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-action-500 rounded-full" aria-hidden="true" />
-      </button>
+      <NotificacionesMenu />
 
       {/* User menu */}
       <div className="relative">
@@ -238,8 +241,8 @@ function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen, onCam
                 ))}
               </div>
             )}
-            <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors" onClick={() => setUserMenuOpen(false)}>
-              <Settings className="w-4 h-4 text-stone-400" />Configuración
+            <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors" onClick={() => { setUserMenuOpen(false); setCuentaOpen(true); }}>
+              <Settings className="w-4 h-4 text-stone-400" />Mi cuenta
             </button>
             <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-danger-700 hover:bg-danger-50 transition-colors" onClick={onLogout}>
               <LogOut className="w-4 h-4" />Cerrar sesión
@@ -247,6 +250,8 @@ function Topbar({ user, currentView, navItems, sede, onLogout, onMenuOpen, onCam
           </div>
         )}
       </div>
+
+      <MiCuentaModal open={cuentaOpen} onClose={() => setCuentaOpen(false)} user={user} rol={etiquetaDe(user)} />
     </header>
   );
 }
@@ -314,7 +319,7 @@ export function Layout({ user, currentView, onNavigate, onLogout, onCambiarRol, 
       <MobileSidebar user={user} currentView={currentView} onNavigate={onNavigate} open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar user={user} currentView={currentView} navItems={navItems} sede={sede} onLogout={onLogout} onMenuOpen={() => setMobileOpen(true)} onCambiarRol={onCambiarRol} />
+        <Topbar user={user} currentView={currentView} navItems={navItems} sede={sede} onNavigate={onNavigate} onLogout={onLogout} onMenuOpen={() => setMobileOpen(true)} onCambiarRol={onCambiarRol} />
         <main className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="p-4 md:p-6 max-w-screen-xl mx-auto">
             {children}

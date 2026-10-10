@@ -106,6 +106,8 @@ model Usuario {
   historialBecas   BecaHistorial[]
   rolesAdicionales UsuarioRol[]
   bitacora         Bitacora[]
+  justificacionesSolicitadas JustificacionAusencia[] @relation("JustificacionSolicitante")
+  justificacionesRevisadas   JustificacionAusencia[] @relation("JustificacionRevisor")
 }
 
 model Catedratico {
@@ -140,6 +142,7 @@ model Alumno {
   becas            Beca[]
   pagos            Pago[]
   reportesConducta ReporteConducta[]
+  justificaciones  JustificacionAusencia[]
 }
 
 // Vinculo de un alumno con cada adulto responsable. Un alumno puede tener varios
@@ -282,6 +285,7 @@ model Actividad {
   nombre        String    @db.VarChar(100)
   puntosMaximos Decimal   @db.Decimal(5, 2)
   fecha         DateTime? @db.Date
+  tipo          TipoActividad @default(Zona)
 
   unidad Unidad @relation(fields: [unidadId], references: [unidadId])
   notas  Nota[]
@@ -463,6 +467,12 @@ model Comunicado {
   autor Usuario @relation(fields: [autorId], references: [usuarioId])
 }
 
+// Cada unidad vale 100 puntos: 60 de zona (tareas, proyectos...) y 40 de examen
+enum TipoActividad {
+  Zona
+  Examen
+}
+
 enum ModoInscripcion {
   PUBLICO
   PRESENCIAL
@@ -511,4 +521,24 @@ model Solicitud {
 
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+}
+// Solicitud del encargado para justificar la ausencia de un día completo. La revisa la
+// administración de la sede; al aprobarla, las faltas de ese día pasan a "Justificado".
+model JustificacionAusencia {
+  justificacionId Int       @id @default(autoincrement())
+  alumnoId        Int
+  fecha           DateTime  @db.Date
+  motivo          String    @db.VarChar(500)
+  estado          String    @default("Pendiente") @db.VarChar(15) // Pendiente, Aprobada, Rechazada
+  solicitanteId   Int
+  revisorId       Int?
+  comentario      String?   @db.VarChar(300) // de quien revisa (motivo del rechazo)
+  fechaSolicitud  DateTime  @default(now())
+  fechaRevision   DateTime?
+
+  alumno      Alumno   @relation(fields: [alumnoId], references: [alumnoId])
+  solicitante Usuario  @relation("JustificacionSolicitante", fields: [solicitanteId], references: [usuarioId])
+  revisor     Usuario? @relation("JustificacionRevisor", fields: [revisorId], references: [usuarioId])
+
+  @@unique([alumnoId, fecha])
 }
