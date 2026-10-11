@@ -1,0 +1,25 @@
+{
+  "name": "desweb-proyectofinal",
+  "version": "1.0.0",
+  "description": "PARA LEVANTAR EL FRONTEND\r cd DesWeb-ProyectoFinal/frontend\r npm install #SOLO SI NO ESTA INSTALADA\r npm run dev",
+  "main": "index.js",
+  "scripts": {
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/favasquezUMG/DesWeb-ProyectoFinal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/favasquezUMG/DesWeb-ProyectoFinal/issues"
+  },
+  "homepage": "https://github.com/favasquezUMG/DesWeb-ProyectoFinal#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
