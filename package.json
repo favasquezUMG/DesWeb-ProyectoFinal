@@ -6,7 +6,7 @@
   "scripts": {
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\""
+    "dev": "concurrently -k --raw \"npm run dev:backend\" \"npm run dev:frontend\""
   },
   "repository": {
     "type": "git",
