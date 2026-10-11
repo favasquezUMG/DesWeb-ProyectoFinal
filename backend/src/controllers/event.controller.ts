@@ -2,13 +2,18 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { destinatariosDeEvento, enviarRecordatorioEvento } from "../services/recordatorios.service.js";
 import { enviarEnSegundoPlano } from "../services/notificacion.service.js";
+import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
+import { esAlcanceGlobal, obtenerNombreRol } from "../middlewares/role.middleware.js";
 
 //Get all
-export const getEvents = async (req: Request, res: Response) => {
-    const { sedeId } = req.query;
-
+// Sin ?sedeId, quien no es administrador general ve los eventos generales y los de su sede
+export const getEvents = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const whereCondition: any = {};
+        let sedeId = req.query.sedeId;
+        if (!sedeId && req.user?.sedeId && !esAlcanceGlobal(await obtenerNombreRol(req))) {
+            sedeId = req.user.sedeId;
+        }
 
         if(sedeId){
             whereCondition.OR = [

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
     getReportesConducta,
+    getDestinatariosConducta,
     createReporteConducta,
     revisarReporteConducta,
     deleteReporteConducta,
@@ -13,6 +14,7 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/', permitir('conducta', ROL.CATEDRATICO, ROL.ENCARGADO, ROL.ALUMNO), getReportesConducta);
+router.get('/destinatarios', permitir('conducta', ROL.CATEDRATICO), getDestinatariosConducta);
 router.post('/', permitir('conducta', ROL.CATEDRATICO), createReporteConducta);
 router.patch('/:id/revisar', verificarRol(ROL.ENCARGADO), revisarReporteConducta);
 router.delete('/:id', permitir('conducta', ROL.CATEDRATICO), deleteReporteConducta);
