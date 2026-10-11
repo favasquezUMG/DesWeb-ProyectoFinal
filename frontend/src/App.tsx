@@ -25,6 +25,8 @@ export default function App() {
   const [currentView, setCurrentView] = useState<View>("ag-dashboard");
   // null = se muestra el home público; si no, la pantalla de acceso elegida
   const [acceso, setAcceso] = useState<{ portal: Portal; screen: Screen } | null>(null);
+  // Token del enlace "Restablecer contraseña" que llega por correo (?reset=...)
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -32,6 +34,14 @@ export default function App() {
       setUser(session.user);
       setSede(session.user.sede);
       setCurrentView(DEFAULT_VIEWS[session.user.role] as View);
+    }
+
+    const token = new URLSearchParams(window.location.search).get("reset");
+    if (token) {
+      setResetToken(token);
+      setAcceso({ portal: "estudiante", screen: "reset" });
+      // Se quita el token de la barra de direcciones para que no quede en el historial
+      window.history.replaceState(null, "", window.location.pathname);
     }
   }, []);
 
@@ -77,6 +87,7 @@ export default function App() {
         key={`${acceso.portal}-${acceso.screen}`}
         initialPortal={acceso.portal}
         initialScreen={acceso.screen}
+        resetToken={resetToken ?? undefined}
         onLogin={handleLogin}
         onBack={() => setAcceso(null)}
       />
@@ -88,7 +99,7 @@ export default function App() {
     switch (user.role) {
       case "admin-general": return <AdminGeneral view={currentView} />;
       case "admin-sede": return <AdminSede view={currentView} />;
-      case "catedratico": return <Catedratico view={currentView} />;
+      case "catedratico": return <Catedratico view={currentView} onNavigate={setCurrentView} />;
       case "alumno": return <Alumno view={currentView} />;
       case "padre": return <Padre view={currentView} />;
       default: return null;

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { ROL, esAlcanceGlobal, obtenerNombreRol, puedeOperarSede, tienePermiso } from "../middlewares/role.middleware.js";
-import { encargadoTieneAcceso, hijosDe } from "../services/vinculos.service.js";
+import { encargadoTieneAcceso, filtroVinculo, hijosDe } from "../services/vinculos.service.js";
 import { encargadosDeAlumno, enviarADestinatarios } from "../services/notificacion.service.js";
 import { plantillaReporteConducta } from "../templates/mail.templates.js";
 import { suspenderPorConductaGrave } from "../services/becas.service.js";
@@ -58,10 +58,79 @@ export const getReportesConducta = async (req: AuthenticatedRequest, res: Respon
     }
 };
 
-// POST /api/conducta  { alumnoId, tipo, titulo, descripcion }
-// Crea el reporte y avisa por correo a los encargados del alumno
+// Carga el alumno y verifica que quien reporta pueda hacerlo: el catedratico solo en las
+// secciones donde imparte, el personal administrativo solo en su sede.
+type AlumnoReportable =
+    | { alumno: Prisma.AlumnoGetPayload<{ include: { usuario: true; seccion: true } }> }
+    | { error: { status: number; message: string } };
+
+const cargarAlumnoReportable = async (req: AuthenticatedRequest, alumnoId: number): Promise<AlumnoReportable> => {
+    const alumno = await prisma.alumno.findUnique({
+        where: { alumnoId },
+        include: { usuario: true, seccion: true },
+    });
+    if (!alumno) {
+        return { error: { status: 404, message: `Alumno con ID: ${alumnoId} no encontrado` } };
+    }
+
+    const rol = await obtenerNombreRol(req);
+    if (rol === ROL.CATEDRATICO) {
+        const imparteEnSeccion = await prisma.cursoSeccion.findFirst({
+            where: { seccionId: alumno.seccionId, catedraticoId: Number(req.user?.id) },
+        });
+        if (!imparteEnSeccion) {
+            return { error: { status: 403, message: "Solo puede reportar alumnos de las secciones donde imparte clases." } };
+        }
+    } else if (!(await puedeOperarSede(req, alumno.seccion.sedeId))) {
+        return { error: { status: 403, message: "No puede reportar alumnos de otra sede." } };
+    }
+
+    return { alumno };
+};
+
+// GET /api/conducta/destinatarios?alumnoId=N
+// Encargados del alumno que recibirian el correo del reporte (vinculo vigente y con notificaciones)
+export const getDestinatariosConducta = async (req: AuthenticatedRequest, res: Response) => {
+    const alumnoId = Number(req.query.alumnoId);
+    if (!alumnoId) {
+        return res.status(400).json({ status: "error", message: "alumnoId es obligatorio." });
+    }
+
+    try {
+        const resultado = await cargarAlumnoReportable(req, alumnoId);
+        if ("error" in resultado) {
+            return res.status(resultado.error.status).json({ status: "error", message: resultado.error.message });
+        }
+
+        const vinculos = await prisma.alumnoEncargado.findMany({
+            where: { alumnoId, ...filtroVinculo("notificaciones"), encargado: { usuario: { deletedAt: null } } },
+            select: {
+                parentesco: true,
+                esPrincipal: true,
+                encargado: { select: { usuario: { select: { usuarioId: true, nombres: true, apellidos: true, email: true } } } },
+            },
+            orderBy: { esPrincipal: "desc" },
+        });
+
+        const data = vinculos.map((v) => ({
+            encargadoId: v.encargado.usuario.usuarioId,
+            nombre: `${v.encargado.usuario.nombres} ${v.encargado.usuario.apellidos}`,
+            email: v.encargado.usuario.email,
+            parentesco: v.parentesco,
+            esPrincipal: v.esPrincipal,
+        }));
+
+        return res.json({ status: "success", data });
+    } catch (error) {
+        return res.status(500).json({ status: "error", message: "No se pudieron obtener los encargados del alumno.", error });
+    }
+};
+
+// POST /api/conducta  { alumnoId, tipo, titulo, descripcion, encargadoIds? }
+// Crea el reporte y avisa por correo a los encargados del alumno. Con encargadoIds solo
+// se notifica a esos (siempre dentro de los que pueden recibir notificaciones).
 export const createReporteConducta = async (req: AuthenticatedRequest, res: Response) => {
-    const { alumnoId, tipo, titulo, descripcion } = req.body;
+    const { alumnoId, tipo, titulo, descripcion, encargadoIds } = req.body;
     const autorId = Number(req.user?.id);
 
     if (!alumnoId || !tipo || !titulo || !descripcion) {
@@ -72,24 +141,20 @@ export const createReporteConducta = async (req: AuthenticatedRequest, res: Resp
     }
 
     try {
-        const alumno = await prisma.alumno.findUnique({
-            where: { alumnoId: Number(alumnoId) },
-            include: { usuario: true, seccion: true },
-        });
-        if (!alumno) {
-            return res.status(404).json({ status: "error", message: `Alumno con ID: ${alumnoId} no encontrado` });
+        const resultado = await cargarAlumnoReportable(req, Number(alumnoId));
+        if ("error" in resultado) {
+            return res.status(resultado.error.status).json({ status: "error", message: resultado.error.message });
         }
+        const { alumno } = resultado;
 
-        const rol = await obtenerNombreRol(req);
-        if (rol === ROL.CATEDRATICO) {
-            const imparteEnSeccion = await prisma.cursoSeccion.findFirst({
-                where: { seccionId: alumno.seccionId, catedraticoId: autorId },
-            });
-            if (!imparteEnSeccion) {
-                return res.status(403).json({ status: "error", message: "Solo puede reportar alumnos de las secciones donde imparte clases." });
+        const notificables = await encargadosDeAlumno(alumno.alumnoId);
+        let encargados = notificables;
+        if (Array.isArray(encargadoIds)) {
+            const elegidos = new Set(encargadoIds.map(Number));
+            encargados = notificables.filter((e) => elegidos.has(e.usuarioId));
+            if (notificables.length > 0 && encargados.length === 0) {
+                return res.status(400).json({ status: "error", message: "Seleccione al menos un encargado para notificar." });
             }
-        } else if (!(await puedeOperarSede(req, alumno.seccion.sedeId))) {
-            return res.status(403).json({ status: "error", message: "No puede reportar alumnos de otra sede." });
         }
 
         const reporte = await prisma.reporteConducta.create({
@@ -110,7 +175,6 @@ export const createReporteConducta = async (req: AuthenticatedRequest, res: Resp
 
         const nombreAlumno = `${alumno.usuario.nombres} ${alumno.usuario.apellidos}`;
         const autor = `${reporte.autor.nombres} ${reporte.autor.apellidos}`;
-        const encargados = await encargadosDeAlumno(alumno.alumnoId);
 
         const { enviados } = await enviarADestinatarios(
             encargados,
