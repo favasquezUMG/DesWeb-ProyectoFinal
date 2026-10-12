@@ -11,6 +11,7 @@ import {
 } from "../lib/solicitudes";
 import { generarConstanciaPdf, etiquetaGradoSolicitud } from "../lib/constanciaPdf";
 import axios from "axios";
+import { getSedes, type SedeDto } from "@/lib/api";
 
 export type SolicitudInscripcionModo = "publico" | "presencial";
 
@@ -76,11 +77,6 @@ interface DatosAlumno {
   carrera: string; // usado cuando nivelId es "div"
   anio: string; // usado cuando nivelId es "div" (Cuarto/Quinto/Sexto)
   sede: string;
-}
-
-interface SedeItem {
-  sedeId: number;
-  nombre: string;
 }
 
 function calcularEdad(fechaISO: string): number | null {
@@ -228,7 +224,7 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   const [fechaLimite] = useState(calcularFechaLimite);
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudGuardada | null>(null);
   const [cargandoEmail, setCargandoEmail] = useState(false);
-  const [sedes, setSedes] = useState<SedeItem[]>([])
+  const [sedes, setSedes] = useState<SedeDto[]>([])
 
   const [encargado, setEncargado] = useState<DatosEncargado>({
     nombres: "", apellidos: "", dpi: "", telefono: "", correo: "", parentesco: "",
@@ -361,12 +357,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   useEffect(() => {
     async function cargarSedes() {
       try{
-        const response = await axios.get(`${API_URL}/api/sedes`);
-        if(response.data?.status === 'success' && Array.isArray(response.data.data)) {
-          setSedes(response.data.data);
-        } else if(Array.isArray(response.data)){
-          setSedes(response.data);
-        }
+        const data = await getSedes();
+        setSedes(data);
       } catch (error) {
         console.error("Error al cargar datos desde el backend:", error)
       }

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download, GraduationCap, ArrowLeft } from "lucide-react";
-import type { AppUser, Role } from "../types";
+import { Sede, type AppUser, type Role } from "../types";
 import type { Portal } from "./Home";
 import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
-import { login, restablecerPassword, solicitarRecuperacion } from "../lib/api";
+import { type SedeDto, getSedes, login, restablecerPassword, solicitarRecuperacion } from "../lib/api";
 import { buildAppUser, clearSession, mapBackendRole, saveSession } from "../lib/auth";
 import {
   type SolicitudGuardada,
@@ -57,7 +57,6 @@ interface LoginProps {
   resetToken?: string;
 }
 
-const SEDES_DEMO = ["Sede Central", "Sede Xela", "Sede Coatepeque"];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -92,6 +91,8 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
   const [resetDone, setResetDone] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [selectedSede, setSelectedSede] = useState("Sede Central");
+
+  const [sedes, setSedes] = useState<SedeDto[]>([]);
 
   const [consultaTab, setConsultaTab] = useState<"numero" | "dpi">("numero");
   const [consultaNumero, setConsultaNumero] = useState("");
@@ -242,6 +243,19 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     }
     setConsultaResultado(encontrada);
   }
+
+  useEffect(() => {
+    async function cargarSedes() {
+      try{
+        const data = await getSedes();
+        setSedes(data);
+      } catch (error) {
+        console.error("Error al cargar datos desde el backend:", error)
+      }
+    }
+    cargarSedes();
+
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -468,14 +482,14 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                 <p className="text-stone-500 text-sm mb-6">Su usuario tiene acceso a varias sedes. Seleccione la sede de trabajo para esta sesión.</p>
 
                 <div className="space-y-2 mb-6">
-                  {SEDES_DEMO.map(s => (
-                    <button key={s} type="button" onClick={() => setSelectedSede(s)}
+                  {sedes.map(s => (
+                    <button key={s.sedeId} type="button" onClick={() => setSelectedSede(s.nombre)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors cursor-pointer text-left
-                        ${selectedSede === s ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedSede === s ? "border-primary-700" : "border-stone-300"}`}>
-                        {selectedSede === s && <div className="w-2 h-2 rounded-full bg-primary-700" />}
+                        ${selectedSede === s.nombre ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedSede === s.nombre ? "border-primary-700" : "border-stone-300"}`}>
+                        {selectedSede === s.nombre && <div className="w-2 h-2 rounded-full bg-primary-700" />}
                       </div>
-                      <span className={`text-sm font-medium ${selectedSede === s ? "text-primary-900" : "text-stone-700"}`}>{s}</span>
+                      <span className={`text-sm font-medium ${selectedSede === s.nombre ? "text-primary-900" : "text-stone-700"}`}>{s.nombre}</span>
                     </button>
                   ))}
                 </div>
