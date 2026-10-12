@@ -471,3 +471,67 @@ export const quitarEncargado = async (req: AuthenticatedRequest, res: Response) 
         return responderError(res, error, 'Error al quitar el encargado.');
     }
 };
+
+export const getConteoAlumnos = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rolAlumno = await prisma.rol.findFirst({
+      where: { nombre: "Alumno" },
+    });
+
+    if (!rolAlumno) {
+      return res.status(400).json({
+        status: "error",
+        message: "No se encontró el rol 'Alumno'.",
+      });
+    }
+
+    const anioActual = new Date().getFullYear(); // 2026
+    const inicioAnioActual = new Date(`${anioActual}-01-01T00:00:00.000Z`);
+
+    // 1. Total de alumnos activos en el sistema hoy
+    const totalActual = await prisma.usuario.count({
+      where: {
+        rolId: rolAlumno.rolId,
+        deletedAt: null,
+      },
+    });
+
+    // 2. Alumnos que ya estaban registrados antes del inicio de este año lectivo
+    const totalAnterior = await prisma.usuario.count({
+      where: {
+        rolId: rolAlumno.rolId,
+        createdAt: { lt: inicioAnioActual },
+        deletedAt: null,
+      },
+    });
+
+    // 3. Cálculos de diferencia y porcentaje de crecimiento
+    const diferencia = totalActual - totalAnterior;
+    
+    // Porcentaje de incremento/decrecimiento respecto al ciclo anterior
+    const porcentajeCrecimiento = totalAnterior > 0
+      ? Math.round((diferencia / totalAnterior) * 100)
+      : 100;
+
+    const subtexto = diferencia >= 0
+      ? `↑ ${diferencia} (${porcentajeCrecimiento}%) vs. ciclo anterior`
+      : `↓ ${Math.abs(diferencia)} (${Math.abs(porcentajeCrecimiento)}%) vs. ciclo anterior`;
+
+    return res.json({
+      status: "success",
+      data: {
+        total: totalActual,
+        totalAnterior,
+        diferencia,
+        porcentajeCrecimiento,
+        subtexto,
+      },
+    });
+  } catch (error) {
+    console.error("Error al contar alumnos:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error al calcular el conteo de alumnos.",
+    });
+  }
+};

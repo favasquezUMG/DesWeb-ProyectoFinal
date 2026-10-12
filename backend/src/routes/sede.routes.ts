@@ -1,23 +1,20 @@
 import { Router } from "express";
-import { prisma } from "../lib/prisma.js";
 import { authenticateToken } from "../middlewares/auth.middleware.js";
+import { 
+    get,
+    crearSede,
+    actualizarSede,
+    getSedesMetricas
+} from "../controllers/sede.controller.js";
 
 const router = Router();
 
-// GET /api/sedes  — sedes activas (para formularios)
-router.get("/", async (_req, res) => {
-    try {
-        const sedes = await prisma.sede.findMany({
-            where: { activo: true, deletedAt: null },
-            select: { sedeId: true, nombre: true, direccion: true },
-            orderBy: { nombre: "asc" },
-        });
-        return res.json({ status: "success", data: sedes });
-    } catch (error) {
-        return res.status(500).json({ status: "error", message: "Error al obtener las sedes.", error });
-    }
-});
+router.get("/", get);
 
 router.use(authenticateToken);
+
+router.post("/", crearSede);
+router.put("/:id", actualizarSede);
+router.get("/metricas", getSedesMetricas);
 
 export default router;
