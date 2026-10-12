@@ -316,6 +316,19 @@ export function quitarEncargado(alumnoId: number, encargadoId: number, motivo: s
   return request(`/api/alumnos/${alumnoId}/encargados/${encargadoId}`, { method: "DELETE", body: JSON.stringify({ motivo }) });
 }
 
+export interface ConteoAlumnosDto {
+  total: number;
+  totalAnterior: number;
+  diferencia: number;
+  porcentajeCrecimiento: number;
+  subtexto: string;
+}
+
+export async function getConteoAlumnos(): Promise<ConteoAlumnosDto> {
+  const body = await request<{ status: "success"; data: ConteoAlumnosDto }>("/api/alumnos/conteo-alumnos");
+  return body.data;
+}
+
 // ---------- Becas ----------
 
 export type EstadoBeca = "Solicitada" | "Activa" | "Rechazada" | "Suspendida" | "Revocada" | "Finalizada";
@@ -906,8 +919,51 @@ export interface SedeDto {
   direccion: string | null;
 }
 
+export type CrearSedePayload = {
+  nombre: string;
+  direccion?: string;
+};
+
+export type ActualizarSedePayload = {
+  nombre?: string;
+  direccion?: string;
+  activo?: boolean;
+};
+
+export interface SedeMetricaDto {
+  sedeId: number;
+  nombre: string;
+  alumnos: number;
+  aprobacion: number;
+  mora: number;
+}
+
 export async function getSedes(): Promise<SedeDto[]> {
   const body = await request<{ status: "success"; data: SedeDto[] }>("/api/sedes");
+  return body.data;
+}
+
+export async function createSede(payload: CrearSedePayload): Promise<SedeDto> {
+  const body = await request<{ status: "success"; data: SedeDto }>("/api/sedes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function updateSede(
+  sedeId: number,
+  payload: ActualizarSedePayload
+): Promise<SedeDto> {
+  const body = await request<{ status: "success"; data: SedeDto }>(`/api/sedes/${sedeId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function getSedesMetricas(): Promise<SedeMetricaDto[]> {
+  const body = await request<{ status: "success"; data: SedeMetricaDto[] }>("/api/sedes/metricas")
   return body.data;
 }
 
