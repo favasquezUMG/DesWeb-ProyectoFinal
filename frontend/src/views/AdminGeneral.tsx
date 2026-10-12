@@ -6,14 +6,60 @@ import { SEDES, METRICS_CONSOLIDADOS, MALLA_CNB } from "../data";
 import { Card, MetricCard, SectionHeader, Btn, Badge, TH, TD, EmptyState } from "../components/Ui";
 import UsuariosView from "./admin-sede/Usuarios";
 import RolesView from "./admin-sede/Roles";
+import { useEffect } from "react";
+import { SedeDto, SedeMetricaDto, getSedes, getSedesMetricas, ConteoAlumnosDto, getConteoAlumnos
+
+} from "@/lib/api";
 
 function DashboardConsolidado() {
+  const [sedes, setSedes] = useState<SedeDto[]>([]);
+  const [metricasSede, setMetricasSedes] = useState<SedeMetricaDto[]>([]);
+  const [alumnosMetric, setAlumnosMetric] = useState<ConteoAlumnosDto | null>(null);
+
   const trendData = METRICS_CONSOLIDADOS.meses.map((m, i) => ({
     mes: m, aprobacion: METRICS_CONSOLIDADOS.tendencia[i]
   }));
 
-  const sedeData = SEDES.map(s => ({
-    sede: s.nombre.replace("Sede ", ""),
+  useEffect(() => {
+    async function cargarConteo() {
+      try {
+        const data = await getConteoAlumnos();
+        setAlumnosMetric(data);
+      } catch (err) {
+        console.error("Error al cargar conteo de alumnos:", err);
+      }
+    }
+    cargarConteo();
+  }, []);
+
+  useEffect(() => {
+    async function cargarSedes() {
+      try{
+        const data = await getSedes();
+        setSedes(data);
+      } catch (error) {
+        console.error("Error al cargar datos desde el backend:", error)
+      }
+    }
+    cargarSedes();
+  
+  }, [])
+
+  useEffect(() => {
+    async function cargarMetricas() {
+      try {
+        const data = await getSedesMetricas();
+        setMetricasSedes(data);
+      } catch (error) {
+        console.error("Error al obtener métricas consolidadas:", error);
+      }
+    }
+    cargarMetricas();
+  }, []);
+
+  // Mapeamos las sedes obtenidas del backend al formato que consume BarChart
+  const sedeData = metricasSede.map((s) => ({
+    sede: s.nombre.replace("Sede ", ""), // Nombre limpio para el eje X
     alumnos: s.alumnos,
     aprobacion: s.aprobacion,
     mora: s.mora,
@@ -34,7 +80,11 @@ function DashboardConsolidado() {
 
       {/* Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Total alumnos" value="1,683" sub="↑ 48 vs. ciclo anterior" icon={<Users className="w-5 h-5" />} />
+        <MetricCard label="Total alumnos"
+          value={alumnosMetric ? alumnosMetric.total.toLocaleString() : "..."}
+          sub={alumnosMetric ? alumnosMetric.subtexto : "Cargando..."}
+          icon={<Users className="w-5 h-5" />}
+        />
         <MetricCard label="Tasa de aprobación" value="84%" sub="Promedio tres sedes" icon={<TrendingUp className="w-5 h-5" />} variant="success" />
         <MetricCard label="En mora de pagos" value="14%" sub="231 cuentas pendientes" icon={<AlertTriangle className="w-5 h-5" />} variant="warning" />
         <MetricCard label="Becas activas" value="186" sub="11% del alumnado total" icon={<Award className="w-5 h-5" />} variant="default" />
