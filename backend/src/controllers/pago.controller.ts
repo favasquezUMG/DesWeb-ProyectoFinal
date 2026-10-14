@@ -1,9 +1,11 @@
 import type { Response } from 'express';
+import type Stripe from 'stripe';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { stripe, aCentavos, MONEDA, COLEGIATURA_MENSUAL, MESES } from '../config/stripe.config.js';
 import { descuentoColegiatura } from '../services/becas.service.js';
 import { puedeVerAlumno } from '../services/acceso.service.js';
+import { hijosDe } from '../services/vinculos.service.js';
 import { sedeDelAlcance } from '../middlewares/role.middleware.js';
 
 const sinAcceso = (res: Response) =>
@@ -17,6 +19,14 @@ const ESTADOS_AL_DIA = ['Pagado', ESTADO_EXONERADO];
 
 const calcularMonto = (descuento: number) => Number((COLEGIATURA_MENSUAL * (1 - descuento / 100)).toFixed(2));
 
+const periodoColegiatura = (alumnoId: number, anioLectivo: number, mes: number) => ({
+    alumnoId_anioLectivo_mes_concepto: { alumnoId, anioLectivo, mes, concepto: CONCEPTO_COLEGIATURA },
+});
+
+/**
+ * Calcula cuánto le toca pagar al alumno por un mes, ya con beca y descuento por hermanos.
+ * GET /api/pagos/cotizar/:alumnoId?anioLectivo=2026&mes=9
+ */
 export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId } = req.params;
     const { anioLectivo, mes } = req.query;
@@ -45,14 +55,7 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
         const montoFinal = calcularMonto(descuento.total);
 
         const pagoExistente = await prisma.pago.findUnique({
-            where: {
-                alumnoId_anioLectivo_mes_concepto: {
-                    alumnoId: Number(alumnoId),
-                    anioLectivo: anio,
-                    mes: mesNum,
-                    concepto: CONCEPTO_COLEGIATURA,
-                },
-            },
+            where: periodoColegiatura(Number(alumnoId), anio, mesNum),
         });
 
         return res.json({
@@ -79,7 +82,54 @@ export const cotizarColegiatura = async (req: AuthenticatedRequest, res: Respons
     }
 };
 
-export const crearCheckout = async (req: AuthenticatedRequest, res: Response) => {
+/**
+ * Hijos del encargado logueado a los que tiene permiso de ver pagos. Es lo
+ * primero que carga la vista de pagos del padre.
+ * GET /api/pagos/mis-hijos
+ */
+export const getMisHijos = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const alumnos = await prisma.alumno.findMany({
+            where: hijosDe(Number(req.user?.id), 'pagos'),
+            include: {
+                usuario: { select: { nombres: true, apellidos: true } },
+                seccion: { include: { grado: true } },
+            },
+            orderBy: { alumnoId: 'asc' },
+        });
+
+        return res.json({
+            status: 'success',
+            data: alumnos.map((alumno) => ({
+                alumnoId: alumno.alumnoId,
+                nombre: `${alumno.usuario.nombres} ${alumno.usuario.apellidos}`,
+                grado: alumno.seccion.grado.nombre,
+                seccion: alumno.seccion.nombre,
+            })),
+        });
+    } catch (error) {
+        return res.status(500).json({ status: 'error', message: 'Error al obtener los alumnos a su cargo.', error });
+    }
+};
+
+/** Estados de un PaymentIntent en los que todavía se puede intentar pagar. */
+const ESTADOS_REUTILIZABLES: Stripe.PaymentIntent.Status[] = [
+    'requires_payment_method',
+    'requires_confirmation',
+    'requires_action',
+];
+
+/**
+ * Crea (o reutiliza) el PaymentIntent de Stripe y devuelve su clientSecret.
+ * Con ese secreto el frontend monta el formulario de tarjeta (Stripe
+ * Elements) dentro de nuestra propia página, sin redirigir a Stripe.
+ * POST /api/pagos/intent
+ *
+ * IMPORTANTE: aquí el pago queda en estado "Pendiente". Lo que lo marca
+ * como pagado es el webhook (payment_intent.succeeded), no la respuesta
+ * que recibe el navegador al confirmar.
+ */
+export const crearIntentPago = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId, anioLectivo, mes } = req.body;
 
     if (!alumnoId || !mes) {
@@ -96,10 +146,7 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
     try {
         const alumno = await prisma.alumno.findUnique({
             where: { alumnoId: Number(alumnoId) },
-            include: {
-                usuario: { select: { nombres: true, apellidos: true, email: true } },
-                seccion: { include: { grado: true } },
-            },
+            include: { usuario: { select: { nombres: true, apellidos: true } } },
         });
         if (!alumno) {
             return res.status(404).json({ status: 'error', message: `Alumno con ID: ${alumnoId} no encontrado` });
@@ -114,16 +161,10 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             });
         }
 
-        const pagoExistente = await prisma.pago.findUnique({
-            where: {
-                alumnoId_anioLectivo_mes_concepto: {
-                    alumnoId: Number(alumnoId),
-                    anioLectivo: anio,
-                    mes: mesNum,
-                    concepto: CONCEPTO_COLEGIATURA,
-                },
-            },
-        });
+        const periodo = periodoColegiatura(Number(alumnoId), anio, mesNum);
+
+        // No se cobra dos veces el mismo periodo
+        const pagoExistente = await prisma.pago.findUnique({ where: periodo });
 
         if (pagoExistente && ESTADOS_AL_DIA.includes(pagoExistente.estado)) {
             return res.status(409).json({
@@ -139,15 +180,8 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
         // Beca completa: no se manda a Stripe, el mes queda registrado como exonerado
         if (montoFinal <= 0) {
             const exonerado = await prisma.pago.upsert({
-                where: {
-                    alumnoId_anioLectivo_mes_concepto: {
-                        alumnoId: Number(alumnoId),
-                        anioLectivo: anio,
-                        mes: mesNum,
-                        concepto: CONCEPTO_COLEGIATURA,
-                    },
-                },
-                update: { monto: 0, estado: ESTADO_EXONERADO, fechaPago: new Date(), stripeSessionId: null },
+                where: periodo,
+                update: { monto: 0, estado: ESTADO_EXONERADO, fechaPago: new Date() },
                 create: {
                     alumnoId: Number(alumnoId),
                     monto: 0,
@@ -161,57 +195,74 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             return res.status(200).json({
                 status: 'success',
                 message: `La colegiatura de ${MESES[mesNum - 1]} ${anio} está cubierta al 100% y quedó registrada como exonerada.`,
-                data: { pagoId: exonerado.pagoId, monto: 0, descuentoAplicado: descuento.total, exonerado: true, checkoutUrl: null },
+                data: { pagoId: exonerado.pagoId, montoFinal: 0, descuentoPorcentaje: descuento.total, exonerado: true, clientSecret: null },
             });
         }
 
-        const detalleDescuento = [
-            descuento.beca > 0 ? `beca del ${descuento.beca}%` : '',
-            descuento.hermanos > 0 ? `descuento por hermanos del ${descuento.hermanos}%` : '',
-        ].filter(Boolean).join(' + ');
-        const descripcion =
-            `${alumno.seccion.grado.nombre} sección ${alumno.seccion.nombre}` +
-            (detalleDescuento ? ` — ${detalleDescuento} aplicado` : '');
+        const nombreAlumno = `${alumno.usuario.nombres} ${alumno.usuario.apellidos}`;
+        const concepto = `Colegiatura ${MESES[mesNum - 1]} ${anio}`;
 
-        const session = await stripe.checkout.sessions.create({
-            mode: 'payment',
-            payment_method_types: ['card'],
-            customer_email: alumno.usuario.email,
-            line_items: [
-                {
-                    price_data: {
-                        currency: MONEDA,
-                        product_data: {
-                            name: `Colegiatura ${MESES[mesNum - 1]} ${anio}`,
-                            description: descripcion,
-                        },
-                        unit_amount: aCentavos(montoFinal),
-                    },
-                    quantity: 1,
-                },
-            ],
-            metadata: {
-                alumnoId: String(alumnoId),
-                anioLectivo: String(anio),
-                mes: String(mesNum),
-                concepto: CONCEPTO_COLEGIATURA,
-            },
-            success_url: `${process.env.FRONTEND_URL}/pagos/exito?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.FRONTEND_URL}/pagos/cancelado`,
-        });
+        // Si el padre abre el formulario, lo cierra y lo vuelve a abrir, se
+        // reutiliza el mismo PaymentIntent en vez de crear uno nuevo cada vez.
+        let paymentIntent: Stripe.PaymentIntent | null = null;
 
-        const pago = await prisma.pago.upsert({
-            where: {
-                alumnoId_anioLectivo_mes_concepto: {
-                    alumnoId: Number(alumnoId),
-                    anioLectivo: anio,
-                    mes: mesNum,
+        if (pagoExistente?.stripePaymentId) {
+            // Solo se ignora el error si el PaymentIntent ya no existe en Stripe
+            // (p. ej. se cambió de cuenta o de llaves). Cualquier otro error
+            // (red, Stripe caído) corta aquí: crear uno nuevo dejaría vivo el
+            // anterior, y si el padre lo tiene abierto en otra pestaña podría
+            // pagar los dos.
+            const previo = await stripe.paymentIntents
+                .retrieve(pagoExistente.stripePaymentId)
+                .catch((error: any) => {
+                    if (error?.code === 'resource_missing') return null;
+                    throw error;
+                });
+
+            if (previo?.status === 'succeeded' || previo?.status === 'processing') {
+                // Stripe ya lo cobró pero el webhook todavía no llega
+                return res.status(409).json({
+                    status: 'error',
+                    message: `El pago de ${MESES[mesNum - 1]} ${anio} ya se está procesando.`,
+                });
+            }
+
+            if (previo && ESTADOS_REUTILIZABLES.includes(previo.status)) {
+                paymentIntent = previo.amount === aCentavos(montoFinal)
+                    ? previo
+                    : await stripe.paymentIntents.update(previo.id, { amount: aCentavos(montoFinal) });
+            }
+        }
+
+        if (!paymentIntent) {
+            const pagador = await prisma.usuario.findUnique({
+                where: { usuarioId: Number(req.user?.id) },
+                select: { email: true },
+            });
+
+            paymentIntent = await stripe.paymentIntents.create({
+                amount: aCentavos(montoFinal),
+                currency: MONEDA,
+                payment_method_types: ['card'],
+                description: `${concepto} — ${nombreAlumno}`,
+                receipt_email: pagador?.email,
+                // Estos datos vuelven en el webhook y son los que permiten
+                // saber a qué pago corresponde el evento de Stripe.
+                metadata: {
+                    alumnoId: String(alumnoId),
+                    anioLectivo: String(anio),
+                    mes: String(mesNum),
                     concepto: CONCEPTO_COLEGIATURA,
                 },
-            },
+            });
+        }
+
+        // Se registra el intento como Pendiente. El webhook lo confirma.
+        const pago = await prisma.pago.upsert({
+            where: periodo,
             update: {
                 monto: montoFinal,
-                stripeSessionId: session.id,
+                stripePaymentId: paymentIntent.id,
                 estado: 'Pendiente',
             },
             create: {
@@ -220,7 +271,7 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
                 concepto: CONCEPTO_COLEGIATURA,
                 anioLectivo: anio,
                 mes: mesNum,
-                stripeSessionId: session.id,
+                stripePaymentId: paymentIntent.id,
                 estado: 'Pendiente',
             },
         });
@@ -229,22 +280,31 @@ export const crearCheckout = async (req: AuthenticatedRequest, res: Response) =>
             status: 'success',
             data: {
                 pagoId: pago.pagoId,
-                monto: montoFinal,
-                descuentoAplicado: descuento.total,
+                clientSecret: paymentIntent.client_secret,
+                paymentIntentId: paymentIntent.id,
+                alumno: nombreAlumno,
+                concepto,
+                montoBase: COLEGIATURA_MENSUAL,
+                descuentoPorcentaje: descuento.total,
+                descuentoBeca: descuento.beca,
+                descuentoHermanos: descuento.hermanos,
+                montoFinal,
                 exonerado: false,
-                checkoutUrl: session.url,
-                sessionId: session.id,
             },
         });
     } catch (error: any) {
         return res.status(500).json({
             status: 'error',
-            message: 'Error al crear la sesión de pago.',
+            message: 'Error al iniciar el pago.',
             error: error?.message ?? error,
         });
     }
 };
 
+/**
+ * Estado de cuenta del alumno: qué meses están pagados, exonerados o pendientes.
+ * GET /api/pagos/estado-cuenta/:alumnoId?anioLectivo=2026
+ */
 export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) => {
     const { alumnoId } = req.params;
     const { anioLectivo } = req.query;
@@ -266,22 +326,29 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
         }
 
         const pagos = await prisma.pago.findMany({
-            where: { alumnoId: Number(alumnoId), anioLectivo: anio },
+            where: { alumnoId: Number(alumnoId), anioLectivo: anio, concepto: CONCEPTO_COLEGIATURA },
         });
 
         const porMes = new Map(pagos.map((p) => [p.mes, p]));
 
+        // El ciclo escolar va de enero a octubre. La beca puede tener vigencia
+        // parcial, por eso el descuento se calcula mes por mes.
         const meses = await Promise.all(
             Array.from({ length: 10 }, async (_, i) => {
                 const mes = i + 1;
                 const pago = porMes.get(mes);
+                const descuento = (await descuentoColegiatura(Number(alumnoId), new Date(Date.UTC(anio, i, 1)))).total;
+                const montoAPagar = calcularMonto(descuento);
                 // Un mes sin registro que la beca cubre al 100% no cuenta como pendiente
-                const cubierto = !pago && (await descuentoColegiatura(Number(alumnoId), new Date(Date.UTC(anio, i, 1)))).total >= 100;
+                const cubierto = !pago && montoAPagar <= 0;
                 return {
                     mes,
                     nombreMes: MESES[i],
                     estado: pago?.estado ?? (cubierto ? ESTADO_EXONERADO : 'Sin registrar'),
                     monto: pago ? Number(pago.monto) : cubierto ? 0 : null,
+                    montoBase: COLEGIATURA_MENSUAL,
+                    descuentoPorcentaje: descuento,
+                    montoAPagar,
                     fechaPago: pago?.fechaPago ?? null,
                 };
             }),
@@ -360,29 +427,52 @@ export const getPagoById = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-export const verificarSesion = async (req: AuthenticatedRequest, res: Response) => {
-    const sessionId = String(req.params.sessionId);
+/**
+ * Consulta el estado real de un PaymentIntent en Stripe.
+ * GET /api/pagos/verificar/:paymentIntentId
+ *
+ * El frontend lo llama justo después de confirmar el pago para mostrar
+ * el resultado. Si Stripe dice que ya se cobró y el webhook todavía no
+ * llegó (o no está corriendo, como pasa en local sin "stripe listen"),
+ * se marca como pagado aquí mismo: el dato viene de Stripe, no del
+ * navegador, así que es igual de confiable.
+ */
+export const verificarPago = async (req: AuthenticatedRequest, res: Response) => {
+    const paymentIntentId = String(req.params.paymentIntentId);
 
     try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-        const pago = await prisma.pago.findFirst({
-            where: { stripeSessionId: sessionId },
+        let pago = await prisma.pago.findUnique({
+            where: { stripePaymentId: paymentIntentId },
         });
+
+        if (!pago) {
+            return res.status(404).json({ status: 'error', message: 'No hay un pago registrado con ese identificador.' });
+        }
+        if (!(await puedeVerAlumno(req, pago.alumnoId, 'pagos', 'pagos'))) return sinAcceso(res);
+
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+        if (paymentIntent.status === 'succeeded' && pago.estado !== 'Pagado') {
+            pago = await prisma.pago.update({
+                where: { pagoId: pago.pagoId },
+                data: { estado: 'Pagado', fechaPago: new Date() },
+            });
+        }
 
         return res.json({
             status: 'success',
             data: {
-                pagado: session.payment_status === 'paid',
-                estadoStripe: session.payment_status,
-                estadoLocal: pago?.estado ?? null,
-                monto: session.amount_total ? session.amount_total / 100 : null,
+                pagado: paymentIntent.status === 'succeeded',
+                estadoStripe: paymentIntent.status,
+                estadoLocal: pago.estado,
+                monto: paymentIntent.amount / 100,
+                fechaPago: pago.fechaPago,
             },
         });
     } catch (error: any) {
         return res.status(500).json({
             status: 'error',
-            message: 'Error al verificar la sesión de pago.',
+            message: 'Error al verificar el pago.',
             error: error?.message ?? error,
         });
     }

@@ -1,13 +1,14 @@
 import type { Request, Response, NextFunction } from 'express'; //Resolver este problema******
 import jwt from 'jsonwebtoken';
 
-//Una simple interface
+//El JWT trae usuarioId (ver auth.controller); authenticateToken lo copia tambien en id
 export interface AuthenticatedRequest extends Request {
     user?: {
         id: string;
+        usuarioId?: number;
         email: string;
-        rolId: string;
-        sedeId?: string;
+        rolId: string | number;
+        sedeId?: string | number | null;
     };
 }
 
