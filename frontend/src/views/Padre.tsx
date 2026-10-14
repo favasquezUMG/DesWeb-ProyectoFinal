@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CreditCard, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, Lock, User, Bell, BookOpen, X } from "lucide-react";
 import type { View } from "../types";
 import { PAGOS, NOTAS_ALUMNO } from "../data";
+import { getEstadoCuenta, getMisHijos, type EstadoCuentaDto, type HijoDto, type MesEstadoCuentaDto } from "../lib/api";
+import { PagoColegiaturaModal, formatoQ } from "../components/PagoColegiatura";
 import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
-  AlertBanner, Stepper, TH, TD
+  AlertBanner, Stepper, TH, TD, Select, EmptyState
 } from "../components/Ui";
 import AvisosPadre from "./AvisosPadre";
 import AsistenciaPadre from "./AsistenciaPadre";
@@ -392,98 +394,242 @@ function NotasHijo() {
   );
 }
 
-type PagoEstado = "idle" | "procesando" | "exitoso" | "rechazado";
-// eslint-disable-next-line
+// ─── Pagos ────────────────────────────────────────────────────────────────────
+
+type EstadoMesUi = "pagado" | "pendiente" | "vencido" | "reembolsado" | "becado" | "procesando";
+
+/**
+ * El backend solo sabe si hay pago o no; "vencido" se calcula aquí: un mes
+ * sin pagar cuyo periodo ya pasó. "becado" es un mes que la beca cubre al
+ * 100%: no hay nada que cobrar (el backend rechaza un pago de Q0.00).
+ */
+function estadoMesUi(m: MesEstadoCuentaDto, anio: number): EstadoMesUi {
+  if (m.estado === "Pagado") return "pagado";
+  if (m.estado === "Reembolsado") return "reembolsado";
+  if (m.estado === "Exonerado" || m.montoAPagar <= 0) return "becado";
+  const hoy = new Date();
+  const mesActual = anio < hoy.getFullYear() ? 13 : anio > hoy.getFullYear() ? 0 : hoy.getMonth() + 1;
+  return m.mes < mesActual ? "vencido" : "pendiente";
+}
 
 function PagosView() {
-  const [pagoEstado, setPagoEstado] = useState<PagoEstado>("idle");
-  const [pagoSeleccionado, setPagoSeleccionado] = useState<string | null>(null);
+  const anio = new Date().getFullYear();
+  const mesActual = new Date().getMonth() + 1;
 
-  const pagoPendiente = PAGOS.find(p => p.estado === "vencido" || p.estado === "pendiente");
+  const [hijos, setHijos] = useState<HijoDto[] | null>(null);
+  const [hijoId, setHijoId] = useState<number | null>(null);
+  const [estadoCuenta, setEstadoCuenta] = useState<EstadoCuentaDto | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<{ alumnoId: number; anioLectivo: number; mes: number } | null>(null);
+  const [mesPagado, setMesPagado] = useState<string | null>(null);
+  // Meses cuyo cobro el banco sigue procesando. El backend los tiene como
+  // "Pendiente" hasta que llegue el webhook, así que sin esto se volvería a
+  // ofrecer "Pagar" (y el backend respondería 409).
+  const [enProceso, setEnProceso] = useState<Set<string>>(new Set());
 
-  function handlePagar(id: string) {
-    setPagoSeleccionado(id);
-    setPagoEstado("procesando");
-    setTimeout(() => setPagoEstado("exitoso"), 2000);
+  useEffect(() => {
+    getMisHijos()
+      .then((data) => {
+        setHijos(data);
+        setHijoId(data[0]?.alumnoId ?? null);
+        if (data.length === 0) setCargando(false);
+      })
+      .catch((e: Error) => { setError(e.message); setCargando(false); });
+  }, []);
+
+  const cargarEstadoCuenta = useCallback(async (alumnoId: number) => {
+    setCargando(true);
+    setError(null);
+    try {
+      setEstadoCuenta(await getEstadoCuenta(alumnoId, anio));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCargando(false);
+    }
+  }, [anio]);
+
+  useEffect(() => {
+    if (hijoId !== null) cargarEstadoCuenta(hijoId);
+  }, [hijoId, cargarEstadoCuenta]);
+
+  const hijo = hijos?.find((h) => h.alumnoId === hijoId) ?? null;
+
+  if (hijos && hijos.length === 0) {
+    return (
+      <div className="space-y-5">
+        <SectionHeader title="Pagos y Estado de Cuenta" />
+        <EmptyState icon={<User className="w-10 h-10" />} title="Sin alumnos asociados" description="Su cuenta no tiene alumnos a cargo. Comuníquese con la administración del colegio." />
+      </div>
+    );
   }
 
-  const totalDeuda = PAGOS.filter(p => p.estado !== "pagado").reduce((a, p) => a + p.total, 0);
+  const claveMes = (alumnoId: number, mes: number) => `${alumnoId}-${anio}-${mes}`;
+  const meses = estadoCuenta?.detalle.map((m) => {
+    const ui = estadoMesUi(m, anio);
+    const procesando = hijoId !== null && ui !== "pagado" && enProceso.has(claveMes(hijoId, m.mes));
+    return { ...m, ui: procesando ? "procesando" as const : ui };
+  }) ?? [];
+  const adeudados = meses.filter((m) => m.ui === "vencido");
+  const saldoVencido = adeudados.reduce((suma, m) => suma + m.montoAPagar, 0);
+  // Lo primero que se le ofrece pagar: el mes vencido más antiguo, o el del mes en curso
+  const siguiente = adeudados[0] ?? meses.find((m) => m.ui === "pendiente" && m.mes === mesActual);
+  const mensualidad = meses.find((m) => m.mes === Math.min(mesActual, 10));
+
+  function pagar(mes: number) {
+    if (hijoId === null) return;
+    setMesPagado(null);
+    setPeriodo({ alumnoId: hijoId, anioLectivo: anio, mes });
+  }
 
   return (
     <div className="space-y-5">
-      <SectionHeader title="Pagos y Estado de Cuenta" subtitle="María José Ajú Pac · Sede Central" />
+      <SectionHeader
+        title="Pagos y Estado de Cuenta"
+        subtitle={hijo ? `${hijo.nombre} · ${hijo.grado} sección ${hijo.seccion}` : undefined}
+        action={hijos && hijos.length > 1 ? (
+          <Select aria-label="Alumno" value={hijoId ?? ""} onChange={(e) => setHijoId(Number(e.target.value))}>
+            {hijos.map((h) => <option key={h.alumnoId} value={h.alumnoId}>{h.nombre}</option>)}
+          </Select>
+        ) : undefined}
+      />
 
-      {pagoEstado === "exitoso" && (
-        <AlertBanner type="success" title="Pago realizado exitosamente" message="Su pago de Q1,125.00 fue procesado. Recibirá un comprobante en rpac.encargado@gmail.com." onClose={() => setPagoEstado("idle")} />
+      {mesPagado && (
+        <AlertBanner type="success" title="Pago realizado exitosamente" message={`La colegiatura de ${mesPagado} quedó registrada como pagada.`} onClose={() => setMesPagado(null)} />
       )}
 
-      {pagoEstado === "rechazado" && (
-        <AlertBanner type="error" title="Pago rechazado" message="Su tarjeta fue rechazada. Verifique los datos o intente con otra forma de pago." onClose={() => setPagoEstado("idle")} />
+      {error && (
+        <AlertBanner type="error" title="No se pudo cargar el estado de cuenta" message={error} />
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="sm:col-span-2">
-          <MetricCard label="Saldo pendiente" value={`Q${totalDeuda.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`} sub={`${PAGOS.filter(p => p.estado !== "pagado").length} cuotas pendientes`} variant={totalDeuda > 0 ? "danger" : "success"} />
+      {cargando && !estadoCuenta ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
         </div>
-        <MetricCard label="Mensualidad" value="Q1,125.00" sub="Beca 10% aplicada (−Q125.00)" />
-      </div>
-
-      {/* Quick pay for overdue */}
-      {pagoPendiente && (pagoEstado as unknown as string) === "idle" && (
-        <Card className="p-5 border-2 border-danger-200 bg-danger-50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <AlertCircle className="w-4 h-4 text-danger-700" />
-                <p className="font-semibold text-danger-900">Cuota vencida — {pagoPendiente.mes}</p>
-              </div>
-              <p className="text-sm text-danger-700">Monto: <span className="font-mono-data font-bold">Q{pagoPendiente.total.toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span></p>
-            </div>
-            <Btn variant="destructive" icon={<CreditCard className="w-4 h-4" />} onClick={() => handlePagar(pagoPendiente.id)} loading={(pagoEstado as string) === "procesando"}>
-              {(pagoEstado as string) === "procesando" ? "Procesando…" : `Pagar Q${pagoPendiente.total.toLocaleString("es-GT", { minimumFractionDigits: 2 })}`}
-            </Btn>
+      ) : estadoCuenta && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <MetricCard
+              label="Saldo vencido"
+              value={formatoQ(saldoVencido)}
+              sub={adeudados.length > 0 ? `${adeudados.length} ${adeudados.length === 1 ? "cuota vencida" : "cuotas vencidas"}` : "Al día"}
+              variant={saldoVencido > 0 ? "danger" : "success"}
+            />
+            <MetricCard
+              label="Mensualidad"
+              value={mensualidad ? formatoQ(mensualidad.montoAPagar) : "—"}
+              sub={mensualidad && mensualidad.descuentoPorcentaje > 0
+                ? `Beca ${mensualidad.descuentoPorcentaje}% aplicada (−${formatoQ(mensualidad.montoBase - mensualidad.montoAPagar)})`
+                : "Sin beca"}
+            />
+            <MetricCard
+              label={`Pagado en ${anio}`}
+              value={formatoQ(estadoCuenta.totalPagado)}
+              sub={`${estadoCuenta.mesesPagados} de 10 meses`}
+              variant="success"
+            />
           </div>
-        </Card>
+
+          {siguiente && (
+            <Card className={`p-5 border-2 ${siguiente.ui === "vencido" ? "border-danger-200 bg-danger-50" : "border-warning-200 bg-warning-50"}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {siguiente.ui === "vencido"
+                      ? <AlertCircle className="w-4 h-4 text-danger-700" />
+                      : <AlertTriangle className="w-4 h-4 text-warning-700" />}
+                    <p className={`font-semibold ${siguiente.ui === "vencido" ? "text-danger-900" : "text-warning-800"}`}>
+                      {siguiente.ui === "vencido" ? "Cuota vencida" : "Cuota del mes"} — {siguiente.nombreMes} {anio}
+                    </p>
+                  </div>
+                  <p className={`text-sm ${siguiente.ui === "vencido" ? "text-danger-700" : "text-warning-700"}`}>
+                    Monto: <span className="font-mono-data font-bold">{formatoQ(siguiente.montoAPagar)}</span>
+                  </p>
+                </div>
+                <Btn
+                  variant={siguiente.ui === "vencido" ? "destructive" : "secondary"}
+                  icon={<CreditCard className="w-4 h-4" />}
+                  onClick={() => pagar(siguiente.mes)}
+                >
+                  Pagar {formatoQ(siguiente.montoAPagar)}
+                </Btn>
+              </div>
+            </Card>
+          )}
+
+          <Card className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-stone-100">
+              <h3 className="font-semibold text-stone-800">Colegiaturas — Ciclo {anio}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-stone-50 border-b border-stone-100">
+                  <tr><TH>Mes</TH><TH className="text-right">Mensualidad</TH><TH className="text-right">Beca</TH><TH className="text-right">Total</TH><TH>Estado</TH><TH>Fecha de pago</TH><TH className="text-right">Acciones</TH></tr>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {meses.map((m) => {
+                    const total = m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar;
+                    return (
+                      <tr key={m.mes} className="hover:bg-stone-50 transition-colors">
+                        <TD><span className="font-medium text-stone-900">{m.nombreMes}</span></TD>
+                        <TD className="text-right"><span className="font-mono-data text-stone-700">{formatoQ(m.montoBase)}</span></TD>
+                        <TD className="text-right">
+                          {m.montoBase - total > 0
+                            ? <span className="font-mono-data text-success-700">−{formatoQ(m.montoBase - total)}</span>
+                            : <span className="text-stone-400">—</span>}
+                        </TD>
+                        <TD className="text-right"><span className="font-mono-data font-semibold text-stone-900">{formatoQ(total)}</span></TD>
+                        <TD>
+                          {m.ui === "reembolsado" ? <Badge variant="info">Reembolsado</Badge>
+                            : m.ui === "becado" ? <Badge variant="success">Cubierto por beca</Badge>
+                            : m.ui === "procesando" ? <Badge variant="warning">En proceso</Badge>
+                            : <PagoBadge estado={m.ui} />}
+                        </TD>
+                        <TD>
+                          <span className="text-stone-500 text-xs font-mono-data">
+                            {m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-GT") : "—"}
+                          </span>
+                        </TD>
+                        <TD className="text-right">
+                          {m.ui === "pagado" || m.ui === "reembolsado" || m.ui === "becado" || m.ui === "procesando" ? null : (
+                            <Btn
+                              variant={m.ui === "vencido" ? "secondary" : "outline"}
+                              size="sm"
+                              onClick={() => pagar(m.mes)}
+                            >
+                              {m.mes > mesActual ? "Adelantar" : "Pagar"}
+                            </Btn>
+                          )}
+                        </TD>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
 
-      {/* Payment history */}
-      <Card className="overflow-hidden">
-        <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
-          <h3 className="font-semibold text-stone-800">Historial de pagos — Ciclo 2025</h3>
-          <Btn variant="ghost" size="sm" icon={<Download className="w-3.5 h-3.5" />}>Estado de cuenta PDF</Btn>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-stone-50 border-b border-stone-100">
-              <tr><TH>Concepto</TH><TH className="text-right">Mensualidad</TH><TH className="text-right">Beca</TH><TH className="text-right">Total</TH><TH>Estado</TH><TH>Fecha de pago</TH><TH className="text-right">Acciones</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-stone-50">
-              {PAGOS.map(p => (
-                <tr key={p.id} className="hover:bg-stone-50 transition-colors">
-                  <TD><span className="font-medium text-stone-900">{p.mes}</span></TD>
-                  <TD className="text-right"><span className="font-mono-data text-stone-700">Q{p.monto.toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span></TD>
-                  <TD className="text-right"><span className="font-mono-data text-success-700">−Q{p.beca.toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span></TD>
-                  <TD className="text-right"><span className="font-mono-data font-semibold text-stone-900">Q{p.total.toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span></TD>
-                  <TD><PagoBadge estado={p.estado} /></TD>
-                  <TD><span className="text-stone-500 text-xs font-mono-data">{p.fecha ?? "—"}</span></TD>
-                  <TD className="text-right">
-                    {p.estado === "pagado" ? (
-                      <button className="text-xs text-primary-700 hover:underline flex items-center gap-1"><Download className="w-3 h-3" />Recibo</button>
-                    ) : (
-                      <Btn variant="secondary" size="sm" onClick={() => handlePagar(p.id)} loading={pagoEstado === "procesando" && pagoSeleccionado === p.id}>
-                        Pagar
-                      </Btn>
-                    )}
-                  </TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <PagoColegiaturaModal
+        periodo={periodo}
+        onClose={() => setPeriodo(null)}
+        onTerminado={(tipo) => {
+          if (periodo && tipo === "exitoso") setMesPagado(`${MESES_NOMBRE[periodo.mes - 1]} ${periodo.anioLectivo}`);
+          if (periodo && tipo === "procesando") {
+            setEnProceso((prev) => new Set(prev).add(claveMes(periodo.alumnoId, periodo.mes)));
+          }
+          if (hijoId !== null) cargarEstadoCuenta(hijoId);
+        }}
+      />
     </div>
   );
 }
+
+const MESES_NOMBRE = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+// ─── Perfil ───────────────────────────────────────────────────────────────────
 
 function PerfilView() {
   const [saved, setSaved] = useState(false);
