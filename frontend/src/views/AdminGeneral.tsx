@@ -7,14 +7,20 @@ import { Card, MetricCard, SectionHeader, Btn, Badge, TH, TD, EmptyState } from 
 import UsuariosView from "./admin-sede/Usuarios";
 import RolesView from "./admin-sede/Roles";
 import { useEffect } from "react";
-import { SedeDto, SedeMetricaDto, getSedes, getSedesMetricas, ConteoAlumnosDto, getConteoAlumnos
-
+import { SedeDto, SedeMetricaDto, getSedes, getSedesMetricas, ConteoAlumnosDto, getConteoAlumnos, TasaAprobacionDTO,
+  getTasaAprobacion, getMoraPagosMetrica,
+  MetricaMoraDto,
+  MetricaBecaDto,
+  getBecasActivasMetrica
 } from "@/lib/api";
 
 function DashboardConsolidado() {
   const [sedes, setSedes] = useState<SedeDto[]>([]);
   const [metricasSede, setMetricasSedes] = useState<SedeMetricaDto[]>([]);
   const [alumnosMetric, setAlumnosMetric] = useState<ConteoAlumnosDto | null>(null);
+  const [aprobacionMetric, setAprobacionMetric] = useState<TasaAprobacionDTO | null>(null);
+  const [moraMetric, setMoraMetric] = useState<MetricaMoraDto | null>(null)
+  const [becasActivasMetric, setBecasActivasMetric] = useState<MetricaBecaDto | null>(null)
 
   const trendData = METRICS_CONSOLIDADOS.meses.map((m, i) => ({
     mes: m, aprobacion: METRICS_CONSOLIDADOS.tendencia[i]
@@ -57,6 +63,42 @@ function DashboardConsolidado() {
     cargarMetricas();
   }, []);
 
+  useEffect(() => {
+    async function cargarTasaAprobacion() {
+      try {
+        const data = await getTasaAprobacion();
+        setAprobacionMetric(data);
+      } catch (err) {
+        console.error("Error al cargar tasa de aprobación:", err);
+      }
+    }
+    cargarTasaAprobacion();
+  }, []);
+
+  useEffect(() => {
+    async function cargarMoraMetric() {
+      try {
+        const data = await getMoraPagosMetrica();
+        setMoraMetric(data);
+      } catch (err) {
+        console.error("Error al cargar métrica de mora:", err);
+      }
+    }
+    cargarMoraMetric();
+  }, []);
+
+  useEffect(() => {
+    async function cargarBecasActivasMetric() {
+      try {
+        const data = await getBecasActivasMetrica();
+        setBecasActivasMetric(data);
+      } catch (err) {
+        console.error("Error al cargar las becas activas:", err);
+      }
+    }
+    cargarBecasActivasMetric()
+  }, []);
+
   // Mapeamos las sedes obtenidas del backend al formato que consume BarChart
   const sedeData = metricasSede.map((s) => ({
     sede: s.nombre.replace("Sede ", ""), // Nombre limpio para el eje X
@@ -85,9 +127,24 @@ function DashboardConsolidado() {
           sub={alumnosMetric ? alumnosMetric.subtexto : "Cargando..."}
           icon={<Users className="w-5 h-5" />}
         />
-        <MetricCard label="Tasa de aprobación" value="84%" sub="Promedio tres sedes" icon={<TrendingUp className="w-5 h-5" />} variant="success" />
-        <MetricCard label="En mora de pagos" value="14%" sub="231 cuentas pendientes" icon={<AlertTriangle className="w-5 h-5" />} variant="warning" />
-        <MetricCard label="Becas activas" value="186" sub="11% del alumnado total" icon={<Award className="w-5 h-5" />} variant="default" />
+        <MetricCard label="Tasa de aprobación"
+          value={aprobacionMetric ? `${aprobacionMetric.tasaAprobacion}%` : "..."} 
+          sub={aprobacionMetric ? `${aprobacionMetric.subtexto}` : "Cargando..."} 
+          icon={<TrendingUp className="w-5 h-5" />}
+          variant="success"
+        />
+        <MetricCard label="En mora de pagos"
+          value={moraMetric ? `${moraMetric.porcentajeMora}` : "..."}
+          sub={moraMetric ? `${moraMetric.subtexto}` : "Cargando..."}
+          icon={<AlertTriangle className="w-5 h-5" />}
+          variant="warning"
+        />
+        <MetricCard label="Becas activas"
+          value={becasActivasMetric ? `${becasActivasMetric.becasActivas}` : "..." } 
+          sub={becasActivasMetric ? `${becasActivasMetric.subtexto}` : "Cargando..."}
+          icon={<Award className="w-5 h-5" />}
+          variant="default" 
+        />
       </div>
 
       {/* Charts */}
