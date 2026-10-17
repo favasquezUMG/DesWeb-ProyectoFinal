@@ -329,6 +329,17 @@ export async function getConteoAlumnos(): Promise<ConteoAlumnosDto> {
   return body.data;
 }
 
+export interface TasaAprobacionDTO {
+  tasaAprobacion: number;
+  promedioGeneral: number;
+  subtexto: string;
+}
+
+export async function getTasaAprobacion(): Promise<TasaAprobacionDTO> {
+  const body = await request<{ status: "success"; data: TasaAprobacionDTO }>("/api/alumnos/tasa-aprobacion");
+  return body.data;
+}
+
 // ---------- Becas ----------
 
 export type EstadoBeca = "Solicitada" | "Activa" | "Rechazada" | "Suspendida" | "Revocada" | "Finalizada";
@@ -557,6 +568,17 @@ export function solicitarBeca(input: { alumnoId: number; programaId: number; jus
 }
 
 type MessageResponse = { status: "success"; message: string };
+
+export interface MetricaBecaDto{
+  becasActivas: number;
+  porcentajeAlumnado: number;
+  subtexto: string;
+}
+
+export async function getBecasActivasMetrica(): Promise<MetricaBecaDto> {
+  const body = await request<{ status: "success"; data: MetricaBecaDto }>("/api/becas/becas-activas")
+  return body.data;
+}
 
 // ---------- Cursos del catedrático ----------
 
@@ -976,5 +998,17 @@ export interface InfoInicioDto {
 
 export async function getInfoInicio(): Promise<InfoInicioDto> {
   const body = await request<{ status: "success"; data: InfoInicioDto }>("/api/publico/inicio");
+  return body.data;
+}
+
+// --- Pagos ---
+export interface MetricaMoraDto {
+  porcentajeMora: number;
+  cuentasPendientes: number;
+  subtexto: string;
+}
+
+export async function getMoraPagosMetrica(): Promise<MetricaMoraDto> {
+  const body = await request<{ status: "success"; data: MetricaMoraDto }>("/api/pagos/metrica-mora");
   return body.data;
 }
