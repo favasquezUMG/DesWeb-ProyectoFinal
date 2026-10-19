@@ -7,7 +7,7 @@ import MiCuentaModal from "./MiCuentaModal";
 import {
   LayoutDashboard, School, BookOpen, FileBarChart, Users, ShieldCheck,
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
-  ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard,
+  ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard, FileText,
   User, ChevronLeft, ChevronRight, Menu, X, ChevronDown,
   LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2
 } from "lucide-react";
@@ -21,6 +21,8 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Sedes", view: "ag-sedes", Icon: School },
     { label: "Malla Curricular", view: "ag-malla", Icon: Layers },
     { label: "Reportería", view: "ag-reporteria", Icon: FileBarChart },
+    { label: "Solicitudes", view: "as-solicitudes", Icon: FileText },
+    { label: "Calendario", view: "as-calendario", Icon: CalendarDays },
     { label: "Usuarios", view: "as-usuarios", Icon: Users },
     { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck },
   ],
@@ -29,6 +31,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Usuarios", view: "as-usuarios", Icon: Users, modulo: "usuarios" },
     { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck, modulo: "usuarios" },
     { label: "Catedráticos", view: "as-catedraticos", Icon: GraduationCap, modulo: "usuarios" },
+    { label: "Solicitudes", view: "as-solicitudes", Icon: FileText, modulo: "matriculas" },
     { label: "Alumnos y Encargados", view: "as-alumnos", Icon: UserCheck, modulo: "alumnos" },
     { label: "Grados y Secciones", view: "as-grados", Icon: Grid3X3, modulo: "horarios" },
     { label: "Cursos", view: "as-cursos", Icon: BookMarked, modulo: "horarios" },

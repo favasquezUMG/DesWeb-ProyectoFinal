@@ -144,6 +144,7 @@ model Alumno {
   pagos            Pago[]
   reportesConducta ReporteConducta[]
   justificaciones  JustificacionAusencia[]
+  solicitud        Solicitud?
 }
 
 // Vinculo de un alumno con cada adulto responsable. Un alumno puede tener varios
@@ -513,6 +514,12 @@ model Solicitud {
   // Sede
   sedeId          Int?
   sede            Sede?           @relation(fields: [sedeId], references: [sedeId])
+
+  // Resolución: al aprobarla se crea el alumno (y el encargado si no tenía cuenta)
+  alumnoId         Int?            @unique
+  alumno           Alumno?         @relation(fields: [alumnoId], references: [alumnoId])
+  fechaResolucion  DateTime?
+  motivoResolucion String?         @db.VarChar(500)
 
   // Metadatos
   documentos      String[]
