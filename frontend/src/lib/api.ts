@@ -146,11 +146,12 @@ export function deleteRol(id: number): Promise<{ status: "success"; message: str
 // ---------- Usuarios ----------
 
 export interface BitacoraDto {
-  bitacoraId: number;
+  id: number;
   accion: string;
+  entidad: string;
   detalle: string;
   fecha: string;
-  usuario: { nombres: string; apellidos: string } | null;
+  usuario: string;
 }
 
 export interface UsuarioDto {
@@ -776,6 +777,16 @@ export function enviarNotasAEncargados(input: EnvioNotasInput): Promise<EnvioNot
   });
 }
 
+export interface TendenciaNotasDto {
+  mes: string;
+  promedio: number;
+}
+
+export async function getTendenciaNotas(): Promise<TendenciaNotasDto[]>{
+  const body = await request<{ status: "success"; data: TendenciaNotasDto[] }>("/api/notas/tendencia-notas");
+  return body.data
+}
+
 // ---------- Reportes de conducta ----------
 
 export type TipoConducta = "Positivo" | "Leve" | "Grave";
@@ -1011,4 +1022,10 @@ export interface MetricaMoraDto {
 export async function getMoraPagosMetrica(): Promise<MetricaMoraDto> {
   const body = await request<{ status: "success"; data: MetricaMoraDto }>("/api/pagos/metrica-mora");
   return body.data;
+}
+
+// --- Bitacora ---
+export async function getActividadReciente(): Promise<BitacoraDto[]> {
+  const body = await request<{ status: "success", data: BitacoraDto[]}>("/api/bitacora/actividad-reciente");
+  return body.data
 }
