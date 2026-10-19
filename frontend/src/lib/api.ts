@@ -146,11 +146,12 @@ export function deleteRol(id: number): Promise<{ status: "success"; message: str
 // ---------- Usuarios ----------
 
 export interface BitacoraDto {
-  bitacoraId: number;
+  id: number;
   accion: string;
+  entidad: string;
   detalle: string;
   fecha: string;
-  usuario: { nombres: string; apellidos: string } | null;
+  usuario: string;
 }
 
 export interface UsuarioDto {
@@ -326,6 +327,17 @@ export interface ConteoAlumnosDto {
 
 export async function getConteoAlumnos(): Promise<ConteoAlumnosDto> {
   const body = await request<{ status: "success"; data: ConteoAlumnosDto }>("/api/alumnos/conteo-alumnos");
+  return body.data;
+}
+
+export interface TasaAprobacionDTO {
+  tasaAprobacion: number;
+  promedioGeneral: number;
+  subtexto: string;
+}
+
+export async function getTasaAprobacion(): Promise<TasaAprobacionDTO> {
+  const body = await request<{ status: "success"; data: TasaAprobacionDTO }>("/api/alumnos/tasa-aprobacion");
   return body.data;
 }
 
@@ -558,6 +570,17 @@ export function solicitarBeca(input: { alumnoId: number; programaId: number; jus
 
 type MessageResponse = { status: "success"; message: string };
 
+export interface MetricaBecaDto{
+  becasActivas: number;
+  porcentajeAlumnado: number;
+  subtexto: string;
+}
+
+export async function getBecasActivasMetrica(): Promise<MetricaBecaDto> {
+  const body = await request<{ status: "success"; data: MetricaBecaDto }>("/api/becas/becas-activas")
+  return body.data;
+}
+
 // ---------- Cursos del catedrático ----------
 
 export interface HorarioCursoDto {
@@ -752,6 +775,16 @@ export function enviarNotasAEncargados(input: EnvioNotasInput): Promise<EnvioNot
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export interface TendenciaNotasDto {
+  mes: string;
+  promedio: number;
+}
+
+export async function getTendenciaNotas(): Promise<TendenciaNotasDto[]>{
+  const body = await request<{ status: "success"; data: TendenciaNotasDto[] }>("/api/notas/tendencia-notas");
+  return body.data
 }
 
 // ---------- Reportes de conducta ----------
@@ -1061,4 +1094,21 @@ export async function crearIntentPago(input: { alumnoId: number; anioLectivo: nu
 export async function verificarPago(paymentIntentId: string): Promise<VerificacionPagoDto> {
   const body = await request<{ status: "success"; data: VerificacionPagoDto }>(`/api/pagos/verificar/${paymentIntentId}`);
   return body.data;
+}
+// --- Pagos ---
+export interface MetricaMoraDto {
+  porcentajeMora: number;
+  cuentasPendientes: number;
+  subtexto: string;
+}
+
+export async function getMoraPagosMetrica(): Promise<MetricaMoraDto> {
+  const body = await request<{ status: "success"; data: MetricaMoraDto }>("/api/pagos/metrica-mora");
+  return body.data;
+}
+
+// --- Bitacora ---
+export async function getActividadReciente(): Promise<BitacoraDto[]> {
+  const body = await request<{ status: "success", data: BitacoraDto[]}>("/api/bitacora/actividad-reciente");
+  return body.data
 }

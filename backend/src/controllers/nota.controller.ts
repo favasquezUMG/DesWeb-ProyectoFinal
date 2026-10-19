@@ -412,3 +412,57 @@ export const enviarNotasAEncargados = async (req: AuthenticatedRequest, res: Res
     return res.status(500).json({ status: 'error', message: 'Error al enviar las notas a los encargados.', error });
   }
 };
+
+export const getTendenciaNotas = async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const anioActual = new Date().getFullYear(); // 2026
+
+    // Consultamos las notas registradas durante el año lectivo en curso
+    const notas = await prisma.nota.findMany({
+      where: {
+        fechaRegistro: {
+          gte: new Date(`${anioActual}-01-01T00:00:00.000Z`),
+          lte: new Date(`${anioActual}-12-31T23:59:59.999Z`),
+        },
+      },
+      select: {
+        valor: true,
+        fechaRegistro: true,
+      },
+    });
+
+    const mesesNombres = [
+      "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+      "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+    ];
+
+    // Acumulamos sumas y conteos por cada mes (0-11)
+    const acumuladorMeses: Record<number, { suma: number; total: number }> = {};
+
+    notas.forEach((nota) => {
+      const mesIndex = new Date(nota.fechaRegistro).getMonth();
+      if (!acumuladorMeses[mesIndex]) {
+        acumuladorMeses[mesIndex] = { suma: 0, total: 0 };
+      }
+      acumuladorMeses[mesIndex].suma += Number(nota.valor);
+      acumuladorMeses[mesIndex].total += 1;
+    });
+
+    // Formateamos los datos requeridos por la gráfica (Recharts)
+    const data = mesesNombres.map((nombre, index) => {
+      const registro = acumuladorMeses[index];
+      const promedio = registro && registro.total > 0
+        ? Math.round(registro.suma / registro.total)
+        : 0;
+
+      return {
+        mes: nombre,
+        promedio,
+      };
+    });
+
+    return res.json({ status: "success", data });
+  } catch (error) {
+
+  }
+}

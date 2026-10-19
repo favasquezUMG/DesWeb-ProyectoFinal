@@ -29,6 +29,7 @@ import notificacionRoutes from "./routes/notificacion.routes.js";
 import publicoRoutes from "./routes/publico.routes.js";
 import solicitudRoutes from "./routes/solicitud.routes.js";
 import justificacionRoutes from "./routes/justificacion.routes.js";
+import bitacoraRoutes from "./routes/bitacora.routes.js";
 import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
@@ -118,6 +119,7 @@ app.use('/api/justificaciones', justificacionRoutes);
 app.use('/api/notificaciones', notificacionRoutes);
 app.use('/api/publico', publicoRoutes);
 app.use('/api/solicitudes', solicitudRoutes);
+app.use('/api/bitacora', bitacoraRoutes);
 
 app.listen(PORT, async () => {
   try {
