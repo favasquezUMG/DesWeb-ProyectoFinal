@@ -11,6 +11,7 @@ import {
     type Destinatario,
 } from "../services/notificacion.service.js";
 import { plantillaComunicado } from "../templates/mail.templates.js";
+import { filtroAlumnoConAcceso } from "../services/accesoPortal.service.js";
 
 const TIPOS_COMUNICADO = ["Aviso", "Sancion", "Actividad", "Asueto"];
 const DESTINOS = ["encargados", "catedraticos", "alumnos", "todos", "seccion"] as const;
@@ -41,7 +42,8 @@ const resolverDestinatarios = async (
         case "catedraticos":
             return buscarDestinatarios({ catedratico: { isNot: null }, ...(sedeId ? { sedeId } : {}) });
         case "alumnos":
-            return buscarDestinatarios({ alumno: sedeId ? { is: alumnoDeSede } : { isNot: null } });
+            // Solo los alumnos con acceso al portal; a los demas los informa su encargado
+            return buscarDestinatarios({ alumno: { is: { ...alumnoDeSede, ...filtroAlumnoConAcceso } } });
         case "seccion":
             return encargadosDeAlumnos({ seccionId });
         case "todos": {

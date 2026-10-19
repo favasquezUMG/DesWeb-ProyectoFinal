@@ -12,7 +12,7 @@ export type View =
   // Alumno
   | "alu-dashboard" | "alu-notas" | "alu-horario" | "alu-calendario"
   // Padre
-  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-asistencia" | "pad-pagos" | "pad-becas" | "pad-avisos" | "pad-perfil";
+  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-asistencia" | "pad-horario" | "pad-calendario" | "pad-pagos" | "pad-becas" | "pad-avisos" | "pad-perfil";
 
 export interface RolUsuario {
   rolId: number;

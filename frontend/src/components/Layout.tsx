@@ -58,6 +58,8 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Matrícula", view: "pad-matricula", Icon: BookMarked },
     { label: "Notas y Reportes", view: "pad-notas", Icon: Star },
     { label: "Asistencia", view: "pad-asistencia", Icon: ClipboardList },
+    { label: "Horario", view: "pad-horario", Icon: Clock },
+    { label: "Calendario", view: "pad-calendario", Icon: CalendarDays },
     { label: "Pagos", view: "pad-pagos", Icon: CreditCard },
     { label: "Becas", view: "pad-becas", Icon: Award },
     { label: "Avisos y Conducta", view: "pad-avisos", Icon: BellRing },
