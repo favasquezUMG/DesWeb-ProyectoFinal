@@ -100,8 +100,8 @@ export default function App() {
       case "admin-general": return <AdminGeneral view={currentView} />;
       case "admin-sede": return <AdminSede view={currentView} />;
       case "catedratico": return <Catedratico view={currentView} onNavigate={setCurrentView} />;
-      case "alumno": return <Alumno view={currentView} />;
-      case "padre": return <Padre view={currentView} />;
+      case "alumno": return <Alumno view={currentView} onNavigate={setCurrentView} />;
+      case "padre": return <Padre view={currentView} user={user} onNavigate={setCurrentView} />;
       default: return null;
     }
   }

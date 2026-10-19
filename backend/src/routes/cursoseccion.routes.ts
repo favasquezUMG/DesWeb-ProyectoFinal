@@ -5,7 +5,8 @@ import {
     getCursosDeCatedratico,
     createCursoSeccion,
     updateCursoSeccion,
-    deleteCursoSeccionById
+    deleteCursoSeccionById,
+    getCatedraticosSede
 } from '../controllers/cursoseccion.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, ROL } from "../middlewares/role.middleware.js";
@@ -15,6 +16,7 @@ const router = Router();
 router.use(authenticateToken)
 
 router.get('/', getCursosSeccion);
+router.get('/catedraticos', permitir('horarios'), getCatedraticosSede);
 router.get('/catedratico/:catedraticoId', getCursosDeCatedratico);
 router.get('/:id', getCursoSeccionById);
 

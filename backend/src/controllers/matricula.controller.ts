@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { puedeOperarSede, ROL } from '../middlewares/role.middleware.js';
 import { esResponsableDe } from '../services/vinculos.service.js';
+import { filtroAlumnosVisibles, puedeVerAlumno } from '../services/acceso.service.js';
 
 const ESTADOS = ['Activa', 'Retirada'] as const;
 type Estado = (typeof ESTADOS)[number];
@@ -18,7 +19,11 @@ export const getMatriculas = async (req: AuthenticatedRequest, res: Response) =>
     const { alumnoId, seccionId, encargadoId, anioLectivo, estado } = req.query;
 
     try {
-        const where: any = {};
+        // Cada quien ve solo las matrículas de los alumnos a los que tiene acceso
+        const visibles = await filtroAlumnosVisibles(req, 'matriculas');
+        if (!visibles) return res.status(403).json({ status: 'error', message: 'No tiene permiso para consultar matrículas.' });
+
+        const where: any = { alumno: visibles };
         if (alumnoId) where.alumnoId = Number(alumnoId);
         if (seccionId) where.seccionId = Number(seccionId);
         if (encargadoId) where.encargadoId = Number(encargadoId);
@@ -50,6 +55,9 @@ export const getMatriculaById = async (req: AuthenticatedRequest, res: Response)
         if (!matricula) {
             return res.status(404).json({ status: 'error', message: `Matrícula con ID: ${id} no encontrada` });
         }
+        if (!(await puedeVerAlumno(req, matricula.alumnoId, 'matriculas'))) {
+            return res.status(403).json({ status: 'error', message: 'No tiene permiso para ver esta matrícula.' });
+        }
 
         return res.json({ status: 'success', data: matricula });
     } catch (error) {
@@ -62,6 +70,10 @@ export const getMatriculasDeAlumno = async (req: AuthenticatedRequest, res: Resp
     const { alumnoId } = req.params;
 
     try {
+        if (!(await puedeVerAlumno(req, Number(alumnoId), 'matriculas'))) {
+            return res.status(403).json({ status: 'error', message: 'No tiene permiso para ver el historial de este alumno.' });
+        }
+
         const matriculas = await prisma.matricula.findMany({
             where: { alumnoId: Number(alumnoId) },
             include: incluirDetalle,

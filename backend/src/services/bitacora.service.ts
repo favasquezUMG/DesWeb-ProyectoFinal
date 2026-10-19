@@ -19,14 +19,13 @@ export const registrarBitacora = async (
     }
 };
 
-export const obtenerBitacora = (entidad: EntidadBitacora, entidadId: number, limite = 50) => {
+export const obtenerBitacora = (entidad: EntidadBitacora, entidadId: number, limite = 50) =>
     prisma.bitacora.findMany({
         where: { entidad, entidadId },
         include: { usuario: { select: { nombres: true, apellidos: true } } },
         orderBy: { fecha: "desc" },
         take: limite,
     });
-}
 
 export const obtenerBitacoraRecienteGlobal = (limite = 10) =>
   prisma.bitacora.findMany({
