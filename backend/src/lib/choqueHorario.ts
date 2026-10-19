@@ -38,9 +38,11 @@ export const detectarChoque = async (
         where: {
             ...filtroTraslape(rango),
             ...excluir,
+            // Mismo ciclo escolar (el horario del año siguiente no choca con el actual), en
+            // cualquier sede: un catedrático que da clases en dos sedes no puede estar en ambas
             cursoSeccion: {
                 catedraticoId: cursoSeccion.catedraticoId,
-                seccion: { sedeId: cursoSeccion.seccion.sedeId },
+                seccion: { anioLectivo: cursoSeccion.seccion.anioLectivo },
             },
         },
         include: {
@@ -69,10 +71,8 @@ export const detectarChoque = async (
         where: {
             ...filtroTraslape(rango),
             ...excluir,
-            cursoSeccion: {
-                seccionId: cursoSeccion.seccionId,
-                cursoSeccionId: { not: cursoSeccionId },
-            },
+            // Incluye el mismo curso: tampoco puede tener dos bloques encimados
+            cursoSeccion: { seccionId: cursoSeccion.seccionId },
         },
         include: { cursoSeccion: { include: { curso: true } } },
     });

@@ -3,11 +3,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
-import { permisosDeRol } from '../middlewares/role.middleware.js';
+import { permisosDeRol, ROL } from '../middlewares/role.middleware.js';
 import { sendMail } from '../services/mail.service.js';
 import { validarPassword } from '../services/usuarios.service.js';
 import { ReglaNegocioError } from '../lib/errores.js';
 import { plantillaRecuperarPassword } from '../templates/mail.templates.js';
+import { accesoPortalDe, MENSAJE_SIN_ACCESO } from '../services/accesoPortal.service.js';
 
 const incluirRoles = {
     rol: true,
@@ -90,6 +91,12 @@ export const login = async (req: Request, res: Response) => {
         const pedido = Number(rolId);
         const rolInicial = rolesDe(user).some((r) => r.rolId === pedido) ? pedido : user.rolId;
 
+        // Los alumnos sin acceso al portal (por nivel o por decision de la sede) no entran
+        const nombreRolInicial = rolesDe(user).find((r) => r.rolId === rolInicial)?.nombre;
+        if (nombreRolInicial === ROL.ALUMNO && (await accesoPortalDe(user.usuarioId)) === false) {
+            return res.status(403).json({ status: 'error', message: MENSAJE_SIN_ACCESO });
+        }
+
         return res.json(await sesionPara(user, rolInicial));
     } catch (error) {
         return res.status(500).json({ status: 'error', message: 'Internal error', error});
@@ -147,7 +154,8 @@ export const olvidePassword = async (req: Request, res: Response) => {
             where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null },
         });
 
-        if (user) {
+        // Un alumno sin acceso al portal no recibe enlace: su contraseña la asigna el encargado o la sede
+        if (user && (await accesoPortalDe(user.usuarioId)) !== false) {
             const token = jwt.sign(
                 { usuarioId: user.usuarioId, tipo: 'reset' },
                 secretoReset(user.passwordHash),

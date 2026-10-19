@@ -9,6 +9,7 @@ import { ROL, obtenerNombreRol, puedeOperarSede, sedeDelAlcance } from '../middl
 import { registrarBitacora, obtenerBitacora } from '../services/bitacora.service.js';
 import { MAX_ENCARGADOS_ACTIVOS, PARENTESCOS, filtroVinculo, validarVinculos } from '../services/vinculos.service.js';
 import { asegurarRegistrosDeRol, correoEnUso, generarPasswordTemporal, normalizarEmail } from '../services/usuarios.service.js';
+import { accesoPorNivel, tieneAccesoPortal } from '../services/accesoPortal.service.js';
 
 const responderError = (res: Response, error: unknown, mensaje: string) => {
     if (error instanceof ReglaNegocioError) {
@@ -57,7 +58,8 @@ export const getAlumnos = async (req: AuthenticatedRequest, res: Response) => {
                 seccionId: true,
                 fechaNacimiento: true,
                 usuario: { select: { nombres: true, apellidos: true, email: true } },
-                seccion: { select: { seccionId: true, nombre: true, sedeId: true, grado: { select: { nombre: true } } } },
+                accesoPortal: true,
+                seccion: { select: { seccionId: true, nombre: true, sedeId: true, grado: { select: { nombre: true, nivel: true } } } },
                 encargados: {
                     where: { activo: true },
                     select: {
@@ -80,6 +82,8 @@ export const getAlumnos = async (req: AuthenticatedRequest, res: Response) => {
                 encargadosActivos: vigentes.length,
                 contactoPrincipal: principal ? nombreDe(principal.encargado.usuario) : null,
                 tieneRestriccion: encargados.some((e) => e.restringido),
+                accesoPortalEfectivo: tieneAccesoPortal({ accesoPortal: a.accesoPortal, nivel: a.seccion.grado.nivel }),
+                accesoPorNivel: accesoPorNivel(a.seccion.grado.nivel),
             };
         });
 
@@ -633,4 +637,37 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
       message: "Error al calcular la tasa de aprobación.",
     });
   }
+};
+// PATCH /api/alumnos/:id/acceso-portal  { accesoPortal: true | false | null }
+// null vuelve a la regla por nivel (Primaria sin acceso; Básico y Diversificado con acceso)
+export const setAccesoPortal = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const alumnoId = leerId(req.params.id);
+        const { accesoPortal } = req.body ?? {};
+        if (accesoPortal !== null && typeof accesoPortal !== 'boolean') {
+            throw new ReglaNegocioError('accesoPortal debe ser true, false o null (según el nivel).', 400);
+        }
+
+        const alumno = await verificarAlumnoDeMiSede(req, alumnoId);
+        await prisma.alumno.update({ where: { alumnoId }, data: { accesoPortal } });
+
+        const efectivo = tieneAccesoPortal({ accesoPortal, nivel: alumno.seccion.grado.nivel });
+        await registrarBitacora(
+            Number(req.user?.id),
+            'Acceso al portal',
+            'Alumno',
+            alumnoId,
+            accesoPortal === null
+                ? `Acceso al portal según el nivel (${alumno.seccion.grado.nivel}): ${efectivo ? 'habilitado' : 'deshabilitado'}.`
+                : `Acceso al portal ${accesoPortal ? 'habilitado' : 'deshabilitado'} como excepción.`,
+        );
+
+        return res.json({
+            status: 'success',
+            message: `${nombreDe(alumno.usuario)} ${efectivo ? 'puede' : 'ya no puede'} entrar al portal.`,
+            data: { accesoPortal, accesoPortalEfectivo: efectivo },
+        });
+    } catch (error) {
+        return responderError(res, error, 'Error al cambiar el acceso al portal.');
+    }
 };

@@ -11,11 +11,13 @@ import RolesView from "./Roles";
 import GradosView from "./Grados";
 import CursosView from "./Cursos";
 import UsuariosView from "./Usuarios";
+import SolicitudesView from "./Solicitudes";
 
 export default function AdminSede({ view }: { view: View }) {
   if (view === "as-usuarios") return <UsuariosView />;
   if (view === "as-roles") return <RolesView />;
   if (view === "as-catedraticos") return <CatedraticosView />;
+  if (view === "as-solicitudes") return <SolicitudesView />;
   if (view === "as-alumnos") return <AlumnosView />;
   if (view === "as-grados") return <GradosView />;
   if (view === "as-cursos") return <CursosView />;

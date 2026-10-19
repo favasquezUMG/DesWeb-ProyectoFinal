@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { authenticateToken } from "../middlewares/auth.middleware.js";
+import { verificarRol, ROL } from "../middlewares/role.middleware.js";
+import { getDashboardSede } from "../controllers/dashboardSede.controller.js";
 import { 
     get,
     crearSede,
@@ -13,8 +15,9 @@ router.get("/", get);
 
 router.use(authenticateToken);
 
-router.post("/", crearSede);
-router.put("/:id", actualizarSede);
-router.get("/metricas", getSedesMetricas);
+router.post("/", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), crearSede);
+router.put("/:id", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), actualizarSede);
+router.get("/metricas", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), getSedesMetricas);
+router.get("/dashboard", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getDashboardSede);
 
 export default router;

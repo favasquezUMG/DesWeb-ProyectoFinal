@@ -1,337 +1,324 @@
-import { useState } from "react";
-import { BookOpen, Clock, Bell, CheckCircle2, AlertCircle, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookOpen, Clock, Bell, CheckCircle2, ChevronRight, ClipboardList, CalendarDays } from "lucide-react";
 import type { View } from "../types";
-import { NOTAS_ALUMNO, HORARIO_3A, DIAS, BLOQUES, EVENTOS } from "../data";
-import { Card, MetricCard, SectionHeader, Badge, EstadoBadge, TH, TD } from "../components/Ui";
+import {
+  getPerfilAlumno, getMisNotasAlumno, getMiHorarioAlumno, getMiAsistenciaAlumno, getEventos, getMisNotificaciones,
+  type PerfilAlumnoDto, type BoletinHijoDto, type ClaseAlumnoDto, type AsistenciaAlumnoDto, type EventoDto, type NotificacionDto,
+} from "../lib/api";
+import { Card, MetricCard, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState } from "../components/Ui";
+import CalendarioEventos from "../components/CalendarioEventos";
+import HorarioSemanal, { DIAS, asuetosDeLaSemana } from "../components/HorarioSemanal";
 
-function DashboardAlu() {
-  const cursosConNotas = NOTAS_ALUMNO.filter(c => c.u1 !== null);
-  const promedioGeneral = Math.round(
-    cursosConNotas.reduce((acc, c) => {
-      const vals = [c.u1, c.u2, c.u3].filter(v => v !== null) as number[];
-      return acc + (vals.reduce((a, b) => a + b, 0) / vals.length);
-    }, 0) / cursosConNotas.length
+
+const errorDe = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
+
+const colorNota = (n: number | null, minimo = 61) =>
+  n === null ? "text-stone-300" : n >= minimo ? "text-success-700" : "text-danger-700";
+
+
+// Carga una sola vez y expone loading/error (todas las pantallas son de solo lectura)
+function useCarga<T>(cargar: () => Promise<T>, mensaje: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let cancelado = false;
+    cargar()
+      .then((d) => { if (!cancelado) setData(d); })
+      .catch((e) => { if (!cancelado) setError(errorDe(e, mensaje)); });
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return { data, error, loading: data === null && !error };
+}
+
+function Cargando({ filas = 3 }: { filas?: number }) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {Array.from({ length: filas }, (_, i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
+    </div>
   );
+}
 
-  const aprobados = NOTAS_ALUMNO.filter(c => {
-    const vals = [c.u1, c.u2, c.u3].filter(v => v !== null) as number[];
-    const prom = vals.reduce((a, b) => a + b, 0) / vals.length;
-    return prom >= 61;
-  }).length;
+const subtituloDe = (p: PerfilAlumnoDto | null) => (p ? `${p.grado} ${p.seccion} · ${p.sede} · Ciclo ${p.anioLectivo}` : undefined);
+
+// La próxima clase a partir de ahora (hoy más tarde, o el siguiente día con clases)
+function proximaClase(clases: ClaseAlumnoDto[]): { clase: ClaseAlumnoDto; hoy: boolean } | null {
+  if (clases.length === 0) return null;
+  const ahora = new Date();
+  const diaHoy = ahora.getDay() === 0 ? 7 : ahora.getDay();
+  const hora = `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
+  const hoy = clases.find((c) => c.diaSemana === diaHoy && c.horaFin > hora);
+  if (hoy) return { clase: hoy, hoy: true };
+  for (let i = 1; i <= 7; i++) {
+    const dia = ((diaHoy - 1 + i) % 7) + 1;
+    const c = clases.find((x) => x.diaSemana === dia);
+    if (c) return { clase: c, hoy: false };
+  }
+  return null;
+}
+
+const hoyISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
+  const perfil = useCarga(getPerfilAlumno, "No se pudo cargar tu información.");
+  const notas = useCarga(getMisNotasAlumno, "No se pudieron cargar tus notas.");
+  const horario = useCarga(getMiHorarioAlumno, "No se pudo cargar tu horario.");
+  const asistencia = useCarga<AsistenciaAlumnoDto>(getMiAsistenciaAlumno, "No se pudo cargar tu asistencia.");
+  const eventos = useCarga<EventoDto[]>(getEventos, "No se pudieron cargar los eventos.");
+  const avisos = useCarga<NotificacionDto[]>(getMisNotificaciones, "No se pudieron cargar los avisos.");
+
+  const error = perfil.error || notas.error;
+  const boletin = notas.data;
+  const proxima = horario.data ? proximaClase(horario.data) : null;
+  const porcentaje = asistencia.data?.resumen.porcentaje;
+  const hoy = hoyISO();
+  const proximosEventos = (eventos.data ?? []).filter((e) => e.fecha.slice(0, 10) >= hoy).slice(0, 4);
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Mi Panel" subtitle="María José Ajú Pac · 3ro Básico A · Ciclo 2025" />
+      <SectionHeader title={perfil.data ? `Hola, ${perfil.data.nombre.split(" ")[0]}` : "Mi Panel"} subtitle={subtituloDe(perfil.data)} />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <MetricCard label="Promedio general" value={promedioGeneral} sub="Promedio acumulado" icon={<BookOpen className="w-5 h-5" />} variant={promedioGeneral >= 61 ? "success" : "danger"} />
-        <MetricCard label="Cursos aprobados" value={`${aprobados}/${NOTAS_ALUMNO.length}`} sub="Unidades evaluadas" icon={<CheckCircle2 className="w-5 h-5" />} variant="success" />
-        <div className="col-span-2 sm:col-span-1">
-          <MetricCard label="Próxima clase" value="07:00" sub="Lunes · Matemática" icon={<Clock className="w-5 h-5" />} />
+      {error && <AlertBanner type="error" message={error} />}
+
+      {notas.loading ? <Cargando filas={4} /> : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard label="Promedio general" value={boletin?.promedioGeneral != null ? Math.round(boletin.promedioGeneral) : "—"}
+            sub={boletin?.cursosEvaluados ? "Unidades evaluadas" : "Sin notas aún"} icon={<BookOpen className="w-5 h-5" />}
+            variant={boletin?.promedioGeneral == null ? "default" : boletin.promedioGeneral >= boletin.notaAprobacion ? "success" : "danger"} />
+          <MetricCard label="Cursos aprobados" value={boletin ? `${boletin.cursosAprobados}/${boletin.cursos.length}` : "—"}
+            sub="Según unidades evaluadas" icon={<CheckCircle2 className="w-5 h-5" />}
+            variant={boletin && boletin.cursosAprobados < boletin.cursosEvaluados ? "warning" : "success"} />
+          <MetricCard label="Asistencia" value={porcentaje !== undefined ? `${Math.round(porcentaje)}%` : "—"}
+            sub={asistencia.data ? `${asistencia.data.resumen.ausentes} ausencias · ${asistencia.data.resumen.tardes} tardes` : undefined}
+            icon={<ClipboardList className="w-5 h-5" />}
+            variant={porcentaje === undefined ? "default" : porcentaje >= 80 ? "success" : "warning"} />
+          <MetricCard label="Próxima clase" value={proxima ? proxima.clase.horaInicio : "—"}
+            sub={proxima ? `${proxima.hoy ? "Hoy" : DIAS[proxima.clase.diaSemana]} · ${proxima.clase.curso}` : "Sin horario"}
+            icon={<Clock className="w-5 h-5" />} />
         </div>
-      </div>
+      )}
 
-      {/* Quick notes summary */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display font-semibold text-stone-800 text-base">Mis cursos</h3>
-          <button className="text-xs text-primary-700 hover:underline font-medium flex items-center gap-1">Ver notas completas <ChevronRight className="w-3.5 h-3.5" /></button>
+          {onNavigate && (
+            <button onClick={() => onNavigate("alu-notas")} className="text-xs text-primary-700 hover:underline font-medium flex items-center gap-1 cursor-pointer">
+              Ver notas completas <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {NOTAS_ALUMNO.slice(0, 4).map(c => {
-            const vals = [c.u1, c.u2, c.u3].filter(v => v !== null) as number[];
-            const prom = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-            return (
-              <div key={c.curso} className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-xl">
-                <div>
+        {!boletin || boletin.cursos.length === 0 ? (
+          <p className="text-sm text-stone-500">{notas.loading ? "Cargando…" : "Aún no tienes cursos asignados."}</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {boletin.cursos.slice(0, 6).map((c) => (
+              <div key={c.cursoSeccionId} className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-xl">
+                <div className="min-w-0">
                   <p className="font-medium text-stone-900 text-sm">{c.curso}</p>
                   <p className="text-xs text-stone-500">{c.catedratico}</p>
                 </div>
-                {prom !== null && (
-                  <div className="text-right">
-                    <p className={`font-mono-data font-bold text-xl ${prom >= 61 ? "text-success-700" : "text-danger-700"}`}>{prom}</p>
-                    <EstadoBadge aprobado={prom >= 61} label={prom >= 61 ? "✓" : "✗"} />
+                {c.promedio !== null ? (
+                  <div className="text-right shrink-0">
+                    <p className={`font-mono-data font-bold text-xl ${colorNota(c.promedio, boletin.notaAprobacion)}`}>{Math.round(c.promedio)}</p>
+                    <EstadoBadge aprobado={!!c.aprobado} label={c.aprobado ? "✓" : "✗"} />
                   </div>
-                )}
+                ) : <span className="text-xs text-stone-400 shrink-0">Sin notas</span>}
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
 
-      {/* Upcoming events */}
-      <Card className="p-5">
-        <h3 className="font-display font-semibold text-stone-800 text-base mb-3">Próximos eventos</h3>
-        <div className="space-y-2">
-          {EVENTOS.filter(e => e.tipo === "examen" || e.tipo === "actividad" || e.tipo === "asueto" || e.tipo === "institucional").slice(0, 4).map(e => {
-            const colors: Record<string, string> = { examen: "bg-danger-50 text-danger-800 border-danger-200", actividad: "bg-info-50 text-info-800 border-info-200", asueto: "bg-warning-50 text-warning-800 border-warning-200", institucional: "bg-primary-50 text-primary-800 border-primary-200", festivo: "bg-success-50 text-success-800 border-success-200", descanso: "bg-stone-50 text-stone-600 border-stone-200", clases: "bg-stone-50 text-stone-600 border-stone-200" };
-            return (
-              <div key={e.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium ${colors[e.tipo] ?? ""}`}>
-                <span>{e.titulo}</span>
-                <span className="font-mono-data shrink-0">{e.fecha.split("-").reverse().join("/")}</span>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* Notifications */}
-      <Card className="p-5">
-        <h3 className="font-display font-semibold text-stone-800 text-base mb-3">Avisos recientes</h3>
-        <div className="space-y-2.5">
-          {[
-            { msg: "Exámenes de Cuarta Unidad del 27 al 31 de octubre", fecha: "20/08/2025", tipo: "academico" },
-            { msg: "Asueto por Día de la Independencia — 15 de septiembre", fecha: "10/08/2025", tipo: "asueto" },
-            { msg: "Reunión de padres — viernes 22/08 a las 17:00 hrs", fecha: "05/08/2025", tipo: "institucional" },
-          ].map((n, i) => (
-            <div key={i} className="flex items-start gap-2.5">
-              <Bell className="w-3.5 h-3.5 text-primary-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm text-stone-700">{n.msg}</p>
-                <p className="text-[10px] text-stone-400 mt-0.5">{n.fecha}</p>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-display font-semibold text-stone-800 text-base">Próximos eventos</h3>
+            {onNavigate && (
+              <button onClick={() => onNavigate("alu-calendario")} className="text-xs text-primary-700 hover:underline font-medium flex items-center gap-1 cursor-pointer">
+                Calendario <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {proximosEventos.length === 0 ? (
+            <p className="text-sm text-stone-500">{eventos.loading ? "Cargando…" : "No hay eventos próximos."}</p>
+          ) : (
+            <div className="space-y-2">
+              {proximosEventos.map((e) => (
+                <div key={e.eventoId} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-stone-200 bg-stone-50 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CalendarDays className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                    <span className="font-medium text-stone-800 truncate">{e.nombre}</span>
+                  </div>
+                  <span className="font-mono-data shrink-0 text-stone-600">{e.fecha.slice(0, 10).split("-").reverse().join("/")}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <h3 className="font-display font-semibold text-stone-800 text-base mb-3">Avisos recientes</h3>
+          {(avisos.data ?? []).length === 0 ? (
+            <p className="text-sm text-stone-500">{avisos.loading ? "Cargando…" : "No tienes avisos."}</p>
+          ) : (
+            <div className="space-y-2.5">
+              {avisos.data!.slice(0, 4).map((n) => (
+                <div key={n.notificacionId} className="flex items-start gap-2.5">
+                  <Bell className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${n.leida ? "text-stone-300" : "text-primary-500"}`} />
+                  <div className="min-w-0">
+                    <p className={`text-sm ${n.leida ? "text-stone-600" : "text-stone-900 font-medium"}`}>{n.titulo}</p>
+                    <p className="text-[10px] text-stone-400 mt-0.5">{new Date(n.fechaEnvio).toLocaleDateString("es-GT")}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
+
+// ─── Notas ───────────────────────────────────────────────────────────────────
 
 function MisNotas() {
+  const perfil = useCarga(getPerfilAlumno, "No se pudo cargar tu información.");
+  const { data: boletin, error, loading } = useCarga(getMisNotasAlumno, "No se pudieron cargar tus notas.");
   const unidades = ["I", "II", "III", "IV"];
+  const minimo = boletin?.notaAprobacion ?? 61;
 
   return (
     <div className="space-y-5">
-      <SectionHeader title="Mis Notas" subtitle="Tercero Básico A · Ciclo escolar 2025" />
+      <SectionHeader title="Mis Notas" subtitle={subtituloDe(perfil.data)} />
 
-      {/* Mobile cards */}
-      <div className="md:hidden space-y-3">
-        {NOTAS_ALUMNO.map(c => {
-          const vals = [c.u1, c.u2, c.u3, c.u4].filter(v => v !== null) as number[];
-          const prom = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-          return (
-            <Card key={c.curso} className="p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="font-display font-semibold text-stone-900">{c.curso}</p>
-                  <p className="text-xs text-stone-500">{c.catedratico}</p>
-                </div>
-                {prom !== null && <EstadoBadge aprobado={prom >= 61} />}
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[c.u1, c.u2, c.u3, c.u4].map((nota, i) => (
-                  <div key={i} className="flex flex-col items-center">
-                    <span className="text-[10px] text-stone-400 mb-1">U{i + 1}</span>
-                    {nota !== null ? (
-                      <span className={`font-mono-data font-bold text-sm px-2 py-1 rounded-lg
-                        ${nota >= 61 ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}>
-                        {nota}
-                      </span>
-                    ) : (
-                      <span className="text-stone-300 font-mono-data text-sm px-2 py-1">—</span>
-                    )}
+      {error && <AlertBanner type="error" message={error} />}
+
+      {loading ? <Cargando filas={3} /> : boletin && (boletin.cursos.length === 0 ? (
+        <EmptyState icon={<BookOpen className="w-10 h-10" />} title="Sin cursos asignados" description="Tu sección todavía no tiene cursos registrados." />
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {boletin.cursos.map((c) => (
+              <Card key={c.cursoSeccionId} className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-display font-semibold text-stone-900">{c.curso}</p>
+                    <p className="text-xs text-stone-500">{c.catedratico}</p>
+                    {c.seccionAnterior && <Badge variant="neutral" className="mt-1">Sección anterior: {c.seccionAnterior}</Badge>}
                   </div>
-                ))}
-              </div>
-              {prom !== null && (
-                <div className="mt-3 pt-2 border-t border-stone-100 flex justify-between text-sm">
-                  <span className="text-stone-500">Promedio</span>
-                  <span className={`font-mono-data font-bold text-base ${prom >= 61 ? "text-success-700" : "text-danger-700"}`}>{prom}</span>
+                  {c.aprobado !== null && <EstadoBadge aprobado={c.aprobado} />}
                 </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {c.unidades.map((u) => (
+                    <div key={u.numero} className="flex flex-col items-center">
+                      <span className="text-[10px] text-stone-400 mb-1">U{u.numero}</span>
+                      {u.nota !== null ? (
+                        <span className={`font-mono-data font-bold text-sm px-2 py-1 rounded-lg
+                          ${u.nota >= minimo ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}>
+                          {Math.round(u.nota)}
+                        </span>
+                      ) : <span className="text-stone-300 font-mono-data text-sm px-2 py-1">—</span>}
+                    </div>
+                  ))}
+                </div>
+                {c.promedio !== null && (
+                  <div className="mt-3 pt-2 border-t border-stone-100 flex justify-between text-sm">
+                    <span className="text-stone-500">Promedio</span>
+                    <span className={`font-mono-data font-bold text-base ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
 
-      {/* Desktop table */}
-      <Card className="hidden md:block overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-200">
-                <TH>Curso</TH>
-                <TH>Catedrático</TH>
-                {unidades.map(u => <TH key={u} className="text-center">Unidad {u}</TH>)}
-                <TH className="text-center">Promedio</TH>
-                <TH className="text-center">Estado</TH>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-50">
-              {NOTAS_ALUMNO.map(c => {
-                const notaArr = [c.u1, c.u2, c.u3, c.u4];
-                const vals = notaArr.filter(v => v !== null) as number[];
-                const prom = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-                return (
-                  <tr key={c.curso} className="hover:bg-stone-50 transition-colors">
-                    <TD><span className="font-medium text-stone-900">{c.curso}</span></TD>
-                    <TD><span className="text-stone-500 text-xs">{c.catedratico}</span></TD>
-                    {notaArr.map((nota, i) => (
-                      <TD key={i} className="text-center">
-                        {nota !== null ? (
-                          <span className={`inline-block font-mono-data font-semibold text-sm px-2 py-0.5 rounded-md
-                            ${nota >= 61 ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}
-                            aria-label={nota >= 61 ? `${nota} — aprobado` : `${nota} — reprobado`}>
-                            {nota}
-                          </span>
-                        ) : (
-                          <span className="text-stone-300 font-mono-data">—</span>
-                        )}
-                      </TD>
-                    ))}
-                    <TD className="text-center">
-                      {prom !== null ? (
-                        <span className={`font-mono-data font-bold text-base ${prom >= 61 ? "text-success-700" : "text-danger-700"}`}>{prom}</span>
-                      ) : "—"}
-                    </TD>
-                    <TD className="text-center">
-                      {prom !== null ? <EstadoBadge aprobado={prom >= 61} /> : <span className="text-xs text-stone-400">Pendiente</span>}
-                    </TD>
+          {/* Desktop table */}
+          <Card className="hidden md:block overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-200">
+                    <TH>Curso</TH>
+                    <TH>Catedrático</TH>
+                    {unidades.map((u) => <TH key={u} className="text-center">Unidad {u}</TH>)}
+                    <TH className="text-center">Promedio</TH>
+                    <TH className="text-center">Estado</TH>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-stone-50">
+                  {boletin.cursos.map((c) => (
+                    <tr key={c.cursoSeccionId} className="hover:bg-stone-50 transition-colors">
+                      <TD>
+                        <span className="font-medium text-stone-900">{c.curso}</span>
+                        {c.seccionAnterior && <Badge variant="neutral" className="ml-2">Sección anterior: {c.seccionAnterior}</Badge>}
+                      </TD>
+                      <TD><span className="text-stone-500 text-xs">{c.catedratico}</span></TD>
+                      {c.unidades.map((u) => (
+                        <TD key={u.numero} className="text-center">
+                          {u.nota !== null ? (
+                            <span title={`Zona ${u.zona ?? 0} + Examen ${u.examen ?? 0}`}
+                              className={`inline-block font-mono-data font-semibold text-sm px-2 py-0.5 rounded-md
+                                ${u.nota >= minimo ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}
+                              aria-label={u.nota >= minimo ? `${u.nota} — aprobado` : `${u.nota} — reprobado`}>
+                              {Math.round(u.nota)}
+                            </span>
+                          ) : <span className="text-stone-300 font-mono-data">—</span>}
+                        </TD>
+                      ))}
+                      <TD className="text-center">
+                        {c.promedio !== null
+                          ? <span className={`font-mono-data font-bold text-base ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                          : "—"}
+                      </TD>
+                      <TD className="text-center">
+                        {c.aprobado !== null ? <EstadoBadge aprobado={c.aprobado} /> : <span className="text-xs text-stone-400">Pendiente</span>}
+                      </TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
 
-      <p className="text-xs text-stone-400 text-center">Escala de 0 a 100 · 61 o más puntos = aprobado · La cuarta unidad está en curso.</p>
+          <p className="text-xs text-stone-400 text-center">
+            Cada unidad vale 100 puntos (zona + examen) · {minimo} o más = aprobado · El promedio cuenta solo las unidades ya evaluadas.
+          </p>
+        </>
+      ))}
     </div>
   );
 }
+
+// ─── Horario ─────────────────────────────────────────────────────────────────
 
 function MiHorarioAlu() {
+  const perfil = useCarga(getPerfilAlumno, "No se pudo cargar tu información.");
+  const { data: clases, error, loading } = useCarga(getMiHorarioAlumno, "No se pudo cargar tu horario.");
+  const eventos = useCarga<EventoDto[]>(getEventos, "No se pudieron cargar los eventos.");
+
   return (
     <div className="space-y-5">
-      <SectionHeader title="Mi Horario" subtitle="Tercero Básico A — Ciclo 2025" />
-
-      {/* Mobile: list per day */}
-      <div className="md:hidden space-y-4">
-        {DIAS.map(dia => {
-          const clases = Object.entries(HORARIO_3A[dia] ?? {});
-          if (clases.length === 0) return null;
-          return (
-            <Card key={dia} className="p-4">
-              <h3 className="font-semibold text-stone-800 mb-3">{dia}</h3>
-              <div className="space-y-2">
-                {clases.map(([hora, celda]) => (
-                  <div key={hora} className={`flex items-center gap-3 p-2 rounded-lg border ${celda.color}`}>
-                    <span className="font-mono-data text-xs font-semibold whitespace-nowrap">{hora}</span>
-                    <div>
-                      <p className="font-semibold text-xs">{celda.curso}</p>
-                      <p className="text-[10px] opacity-70">{celda.catedratico} · {celda.salon}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Desktop: grid */}
-      <Card className="hidden md:block overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-primary-700 text-white">
-                <th className="px-4 py-3 text-left font-medium w-28">Hora</th>
-                {DIAS.map(d => <th key={d} className="px-4 py-3 text-left font-medium">{d}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {BLOQUES.map((bloque, i) => {
-                const isReceso = bloque === "09:45–10:15";
-                if (isReceso) return (
-                  <tr key={bloque} className="bg-stone-50">
-                    <td className="px-4 py-2 font-mono-data text-stone-400">{bloque}</td>
-                    {DIAS.map(d => <td key={d} className="px-4 py-2 text-stone-300 italic text-center">Receso</td>)}
-                  </tr>
-                );
-                return (
-                  <tr key={bloque} className={i % 2 === 0 ? "bg-white" : "bg-stone-50/50"}>
-                    <td className="px-4 py-3 font-mono-data text-stone-500 font-medium whitespace-nowrap">{bloque}</td>
-                    {DIAS.map(d => {
-                      const celda = HORARIO_3A[d]?.[bloque];
-                      return (
-                        <td key={d} className="px-2 py-2">
-                          {celda ? (
-                            <div className={`p-2 rounded-lg border ${celda.color}`}>
-                              <p className="font-semibold">{celda.curso}</p>
-                              <p className="text-[10px] opacity-70 mt-0.5">{celda.catedratico}</p>
-                              <p className="text-[10px] opacity-60">{celda.salon}</p>
-                            </div>
-                          ) : null}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <SectionHeader title="Mi Horario" subtitle={subtituloDe(perfil.data)} />
+      {error && <AlertBanner type="error" message={error} />}
+      {loading ? <Cargando filas={2} /> : clases && <HorarioSemanal clases={clases} asuetos={asuetosDeLaSemana(eventos.data ?? [])} />}
     </div>
   );
 }
 
-const TIPO_BADGE: Record<string, string> = {
-  clases:        "bg-stone-100 text-stone-700 border-stone-200",
-  examen:        "bg-purple-100 text-purple-800 border-purple-200",
-  descanso:      "bg-amber-100 text-amber-800 border-amber-200",
-  actividad:     "bg-info-100 text-info-800 border-info-200",
-  asueto:        "bg-warning-100 text-warning-800 border-warning-200",
-  festivo:       "bg-success-100 text-success-800 border-success-200",
-  institucional: "bg-primary-100 text-primary-800 border-primary-200",
-  academico:     "bg-info-100 text-info-800 border-info-200",
-};
-
-const TIPO_LABEL: Record<string, string> = {
-  clases: "Clases", examen: "Exámenes", descanso: "Descanso",
-  actividad: "Actividad", asueto: "Asueto", festivo: "Festivo",
-  institucional: "Institucional", academico: "Académico",
-};
+// ─── Calendario ──────────────────────────────────────────────────────────────
 
 function CalendarioAlu() {
-  const filtered = EVENTOS.filter(e => e.tipo !== "clases").sort((a, b) => a.fecha.localeCompare(b.fecha));
-
-  return (
-    <div className="space-y-5">
-      <SectionHeader title="Calendario Escolar" subtitle="Ciclo 2025 — Eventos y actividades importantes" />
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-2">
-        {(["examen","descanso","actividad","asueto","festivo","institucional"] as const).map(t => (
-          <span key={t} className={`px-2.5 py-0.5 rounded-full border text-xs font-medium ${TIPO_BADGE[t]}`}>{TIPO_LABEL[t]}</span>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        {filtered.map(e => {
-          const inicio = e.fecha.split("-").reverse().join("/");
-          const fin = e.fechaFin ? e.fechaFin.split("-").reverse().join("/") : null;
-          return (
-            <div key={e.id} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${TIPO_BADGE[e.tipo] ?? TIPO_BADGE.clases}`}>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div>
-                  <p className="font-semibold text-sm">{e.titulo}</p>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${TIPO_BADGE[e.tipo]}`}>{TIPO_LABEL[e.tipo]}</span>
-                </div>
-              </div>
-              <span className="font-mono-data text-xs shrink-0 ml-2">{fin ? `${inicio} – ${fin}` : inicio}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return <CalendarioEventos subtitle="Eventos y actividades de tu sede" />;
 }
 
-export default function Alumno({ view }: { view: View }) {
+export default function Alumno({ view, onNavigate }: { view: View; onNavigate?: (v: View) => void }) {
   if (view === "alu-notas") return <MisNotas />;
   if (view === "alu-horario") return <MiHorarioAlu />;
   if (view === "alu-calendario") return <CalendarioAlu />;
-  return <DashboardAlu />;
+  return <DashboardAlu onNavigate={onNavigate} />;
 }

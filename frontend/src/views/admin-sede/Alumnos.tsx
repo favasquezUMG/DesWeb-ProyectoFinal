@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Users, AlertOctagon, UserX } from "lucide-react";
 import { Card, SectionHeader, Badge, Drawer, AlertBanner, TH, TD } from "../../components/Ui";
-import { getAlumnos, type AlumnoDto } from "../../lib/api";
+import { getAlumnos, setAccesoPortalAlumno, type AlumnoDto } from "../../lib/api";
 import { nombreDe } from "../../lib/becas";
 import EncargadosAlumno from "./EncargadosAlumno";
 
@@ -17,6 +17,25 @@ export default function AlumnosView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [abierto, setAbierto] = useState<AlumnoDto | null>(null);
+  const [aviso, setAviso] = useState("");
+  const [guardandoAcceso, setGuardandoAcceso] = useState<number | null>(null);
+
+  // "nivel" = regla por defecto (Primaria sin acceso); "si"/"no" = excepción de la sede
+  async function cambiarAcceso(a: AlumnoDto, opcion: string) {
+    const valor = opcion === "nivel" ? null : opcion === "si";
+    setGuardandoAcceso(a.alumnoId);
+    setError("");
+    try {
+      const res = await setAccesoPortalAlumno(a.alumnoId, valor);
+      setAlumnos((prev) => prev.map((x) => (x.alumnoId === a.alumnoId
+        ? { ...x, accesoPortal: res.data.accesoPortal, accesoPortalEfectivo: res.data.accesoPortalEfectivo } : x)));
+      setAviso(res.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cambiar el acceso.");
+    } finally {
+      setGuardandoAcceso(null);
+    }
+  }
 
   function cargar() {
     return getAlumnos().then(setAlumnos);
@@ -46,6 +65,7 @@ export default function AlumnosView() {
       <SectionHeader title="Alumnos y Encargados" subtitle="Padrón de la sede y adultos responsables de cada alumno" />
 
       {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
+      {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
       {(conRestriccion > 0 || sinEncargado > 0) && (
         <AlertBanner type="warning"
           message={[
@@ -75,11 +95,11 @@ export default function AlumnosView() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-stone-50 border-b border-stone-100">
-              <tr><TH>Alumno</TH><TH>Grado · Sección</TH><TH>Contacto principal</TH><TH>Encargados</TH><TH className="text-right">Acciones</TH></tr>
+              <tr><TH>Alumno</TH><TH>Grado · Sección</TH><TH>Contacto principal</TH><TH>Encargados</TH><TH>Acceso al portal</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
             <tbody className="divide-y divide-stone-50">
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">Cargando alumnos…</td></tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-stone-500">Cargando alumnos…</td></tr>
               ) : filtrados.map((a) => (
                 <tr key={a.alumnoId} className="hover:bg-stone-50 transition-colors">
                   <TD>
@@ -94,6 +114,19 @@ export default function AlumnosView() {
                   <TD>
                     <Badge variant={(a.encargadosActivos ?? 0) === 0 ? "danger" : "neutral"}>{a.encargadosActivos ?? 0} activo(s)</Badge>
                   </TD>
+                  <TD>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={a.accesoPortalEfectivo ? "success" : "neutral"}>{a.accesoPortalEfectivo ? "Con acceso" : "Sin acceso"}</Badge>
+                      <select aria-label={`Acceso al portal de ${nombreDe(a.usuario)}`} disabled={guardandoAcceso === a.alumnoId}
+                        value={a.accesoPortal == null ? "nivel" : a.accesoPortal ? "si" : "no"}
+                        onChange={(e) => cambiarAcceso(a, e.target.value)}
+                        className="border border-stone-300 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary-700 disabled:opacity-50">
+                        <option value="nivel">Según nivel ({a.accesoPorNivel ? "sí" : "no"})</option>
+                        <option value="si">Habilitado</option>
+                        <option value="no">Deshabilitado</option>
+                      </select>
+                    </div>
+                  </TD>
                   <TD className="text-right">
                     <button onClick={() => setAbierto(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-md cursor-pointer">
                       <Users className="w-3.5 h-3.5" />Encargados
@@ -102,7 +135,7 @@ export default function AlumnosView() {
                 </tr>
               ))}
               {!loading && filtrados.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">No hay alumnos con esos filtros.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-stone-500">No hay alumnos con esos filtros.</td></tr>
               )}
             </tbody>
           </table>

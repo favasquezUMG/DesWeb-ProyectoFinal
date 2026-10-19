@@ -1,9 +1,10 @@
 import type { Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
-import { puedeOperarSede } from '../middlewares/role.middleware.js';
+import { obtenerNombreRol, puedeOperarSede, ROL } from '../middlewares/role.middleware.js';
 import { formatFecha, parseFecha } from '../lib/fechas.js';
 import { aprobadasDelDia } from '../services/justificaciones.service.js';
+import { filtroAlumnosVisibles } from '../services/acceso.service.js';
 
 const ESTADOS = ['Presente', 'Tarde', 'Ausente', 'Justificado'] as const;
 type Estado = (typeof ESTADOS)[number];
@@ -287,7 +288,13 @@ export const getAsistencias = async (req: AuthenticatedRequest, res: Response) =
     const { cursoSeccionId, alumnoId, fecha, desde, hasta, estado } = req.query;
 
     try {
-        const where: any = {};
+        // Alumno: la suya; encargado: la de sus hijos (con permiso de notas); catedrático: la de
+        // sus cursos; personal: la de su sede si tiene el módulo de asistencia
+        const visibles = await filtroAlumnosVisibles(req, 'asistencia', 'notas');
+        if (!visibles) return res.status(403).json({ status: 'error', message: 'No tiene permiso para consultar asistencias.' });
+
+        const where: any = { alumno: visibles };
+        if ((await obtenerNombreRol(req)) === ROL.CATEDRATICO) where.cursoSeccion = { catedraticoId: Number(req.user?.id) };
         if (cursoSeccionId) where.cursoSeccionId = Number(cursoSeccionId);
         if (alumnoId) where.alumnoId = Number(alumnoId);
         if (estado) where.estado = estado;
@@ -349,6 +356,9 @@ export const getResumenAsistencia = async (req: AuthenticatedRequest, res: Respo
                 status: 'error',
                 message: `Asignación curso-sección con ID: ${cursoSeccionId} no encontrada`,
             });
+        }
+        if (!(await puedeGestionarCurso(req, cursoSeccion))) {
+            return res.status(403).json({ status: 'error', message: 'No tiene permiso para ver la asistencia de este curso.' });
         }
 
         const registros = await prisma.asistencia.findMany({

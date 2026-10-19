@@ -7,7 +7,8 @@ import {
     actualizarVinculo,
     quitarEncargado,
     getConteoAlumnos,
-    getTasaAprobacion
+    getTasaAprobacion,
+    setAccesoPortal
 } from '../controllers/alumno.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, ROL, verificarRol } from "../middlewares/role.middleware.js";
@@ -26,5 +27,6 @@ router.get('/:id/encargados', permitir('alumnos'), getEncargadosDeAlumno);
 router.post('/:id/encargados', permitir('alumnos'), agregarEncargado);
 router.put('/:id/encargados/:encargadoId', permitir('alumnos'), actualizarVinculo);
 router.delete('/:id/encargados/:encargadoId', permitir('alumnos'), quitarEncargado);
+router.patch('/:id/acceso-portal', permitir('alumnos'), setAccesoPortal);
 
 export default router;
