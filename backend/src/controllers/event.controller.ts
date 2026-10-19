@@ -3,19 +3,30 @@ import { prisma } from "../lib/prisma.js";
 import { destinatariosDeEvento, enviarRecordatorioEvento } from "../services/recordatorios.service.js";
 import { enviarEnSegundoPlano } from "../services/notificacion.service.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
-import { esAlcanceGlobal, obtenerNombreRol } from "../middlewares/role.middleware.js";
+import { esAlcanceGlobal, obtenerNombreRol, ROL } from "../middlewares/role.middleware.js";
+import { hijosDe } from "../services/vinculos.service.js";
 
 //Get all
 // Sin ?sedeId, quien no es administrador general ve los eventos generales y los de su sede
 export const getEvents = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const whereCondition: any = {};
+        const rol = await obtenerNombreRol(req);
         let sedeId = req.query.sedeId;
-        if (!sedeId && req.user?.sedeId && !esAlcanceGlobal(await obtenerNombreRol(req))) {
-            sedeId = req.user.sedeId;
+        if (!sedeId && req.user?.sedeId && !esAlcanceGlobal(rol)) {
+            sedeId = String(req.user.sedeId);
         }
 
-        if(sedeId){
+        if (!req.query.sedeId && rol === ROL.ENCARGADO) {
+            // Un encargado puede tener hijos en varias sedes (y no tener sede propia):
+            // ve los eventos generales y los de las sedes de sus hijos
+            const hijos = await prisma.alumno.findMany({
+                where: hijosDe(Number(req.user?.id)),
+                select: { seccion: { select: { sedeId: true } } },
+            });
+            const sedes = [...new Set(hijos.map((h) => h.seccion.sedeId))];
+            whereCondition.OR = [{ sedeId: null }, { sedeId: { in: sedes } }];
+        } else if (sedeId) {
             whereCondition.OR = [
                 { sedeId: null},
                 { sedeId: Number(sedeId) }

@@ -131,6 +131,7 @@ model Alumno {
   alumnoId        Int       @id
   fechaNacimiento DateTime? @db.Date
   seccionId       Int
+  accesoPortal    Boolean? // null = segun el nivel (Primaria sin acceso); true/false = excepcion de la sede
 
   usuario Usuario @relation(fields: [alumnoId], references: [usuarioId])
   seccion Seccion @relation(fields: [seccionId], references: [seccionId])
