@@ -1,7 +1,8 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
-import { ROL, obtenerNombreRol, puedeOperarSede, tienePermiso, type Modulo } from "../middlewares/role.middleware.js";
-import { encargadoTieneAcceso, type PermisoVinculo } from "./vinculos.service.js";
+import { ROL, obtenerNombreRol, puedeOperarSede, sedeDelAlcance, tienePermiso, type Modulo } from "../middlewares/role.middleware.js";
+import { encargadoTieneAcceso, hijosDe, type PermisoVinculo } from "./vinculos.service.js";
 
 // ¿Quien hace la peticion puede ver esta informacion del alumno?
 //  - El propio alumno.
@@ -43,4 +44,26 @@ export const puedeGestionarCursoSeccion = async (
     if (rol === ROL.CATEDRATICO) return Number(req.user?.id) === cursoSeccion.catedraticoId;
     if (rol === ROL.ALUMNO || rol === ROL.ENCARGADO) return false;
     return (await tienePermiso(req, modulo)) && (await puedeOperarSede(req, cursoSeccion.seccion.sedeId));
+};
+
+// Version "en lote" de puedeVerAlumno: filtro de Prisma con los alumnos que quien hace la
+// peticion puede consultar en un listado. null = no puede ver ninguno.
+export const filtroAlumnosVisibles = async (
+    req: AuthenticatedRequest,
+    modulo: Modulo,
+    permisoVinculo: PermisoVinculo = "general",
+): Promise<Prisma.AlumnoWhereInput | null> => {
+    const usuarioId = Number(req.user?.id);
+    const rol = await obtenerNombreRol(req);
+
+    if (rol === ROL.ALUMNO) return { alumnoId: usuarioId };
+    if (rol === ROL.ENCARGADO) return hijosDe(usuarioId, permisoVinculo);
+    if (rol === ROL.CATEDRATICO) {
+        if (modulo === "pagos" || modulo === "becas") return null;
+        return { seccion: { cursosSeccion: { some: { catedraticoId: usuarioId } } } };
+    }
+
+    if (!(await tienePermiso(req, modulo))) return null;
+    const sedeId = await sedeDelAlcance(req);
+    return sedeId === null ? {} : { seccion: { sedeId } };
 };

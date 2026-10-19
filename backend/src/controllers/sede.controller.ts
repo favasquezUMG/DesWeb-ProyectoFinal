@@ -10,6 +10,7 @@ export const get = async (_req: Request, res: Response) => {
             sedeId: true,
             nombre: true,
             direccion: true,
+            telefono: true,
         },
         orderBy: { nombre: "asc" },
         });
@@ -22,7 +23,7 @@ export const get = async (_req: Request, res: Response) => {
 
 // POST /api/sedes
 export const crearSede = async (req: Request, res: Response) => {
-  const { nombre, direccion, municipio, departamento, telefono } = req.body ?? {};
+  const { nombre, direccion, telefono } = req.body ?? {};
 
   if (!nombre || typeof nombre !== "string" || !nombre.trim()) {
     return res.status(400).json({
@@ -36,8 +37,6 @@ export const crearSede = async (req: Request, res: Response) => {
       data: {
         nombre: nombre.trim(),
         direccion: direccion?.trim() || null,
-        municipio: municipio?.trim() || null,
-        departamento: departamento?.trim() || null,
         telefono: telefono?.trim() || null,
       },
     });
@@ -67,7 +66,7 @@ export const actualizarSede = async (req: Request, res: Response) => {
     });
   }
 
-  const { nombre, direccion, municipio, departamento, telefono } = req.body ?? {};
+  const { nombre, direccion, telefono } = req.body ?? {};
 
   try {
     const sedeExistente = await prisma.sede.findUnique({
@@ -86,8 +85,6 @@ export const actualizarSede = async (req: Request, res: Response) => {
       data: {
         ...(nombre && { nombre: nombre.trim() }),
         ...(direccion !== undefined && { direccion: direccion?.trim() || null }),
-        ...(municipio !== undefined && { municipio: municipio?.trim() || null }),
-        ...(departamento !== undefined && { departamento: departamento?.trim() || null }),
         ...(telefono !== undefined && { telefono: telefono?.trim() || null }),
       },
     });

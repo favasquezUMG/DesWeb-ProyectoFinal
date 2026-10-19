@@ -27,7 +27,9 @@ const SEDES = [
 // Solo las primeras sedes y grados reciben alumnos, cursos y notas, para que el
 // volumen de datos académicos se mantenga manejable. El resto queda con secciones vacías.
 const SEDES_CON_ALUMNOS = 3;
-const GRADOS_CON_ALUMNOS = 6;
+// Grados (índice en GRADOS) que reciben alumnos: mezcla de Primaria, Básico y Diversificado
+// para probar el acceso al portal (Primaria no entra por defecto; Básico y Diversificado sí)
+const GRADOS_CON_ALUMNOS = [0, 2, 4, 6, 7, 9];
 
 const GRADOS = [
     { nombre: 'Primero Primaria', nivel: 'Primaria', orden: 1 },
@@ -198,7 +200,7 @@ async function main() {
     const seccionesConAlumnos = secciones.filter((s) => {
         const iSede = sedes.findIndex((sede) => sede.sedeId === s.sedeId);
         const iGrado = grados.findIndex((grado) => grado.gradoId === s.gradoId);
-        return iSede < SEDES_CON_ALUMNOS && iGrado < GRADOS_CON_ALUMNOS;
+        return iSede < SEDES_CON_ALUMNOS && GRADOS_CON_ALUMNOS.includes(iGrado);
     });
     const sedesConAlumnos = sedes.slice(0, SEDES_CON_ALUMNOS);
 
@@ -314,7 +316,8 @@ async function main() {
             update: {},
             create: {
                 alumnoId: usuario.usuarioId,
-                fechaNacimiento: new Date(2015 - (i % 6), (i * 5) % 12, ((i - 1) % 28) + 1),
+                // Edad acorde al grado: Primero Primaria ~7 años, cada grado suma uno
+                fechaNacimiento: new Date(ANIO_LECTIVO - 6 - (grados.find((g) => g.gradoId === seccion.gradoId)?.orden ?? 1), (i * 5) % 12, ((i - 1) % 28) + 1),
                 seccionId: seccion.seccionId,
             },
         });
