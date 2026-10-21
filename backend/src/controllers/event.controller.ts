@@ -3,15 +3,51 @@ import { prisma } from "../lib/prisma.js";
 import { destinatariosDeEvento, enviarRecordatorioEvento } from "../services/recordatorios.service.js";
 import { enviarEnSegundoPlano } from "../services/notificacion.service.js";
 import { liberarOrdenesPendientes, OrdenEnProcesoError, RESERVA_MINUTOS } from "../services/carrito.service.js";
+import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
+import { esAlcanceGlobal, obtenerNombreRol, ROL, sedeDelAlcance } from "../middlewares/role.middleware.js";
+
+// El personal de sede solo administra los eventos de su sede; los generales (sin sede) son del
+// administrador general. Devuelve el sedeId que corresponde guardar, o un mensaje de error.
+const sedeParaEvento = async (req: AuthenticatedRequest, pedida: unknown): Promise<{ sedeId: number | null } | { error: string }> => {
+    const alcance = await sedeDelAlcance(req);
+    if (alcance === null) return { sedeId: pedida ? Number(pedida) : null };
+    if (alcance === -1) return { error: "Su usuario no tiene una sede asignada." };
+    if (pedida && Number(pedida) !== alcance) return { error: "Solo puede administrar eventos de su sede." };
+    return { sedeId: alcance };
+};
+
+const puedeEditarEvento = async (req: AuthenticatedRequest, eventoId: number) => {
+    const evento = await prisma.evento.findUnique({ where: { eventoId }, select: { sedeId: true } });
+    if (!evento) return { codigo: 404, error: `Evento con ID: ${eventoId} no encontrado` };
+    const alcance = await sedeDelAlcance(req);
+    if (alcance !== null && evento.sedeId !== alcance) {
+        return { codigo: 403, error: evento.sedeId === null ? "Los eventos generales los administra el administrador general." : "El evento pertenece a otra sede." };
+    }
+    return null;
+};
+import { hijosDe } from "../services/vinculos.service.js";
 
 //Get all
-export const getEvents = async (req: Request, res: Response) => {
-    const { sedeId } = req.query;
-
+// Sin ?sedeId, quien no es administrador general ve los eventos generales y los de su sede
+export const getEvents = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const whereCondition: any = {};
+        const rol = await obtenerNombreRol(req);
+        let sedeId = req.query.sedeId;
+        if (!sedeId && req.user?.sedeId && !esAlcanceGlobal(rol)) {
+            sedeId = String(req.user.sedeId);
+        }
 
-        if(sedeId){
+        if (!req.query.sedeId && rol === ROL.ENCARGADO) {
+            // Un encargado puede tener hijos en varias sedes (y no tener sede propia):
+            // ve los eventos generales y los de las sedes de sus hijos
+            const hijos = await prisma.alumno.findMany({
+                where: hijosDe(Number(req.user?.id)),
+                select: { seccion: { select: { sedeId: true } } },
+            });
+            const sedes = [...new Set(hijos.map((h) => h.seccion.sedeId))];
+            whereCondition.OR = [{ sedeId: null }, { sedeId: { in: sedes } }];
+        } else if (sedeId) {
             whereCondition.OR = [
                 { sedeId: null},
                 { sedeId: Number(sedeId) }
@@ -100,7 +136,7 @@ const leerCobro = (body: any): { data: Record<string, unknown> } | { error: stri
 };
 
 //Post create
-export const createEvent = async (req: Request, res: Response) => {
+export const createEvent = async (req: AuthenticatedRequest, res: Response) => {
     const { sedeId, nombre, descripcion, fecha, tipoEvento, enviarRecordatorio } = req.body;
 
     if (!nombre || !fecha || !tipoEvento) {
@@ -123,9 +159,12 @@ export const createEvent = async (req: Request, res: Response) => {
     }
 
     try {
+        const sede = await sedeParaEvento(req, sedeId);
+        if ("error" in sede) return res.status(403).json({ status: 'error', message: sede.error });
+
         const newEvent = await prisma.evento.create({
         data: {
-            sedeId: sedeId ? Number(sedeId) : null,
+            sedeId: sede.sedeId,
             nombre,
             descripcion: descripcion ?? null,
             fecha: parsedDate,
@@ -142,18 +181,25 @@ export const createEvent = async (req: Request, res: Response) => {
 };
 
 //Put
-export const updateEvent = async (req: Request, res: Response) => {
+export const updateEvent = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { sedeId, nombre, descripcion, fecha, tipoEvento, enviarRecordatorio } = req.body;
 
     try {
+        const sinPermiso = await puedeEditarEvento(req, Number(id));
+        if (sinPermiso) return res.status(sinPermiso.codigo).json({ status: 'error', message: sinPermiso.error });
+
         const dataToUpdate: any = {};
 
         if (nombre) dataToUpdate.nombre = nombre;
         if (descripcion !== undefined) dataToUpdate.descripcion = descripcion;
         if (tipoEvento) dataToUpdate.tipoEvento = tipoEvento;
         if (enviarRecordatorio !== undefined) dataToUpdate.enviarRecordatorio = enviarRecordatorio;
-        if (sedeId !== undefined) dataToUpdate.sedeId = sedeId ? Number(sedeId) : null;
+        if (sedeId !== undefined) {
+            const sede = await sedeParaEvento(req, sedeId);
+            if ("error" in sede) return res.status(403).json({ status: 'error', message: sede.error });
+            dataToUpdate.sedeId = sede.sedeId;
+        }
 
         if (fecha) {
             const parsedDate = new Date(fecha);
@@ -205,10 +251,13 @@ export const updateEvent = async (req: Request, res: Response) => {
 };
 
 //Delete
-export const deleteEvent = async (req: Request, res: Response) => {
+export const deleteEvent = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
     try {
+        const sinPermiso = await puedeEditarEvento(req, Number(id));
+        if (sinPermiso) return res.status(sinPermiso.codigo).json({ status: 'error', message: sinPermiso.error });
+
         // Con inscripciones pagadas, borrar el evento haria desaparecer el registro de esos cobros
         const pagadas = await prisma.inscripcionEvento.count({ where: { eventoId: Number(id), estado: 'Confirmada' } });
         if (pagadas > 0) {

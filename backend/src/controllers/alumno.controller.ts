@@ -9,6 +9,7 @@ import { ROL, obtenerNombreRol, puedeOperarSede, sedeDelAlcance } from '../middl
 import { registrarBitacora, obtenerBitacora } from '../services/bitacora.service.js';
 import { MAX_ENCARGADOS_ACTIVOS, PARENTESCOS, filtroVinculo, validarVinculos } from '../services/vinculos.service.js';
 import { asegurarRegistrosDeRol, correoEnUso, generarPasswordTemporal, normalizarEmail } from '../services/usuarios.service.js';
+import { accesoPorNivel, tieneAccesoPortal } from '../services/accesoPortal.service.js';
 
 const responderError = (res: Response, error: unknown, mensaje: string) => {
     if (error instanceof ReglaNegocioError) {
@@ -57,7 +58,8 @@ export const getAlumnos = async (req: AuthenticatedRequest, res: Response) => {
                 seccionId: true,
                 fechaNacimiento: true,
                 usuario: { select: { nombres: true, apellidos: true, email: true } },
-                seccion: { select: { seccionId: true, nombre: true, sedeId: true, grado: { select: { nombre: true } } } },
+                accesoPortal: true,
+                seccion: { select: { seccionId: true, nombre: true, sedeId: true, grado: { select: { nombre: true, nivel: true } } } },
                 encargados: {
                     where: { activo: true },
                     select: {
@@ -80,6 +82,8 @@ export const getAlumnos = async (req: AuthenticatedRequest, res: Response) => {
                 encargadosActivos: vigentes.length,
                 contactoPrincipal: principal ? nombreDe(principal.encargado.usuario) : null,
                 tieneRestriccion: encargados.some((e) => e.restringido),
+                accesoPortalEfectivo: tieneAccesoPortal({ accesoPortal: a.accesoPortal, nivel: a.seccion.grado.nivel }),
+                accesoPorNivel: accesoPorNivel(a.seccion.grado.nivel),
             };
         });
 
@@ -469,5 +473,248 @@ export const quitarEncargado = async (req: AuthenticatedRequest, res: Response) 
         return res.json({ status: 'success', message: 'El encargado ya no tiene acceso a la información del alumno.' });
     } catch (error) {
         return responderError(res, error, 'Error al quitar el encargado.');
+    }
+};
+
+export const getConteoAlumnos = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rolAlumno = await prisma.rol.findFirst({
+      where: { nombre: "Alumno" },
+    });
+
+    if (!rolAlumno) {
+      return res.status(400).json({
+        status: "error",
+        message: "No se encontró el rol 'Alumno'.",
+      });
+    }
+
+    const anioActual = new Date().getFullYear(); // 2026
+    const inicioAnioActual = new Date(`${anioActual}-01-01T00:00:00.000Z`);
+
+    // 1. Total de alumnos activos en el sistema hoy
+    const totalActual = await prisma.usuario.count({
+      where: {
+        rolId: rolAlumno.rolId,
+        deletedAt: null,
+      },
+    });
+
+    // 2. Alumnos que ya estaban registrados antes del inicio de este año lectivo
+    const totalAnterior = await prisma.usuario.count({
+      where: {
+        rolId: rolAlumno.rolId,
+        createdAt: { lt: inicioAnioActual },
+        deletedAt: null,
+      },
+    });
+
+    // 3. Cálculos de diferencia y porcentaje de crecimiento
+    const diferencia = totalActual - totalAnterior;
+    
+    // Porcentaje de incremento/decrecimiento respecto al ciclo anterior
+    const porcentajeCrecimiento = totalAnterior > 0
+      ? Math.round((diferencia / totalAnterior) * 100)
+      : 100;
+
+    const subtexto = diferencia >= 0
+      ? `↑ ${diferencia} (${porcentajeCrecimiento}%) vs. ciclo anterior`
+      : `↓ ${Math.abs(diferencia)} (${Math.abs(porcentajeCrecimiento)}%) vs. ciclo anterior`;
+
+    return res.json({
+      status: "success",
+      data: {
+        total: totalActual,
+        totalAnterior,
+        diferencia,
+        porcentajeCrecimiento,
+        subtexto,
+      },
+    });
+  } catch (error) {
+    console.error("Error al contar alumnos:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error al calcular el conteo de alumnos.",
+    });
+  }
+};
+
+export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const anioActual = new Date().getFullYear();
+
+    const rolAlumno = await prisma.rol.findFirst({
+      where: { nombre: "Alumno" },
+    });
+
+    if (!rolAlumno) {
+      return res.status(400).json({
+        status: "error",
+        message: "No se encontró el rol 'Alumno'.",
+      });
+    }
+
+    // 1
+    const alumnosActivos = await prisma.usuario.findMany({
+      where: {
+        rolId: rolAlumno.rolId,
+        deletedAt: null,
+      },
+      select: { usuarioId: true },
+    });
+
+    const alumnoIds = alumnosActivos.map((a) => a.usuarioId);
+
+    if (alumnoIds.length === 0) {
+      return res.json({
+        status: "success",
+        data: {
+          tasaAprobacion: 0,
+          promedioGeneral: 0,
+          subtexto: "Sin alumnos registrados",
+        },
+      });
+    }
+
+    const notasDetalle = await prisma.nota.findMany({
+      where: {
+        alumnoId: { in: alumnoIds },
+        actividad: {
+          unidad: {
+            cursoSeccion: {
+              seccion: {
+                anioLectivo: anioActual,
+              },
+            },
+          },
+        },
+      },
+      select: {
+        alumnoId: true,
+        valor: true,
+        actividad: {
+          select: {
+            unidadId: true,
+          },
+        },
+      },
+    });
+
+    const sumaUnidades: Record<string, number> = {}; // key: `${alumnoId}_${unidadId}`
+
+    notasDetalle.forEach((n) => {
+      const key = `${n.alumnoId}_${n.actividad.unidadId}`;
+      sumaUnidades[key] = (sumaUnidades[key] || 0) + Number(n.valor);
+    });
+
+    const promediosAlumnos: Record<number, number[]> = {};
+
+    Object.entries(sumaUnidades).forEach(([key, totalUnidad]) => {
+      const [alumnoIdStr] = key.split("_");
+      const alumnoId = Number(alumnoIdStr);
+
+      if (!promediosAlumnos[alumnoId]) {
+        promediosAlumnos[alumnoId] = [];
+      }
+      promediosAlumnos[alumnoId].push(totalUnidad);
+    });
+
+    const totalAlumnosEvaluados = Object.keys(promediosAlumnos).length;
+
+    if (totalAlumnosEvaluados === 0) {
+      return res.json({
+        status: "success",
+        data: {
+          tasaAprobacion: 0,
+          promedioGeneral: 0,
+          subtexto: "Sin evaluaciones en el ciclo actual",
+        },
+      });
+    }
+
+    let alumnosAprobados = 0;
+    let sumaPromediosGenerales = 0;
+
+    // 3
+    Object.values(promediosAlumnos).forEach((totalesUnidad) => {
+      const promedioAlumno =
+        totalesUnidad.reduce((acc, curr) => acc + curr, 0) / totalesUnidad.length;
+
+      sumaPromediosGenerales += promedioAlumno;
+
+      // Criterio de aprobación: Nota Final >= 61 (o 60 según colegio)
+      if (promedioAlumno >= 61) {
+        alumnosAprobados++;
+      }
+    });
+
+    const tasaAprobacion = Math.round(
+      (alumnosAprobados / totalAlumnosEvaluados) * 100
+    );
+    const promedioGeneral = (
+      sumaPromediosGenerales / totalAlumnosEvaluados
+    ).toFixed(1);
+
+    const sedesConAlumnos = await prisma.sede.count({
+      where: {
+        activo: true,
+        deletedAt: null,
+        usuarios: {
+          some: {
+            rolId: rolAlumno.rolId,
+            deletedAt: null,
+          },
+        },
+      },
+    });
+
+    return res.json({
+      status: "success",
+      data: {
+        tasaAprobacion,
+        promedioGeneral: Number(promedioGeneral),
+        subtexto: `Promedio en ${sedesConAlumnos} sedes activas`,
+      },
+    });
+  } catch (error) {
+    console.error("Error al calcular tasa de aprobación:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error al calcular la tasa de aprobación.",
+    });
+  }
+};
+// PATCH /api/alumnos/:id/acceso-portal  { accesoPortal: true | false | null }
+// null vuelve a la regla por nivel (Primaria sin acceso; Básico y Diversificado con acceso)
+export const setAccesoPortal = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const alumnoId = leerId(req.params.id);
+        const { accesoPortal } = req.body ?? {};
+        if (accesoPortal !== null && typeof accesoPortal !== 'boolean') {
+            throw new ReglaNegocioError('accesoPortal debe ser true, false o null (según el nivel).', 400);
+        }
+
+        const alumno = await verificarAlumnoDeMiSede(req, alumnoId);
+        await prisma.alumno.update({ where: { alumnoId }, data: { accesoPortal } });
+
+        const efectivo = tieneAccesoPortal({ accesoPortal, nivel: alumno.seccion.grado.nivel });
+        await registrarBitacora(
+            Number(req.user?.id),
+            'Acceso al portal',
+            'Alumno',
+            alumnoId,
+            accesoPortal === null
+                ? `Acceso al portal según el nivel (${alumno.seccion.grado.nivel}): ${efectivo ? 'habilitado' : 'deshabilitado'}.`
+                : `Acceso al portal ${accesoPortal ? 'habilitado' : 'deshabilitado'} como excepción.`,
+        );
+
+        return res.json({
+            status: 'success',
+            message: `${nombreDe(alumno.usuario)} ${efectivo ? 'puede' : 'ya no puede'} entrar al portal.`,
+            data: { accesoPortal, accesoPortalEfectivo: efectivo },
+        });
+    } catch (error) {
+        return responderError(res, error, 'Error al cambiar el acceso al portal.');
     }
 };

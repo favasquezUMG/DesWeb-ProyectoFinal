@@ -831,3 +831,58 @@ export const solicitarBeca = async (req: AuthenticatedRequest, res: Response) =>
         return responderError(res, error, 'Error al enviar la solicitud de beca.');
     }
 };
+
+export const getBecasActivas = async (_req: AuthenticatedRequest, res: Response) => {
+    try{
+        const rolAlumno = await prisma.rol.findUnique({ where: { nombre: "Alumno" } })
+        if(!rolAlumno){
+            return res.status(400).json({ status: "error", message: "No se encontro el rol 'Alumno'." }) 
+        }
+
+        const totalAlumnos = await prisma.usuario.count({
+            where: {
+                rolId: rolAlumno.rolId,
+                deletedAt: null
+            }
+        })
+        if (totalAlumnos === 0) {
+            return res.json({
+                status: "success",
+                data: {
+                    becasActivas: 0,
+                    porcentajeAlumnado: 0,
+                    subtexto: "0% del alumnado total",
+                },
+            });
+        }
+        
+        const hoy = new Date();
+
+        const becasActivas = await prisma.beca.count({
+            where:{
+                estado: 'Activa',
+                fechaInicio: { lte: hoy },
+                fechaFin: { gte: hoy },
+                alumno: {
+                    usuario: {
+                        deletedAt: null
+                    }
+                }
+            }
+        });
+
+        const porcentajeAlumnado = Math.round((becasActivas/totalAlumnos)*100);
+
+        return res.json({
+            status: "success",
+            data: {
+                becasActivas,
+                porcentajeAlumnado,
+                subtexto: `${porcentajeAlumnado}% del alumnado total`
+            }
+        })
+    } catch (error) {
+        console.error(`BECAS_CTRL: Error al calcular las becas activas:`, error);
+        return res.status(500).json({ status: "error", message: "Error al calcular las becas activas:", error})
+    }
+}

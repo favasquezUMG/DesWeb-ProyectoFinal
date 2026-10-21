@@ -11,7 +11,8 @@ const incluirNotas = {
     },
 };
 
-// Suma de los punteos por unidad y total de cada alumno de la seccion en un curso
+// Cada unidad vale 100 puntos (zona + examen) y la nota final es el promedio de las unidades.
+// Por unidad se devuelve la zona, el examen y la nota (suma de ambos); total es el promedio.
 export const calcularNotasCursoSeccion = async (cursoSeccionId: number) => {
     const cursoSeccion = await prisma.cursoSeccion.findUnique({
         where: { cursoSeccionId },
@@ -28,14 +29,18 @@ export const calcularNotasCursoSeccion = async (cursoSeccionId: number) => {
 
     const filas = alumnos.map((alumno) => {
         const unidades = cursoSeccion.unidades.map((unidad) => {
-            const nota = unidad.actividades.reduce((sumaUnidad, actividad) => {
+            let zona = 0;
+            let examen = 0;
+            for (const actividad of unidad.actividades) {
                 const notaAlumno = actividad.notas.find((n) => n.alumnoId === alumno.alumnoId);
-                return sumaUnidad + (notaAlumno ? Number(notaAlumno.valor) : 0);
-            }, 0);
-            return { numero: unidad.numero, nota };
+                if (!notaAlumno) continue;
+                if (actividad.tipo === "Examen") examen += Number(notaAlumno.valor);
+                else zona += Number(notaAlumno.valor);
+            }
+            return { numero: unidad.numero, zona, examen, nota: zona + examen };
         });
 
-        const total = unidades.reduce((acc, u) => acc + u.nota, 0);
+        const total = unidades.length ? unidades.reduce((acc, u) => acc + u.nota, 0) / unidades.length : 0;
 
         return {
             alumnoId: alumno.alumnoId,

@@ -69,6 +69,28 @@ export function cambiarRol(rolId: number): Promise<LoginResponse> {
   });
 }
 
+// Envía al correo un enlace para restablecer la contraseña
+export function solicitarRecuperacion(email: string): Promise<{ status: "success"; message: string }> {
+  return request("/api/auth/olvide-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function restablecerPassword(token: string, password: string): Promise<{ status: "success"; message: string }> {
+  return request("/api/auth/restablecer-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
+export function cambiarPassword(actual: string, nueva: string): Promise<MessageResponse> {
+  return request("/api/auth/cambiar-password", {
+    method: "POST",
+    body: JSON.stringify({ actual, nueva }),
+  });
+}
+
 // ---------- Roles y permisos ----------
 
 export type TipoRol = "global" | "comunidad" | "personal";
@@ -124,8 +146,19 @@ export function deleteRol(id: number): Promise<{ status: "success"; message: str
 // ---------- Usuarios ----------
 
 export interface BitacoraDto {
+  id: number;
+  accion: string;
+  entidad: string;
+  detalle: string;
+  fecha: string;
+  usuario: string;
+}
+
+/** Registro de la bitácora de un usuario o alumno (historial de cambios) */
+export interface RegistroBitacoraDto {
   bitacoraId: number;
   accion: string;
+  entidad: string;
   detalle: string;
   fecha: string;
   usuario: { nombres: string; apellidos: string } | null;
@@ -149,7 +182,7 @@ export interface UsuarioDto {
 
 export interface UsuarioDetalleDto extends UsuarioDto {
   dependencias: { cursosAsignados: number; alumnosACargo: { alumnoId: number; nombre: string }[]; esAlumno: boolean };
-  bitacora: BitacoraDto[];
+  bitacora: RegistroBitacoraDto[];
 }
 
 export interface UsuarioInput {
@@ -212,10 +245,18 @@ export interface AlumnoDto {
   seccionId: number;
   fechaNacimiento?: string | null;
   usuario: { nombres: string; apellidos: string; email?: string };
-  seccion: { seccionId: number; nombre: string; sedeId?: number; grado: { nombre: string } };
+  seccion: { seccionId: number; nombre: string; sedeId?: number; grado: { nombre: string; nivel?: string } };
   encargadosActivos?: number;
   contactoPrincipal?: string | null;
   tieneRestriccion?: boolean;
+  /** null = según el nivel; true/false = excepción de la sede */
+  accesoPortal?: boolean | null;
+  accesoPortalEfectivo?: boolean;
+  accesoPorNivel?: boolean;
+}
+
+export function setAccesoPortalAlumno(alumnoId: number, accesoPortal: boolean | null): Promise<{ status: "success"; message: string; data: { accesoPortal: boolean | null; accesoPortalEfectivo: boolean } }> {
+  return request(`/api/alumnos/${alumnoId}/acceso-portal`, { method: "PATCH", body: JSON.stringify({ accesoPortal }) });
 }
 
 export async function getAlumnos(params?: { seccionId?: number; q?: string }): Promise<AlumnoDto[]> {
@@ -250,7 +291,7 @@ export interface VinculoEncargadoDto {
 export interface EncargadosAlumnoDto {
   alumno: { alumnoId: number; nombre: string; grado: string };
   vinculos: VinculoEncargadoDto[];
-  bitacora: BitacoraDto[];
+  bitacora: RegistroBitacoraDto[];
   parentescos: string[];
   maximo: number;
 }
@@ -292,6 +333,30 @@ export function actualizarVinculo(alumnoId: number, encargadoId: number, input: 
 
 export function quitarEncargado(alumnoId: number, encargadoId: number, motivo: string): Promise<{ status: "success"; message: string }> {
   return request(`/api/alumnos/${alumnoId}/encargados/${encargadoId}`, { method: "DELETE", body: JSON.stringify({ motivo }) });
+}
+
+export interface ConteoAlumnosDto {
+  total: number;
+  totalAnterior: number;
+  diferencia: number;
+  porcentajeCrecimiento: number;
+  subtexto: string;
+}
+
+export async function getConteoAlumnos(): Promise<ConteoAlumnosDto> {
+  const body = await request<{ status: "success"; data: ConteoAlumnosDto }>("/api/alumnos/conteo-alumnos");
+  return body.data;
+}
+
+export interface TasaAprobacionDTO {
+  tasaAprobacion: number;
+  promedioGeneral: number;
+  subtexto: string;
+}
+
+export async function getTasaAprobacion(): Promise<TasaAprobacionDTO> {
+  const body = await request<{ status: "success"; data: TasaAprobacionDTO }>("/api/alumnos/tasa-aprobacion");
+  return body.data;
 }
 
 // ---------- Becas ----------
@@ -523,18 +588,190 @@ export function solicitarBeca(input: { alumnoId: number; programaId: number; jus
 
 type MessageResponse = { status: "success"; message: string };
 
+export interface MetricaBecaDto{
+  becasActivas: number;
+  porcentajeAlumnado: number;
+  subtexto: string;
+}
+
+export async function getBecasActivasMetrica(): Promise<MetricaBecaDto> {
+  const body = await request<{ status: "success"; data: MetricaBecaDto }>("/api/becas/becas-activas")
+  return body.data;
+}
+
 // ---------- Cursos del catedrático ----------
+
+export interface HorarioCursoDto {
+  horarioId: number;
+  diaSemana: number; // 1 = Lunes ... 7 = Domingo
+  horaInicio: string; // "HH:MM"
+  horaFin: string;
+}
 
 export interface CursoSeccionDto {
   cursoSeccionId: number;
   seccionId: number;
   curso: { cursoId: number; nombre: string };
-  seccion: { seccionId: number; nombre: string; sedeId: number; grado: { nombre: string } };
+  seccion: { seccionId: number; nombre: string; sedeId: number; anioLectivo?: number; grado: { nombre: string }; sede?: { nombre: string } };
+  horarios?: HorarioCursoDto[];
 }
 
 export async function getCursosDeCatedratico(catedraticoId: number): Promise<CursoSeccionDto[]> {
   const body = await request<{ status: "success"; data: CursoSeccionDto[] }>(`/api/curso-seccion/catedratico/${catedraticoId}`);
   return body.data;
+}
+
+// ---------- Libreta de notas y actividades ----------
+
+// Cada unidad vale 100: zona (tareas, proyectos...) 60 y examen 40
+export type TipoActividad = "Zona" | "Examen";
+
+export interface ActividadDto {
+  actividadId: number;
+  nombre: string;
+  puntosMaximos: number;
+  tipo: TipoActividad;
+  fecha: string | null; // "YYYY-MM-DD"
+}
+
+export interface LibretaDto {
+  cursoSeccionId: number;
+  curso: string;
+  grado: string;
+  seccion: string;
+  unidades: { unidadId: number; numero: number; actividades: ActividadDto[] }[];
+  alumnos: { alumnoId: number; nombres: string; apellidos: string }[];
+  notas: { actividadId: number; alumnoId: number; valor: number }[];
+}
+
+export async function getLibreta(cursoSeccionId: number): Promise<LibretaDto> {
+  const body = await request<{ status: "success"; data: LibretaDto }>(`/api/notas/curso-seccion/${cursoSeccionId}`);
+  return body.data;
+}
+
+export interface ActividadInput {
+  unidadId: number;
+  nombre: string;
+  puntosMaximos: number;
+  tipo: TipoActividad;
+  fecha: string;
+}
+
+export function createActividad(input: ActividadInput): Promise<{ status: "success" }> {
+  return request("/api/actividades", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateActividad(id: number, input: Omit<ActividadInput, "unidadId">): Promise<{ status: "success" }> {
+  return request(`/api/actividades/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export function deleteActividad(id: number): Promise<MessageResponse> {
+  return request(`/api/actividades/${id}`, { method: "DELETE" });
+}
+
+// valor null borra la nota registrada
+export function guardarNotasActividad(actividadId: number, notas: { alumnoId: number; valor: number | null }[]): Promise<MessageResponse> {
+  return request("/api/notas/bulk", { method: "POST", body: JSON.stringify({ actividadId, notas }) });
+}
+
+// ---------- Asistencia ----------
+
+export type EstadoAsistencia = "Presente" | "Tarde" | "Ausente" | "Justificado";
+
+export interface ListaAsistenciaDto {
+  cursoSeccionId: number;
+  curso: string;
+  grado: string;
+  seccion: string;
+  fecha: string;
+  yaRegistrada: boolean;
+  alumnos: {
+    alumnoId: number; nombres: string; apellidos: string; estado: EstadoAsistencia | null; asistenciaId: number | null;
+    /** La sede aprobó la justificación de ese día: la falta se registra como "Justificado" */
+    diaJustificado: boolean;
+    /** Sin registro en esta clase, pero otro catedrático ya lo marcó ausente ese día */
+    ausenteEnOtraClase: boolean;
+  }[];
+}
+
+export async function getListaAsistencia(cursoSeccionId: number, fecha?: string): Promise<ListaAsistenciaDto> {
+  const query = fecha ? `?fecha=${encodeURIComponent(fecha)}` : "";
+  const body = await request<{ status: "success"; data: ListaAsistenciaDto }>(`/api/asistencia/lista/${cursoSeccionId}${query}`);
+  return body.data;
+}
+
+export function pasarLista(input: { cursoSeccionId: number; fecha: string; asistencias: { alumnoId: number; estado: EstadoAsistencia }[] }): Promise<MessageResponse> {
+  return request("/api/asistencia/pasar-lista", { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface ResumenAsistenciaDto {
+  curso: string;
+  grado: string;
+  seccion: string;
+  diasRegistrados: number;
+  alumnos: {
+    alumnoId: number; nombres: string; apellidos: string;
+    presentes: number; tardes: number; ausentes: number; justificados: number;
+    totalRegistrado: number; porcentaje: number;
+  }[];
+}
+
+export async function getResumenAsistencia(cursoSeccionId: number): Promise<ResumenAsistenciaDto> {
+  const body = await request<{ status: "success"; data: ResumenAsistenciaDto }>(`/api/asistencia/resumen/${cursoSeccionId}`);
+  return body.data;
+}
+
+// ---------- Justificación de ausencias ----------
+
+export type EstadoJustificacion = "Pendiente" | "Aprobada" | "Rechazada";
+
+export interface JustificacionDto {
+  justificacionId: number;
+  alumnoId: number;
+  fecha: string;
+  motivo: string;
+  estado: EstadoJustificacion;
+  comentario: string | null;
+  fechaSolicitud: string;
+  fechaRevision: string | null;
+  revisor?: { nombres: string; apellidos: string } | null;
+}
+
+export interface AsistenciaHijoDto {
+  alumnoId: number;
+  nombre: string;
+  grado: string;
+  resumen: { presentes: number; tardes: number; ausentes: number; justificados: number; total: number; porcentaje: number };
+  dias: { fecha: string; clases: { curso: string; estado: EstadoAsistencia }[] }[];
+  justificaciones: JustificacionDto[];
+}
+
+export interface JustificacionAdminDto extends JustificacionDto {
+  alumno: { alumnoId: number; usuario: { nombres: string; apellidos: string }; seccion: { nombre: string; grado: { nombre: string } } };
+  solicitante: { usuarioId: number; nombres: string; apellidos: string; email: string };
+  clases: { curso: string; estado: EstadoAsistencia }[];
+}
+
+export async function getAsistenciaHijos(): Promise<AsistenciaHijoDto[]> {
+  const body = await request<{ status: "success"; data: AsistenciaHijoDto[] }>("/api/justificaciones/mis-hijos");
+  return body.data;
+}
+
+export function solicitarJustificacion(input: { alumnoId: number; fecha: string; motivo: string }): Promise<{ status: "success"; message: string; data: JustificacionDto }> {
+  return request("/api/justificaciones", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function cancelarJustificacion(id: number): Promise<MessageResponse> {
+  return request(`/api/justificaciones/${id}`, { method: "DELETE" });
+}
+
+export async function getJustificaciones(estado?: EstadoJustificacion): Promise<JustificacionAdminDto[]> {
+  const body = await request<{ status: "success"; data: JustificacionAdminDto[] }>(`/api/justificaciones${estado ? `?estado=${estado}` : ""}`);
+  return body.data;
+}
+
+export function revisarJustificacion(id: number, estado: "Aprobada" | "Rechazada", comentario?: string): Promise<{ status: "success"; message: string; data: JustificacionDto }> {
+  return request(`/api/justificaciones/${id}/revisar`, { method: "PATCH", body: JSON.stringify({ estado, comentario }) });
 }
 
 // ---------- Envío de notas a encargados ----------
@@ -556,6 +793,16 @@ export function enviarNotasAEncargados(input: EnvioNotasInput): Promise<EnvioNot
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export interface TendenciaNotasDto {
+  mes: string;
+  promedio: number;
+}
+
+export async function getTendenciaNotas(): Promise<TendenciaNotasDto[]>{
+  const body = await request<{ status: "success"; data: TendenciaNotasDto[] }>("/api/notas/tendencia-notas");
+  return body.data
 }
 
 // ---------- Reportes de conducta ----------
@@ -586,6 +833,21 @@ export interface ReporteConductaInput {
   tipo: TipoConducta;
   titulo: string;
   descripcion: string;
+  /** Encargados a notificar; si se omite se notifica a todos los que reciben notificaciones */
+  encargadoIds?: number[];
+}
+
+export interface DestinatarioConductaDto {
+  encargadoId: number;
+  nombre: string;
+  email: string;
+  parentesco: string | null;
+  esPrincipal: boolean;
+}
+
+export async function getDestinatariosConducta(alumnoId: number): Promise<DestinatarioConductaDto[]> {
+  const body = await request<{ status: "success"; data: DestinatarioConductaDto[] }>(`/api/conducta/destinatarios?alumnoId=${alumnoId}`);
+  return body.data;
 }
 
 export async function getReportesConducta(params?: { alumnoId?: number; revisado?: boolean }): Promise<ReporteConductaDto[]> {
@@ -672,7 +934,35 @@ export function marcarNotificacionLeida(id: number): Promise<MessageResponse> {
   return request(`/api/notificaciones/${id}/leida`, { method: "PATCH" });
 }
 
+export function marcarTodasNotificacionesLeidas(): Promise<MessageResponse> {
+  return request("/api/notificaciones/leidas", { method: "PATCH" });
+}
+
 // ---------- Eventos ----------
+
+export type TipoEvento = "Festivo" | "Academico" | "Deportivo" | "Reunion";
+
+export interface EventoDto {
+  eventoId: number;
+  sedeId: number | null;
+  nombre: string;
+  descripcion: string | null;
+  fecha: string;
+  tipoEvento: TipoEvento | string;
+  enviarRecordatorio?: boolean;
+  sede: { nombre: string } | null;
+  // Eventos con cobro (los paga el padre desde el carrito)
+  requierePago: boolean;
+  costo: string | null;
+  cupoMaximo: number | null;
+  fechaLimiteInscripcion: string | null;
+}
+
+// Sin sedeId el backend devuelve los eventos generales y los de la sede del usuario
+export async function getEventos(): Promise<EventoDto[]> {
+  const body = await request<{ status: "success"; data: EventoDto[] }>("/api/events");
+  return body.data;
+}
 
 export function enviarRecordatorioEvento(eventoId: number): Promise<MessageResponse> {
   return request(`/api/events/${eventoId}/recordatorio`, { method: "POST" });
@@ -684,10 +974,56 @@ export interface SedeDto {
   sedeId: number;
   nombre: string;
   direccion: string | null;
+  telefono?: string | null;
+}
+
+export type CrearSedePayload = {
+  nombre: string;
+  direccion?: string;
+  telefono?: string;
+};
+
+export type ActualizarSedePayload = {
+  nombre?: string;
+  direccion?: string;
+  telefono?: string;
+  activo?: boolean;
+};
+
+export interface SedeMetricaDto {
+  sedeId: number;
+  nombre: string;
+  alumnos: number;
+  aprobacion: number;
+  mora: number;
 }
 
 export async function getSedes(): Promise<SedeDto[]> {
   const body = await request<{ status: "success"; data: SedeDto[] }>("/api/sedes");
+  return body.data;
+}
+
+export async function createSede(payload: CrearSedePayload): Promise<SedeDto> {
+  const body = await request<{ status: "success"; data: SedeDto }>("/api/sedes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function updateSede(
+  sedeId: number,
+  payload: ActualizarSedePayload
+): Promise<SedeDto> {
+  const body = await request<{ status: "success"; data: SedeDto }>(`/api/sedes/${sedeId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function getSedesMetricas(): Promise<SedeMetricaDto[]> {
+  const body = await request<{ status: "success"; data: SedeMetricaDto[] }>("/api/sedes/metricas")
   return body.data;
 }
 
@@ -854,33 +1190,6 @@ export async function verificarCarrito(paymentIntentId: string): Promise<Verific
 
 // ─── Eventos con cobro (administración) ───────────────────────────────────────
 
-export interface EventoDto {
-  eventoId: number;
-  sedeId: number | null;
-  nombre: string;
-  descripcion: string | null;
-  fecha: string;
-  tipoEvento: string;
-  enviarRecordatorio: boolean;
-  requierePago: boolean;
-  costo: string | null;
-  cupoMaximo: number | null;
-  fechaLimiteInscripcion: string | null;
-  sede?: { nombre: string } | null;
-}
-
-export interface EventoInput {
-  nombre: string;
-  descripcion?: string | null;
-  fecha: string;
-  tipoEvento: string;
-  sedeId?: number | null;
-  requierePago: boolean;
-  costo: number | null;
-  cupoMaximo: number | null;
-  fechaLimiteInscripcion: string | null;
-}
-
 export interface InscritosEventoDto {
   eventoId: number;
   nombre: string;
@@ -890,27 +1199,459 @@ export interface InscritosEventoDto {
   detalle: { inscripcionId: number; alumnoId: number; alumno: string; grado: string; monto: number; estado: string; fechaPago: string | null }[];
 }
 
-export async function getEventos(sedeId?: number | null): Promise<EventoDto[]> {
-  const query = sedeId ? `?sedeId=${sedeId}` : "";
-  const body = await request<{ status: "success"; data: EventoDto[] }>(`/api/events${query}`);
-  return body.data;
-}
-
-export async function crearEvento(input: EventoInput): Promise<EventoDto> {
-  const body = await request<{ status: "success"; data: EventoDto }>("/api/events", { method: "POST", body: JSON.stringify(input) });
-  return body.data;
-}
-
-export async function actualizarEvento(eventoId: number, input: Partial<EventoInput>): Promise<EventoDto> {
-  const body = await request<{ status: "success"; data: EventoDto }>(`/api/events/${eventoId}`, { method: "PUT", body: JSON.stringify(input) });
-  return body.data;
-}
-
-export async function eliminarEvento(eventoId: number): Promise<MessageResponse> {
-  return request(`/api/events/${eventoId}`, { method: "DELETE" });
-}
-
 export async function getInscritosEvento(eventoId: number): Promise<InscritosEventoDto> {
   const body = await request<{ status: "success"; data: InscritosEventoDto }>(`/api/events/${eventoId}/inscritos`);
+  return body.data;
+}
+
+// --- Pagos ---
+export interface MetricaMoraDto {
+  porcentajeMora: number;
+  cuentasPendientes: number;
+  subtexto: string;
+}
+
+export async function getMoraPagosMetrica(): Promise<MetricaMoraDto> {
+  const body = await request<{ status: "success"; data: MetricaMoraDto }>("/api/pagos/metrica-mora");
+  return body.data;
+}
+
+// --- Bitacora ---
+export async function getActividadReciente(): Promise<BitacoraDto[]> {
+  const body = await request<{ status: "success", data: BitacoraDto[]}>("/api/bitacora/actividad-reciente");
+  return body.data
+}
+
+// ---------- Vista del encargado ----------
+
+export interface HijoEncargadoDto {
+  alumnoId: number;
+  nombre: string;
+  email: string;
+  grado: string;
+  seccion: string;
+  sede: string;
+  sedeId: number;
+  anioLectivo: number;
+  /** Tiene matrícula del ciclo pero ninguna activa */
+  retirado: boolean;
+  parentesco: string | null;
+  esPrincipal: boolean;
+  responsableFinanciero: boolean;
+  autorizadoRecoger: boolean;
+  puedeVerNotas: boolean;
+  puedeVerPagos: boolean;
+  recibeNotificaciones: boolean;
+  vigenteHasta: string | null;
+  /** Usuario con el que el alumno entra al portal */
+  usuarioPortal: string;
+  accesoPortal: boolean;
+  accesoPorNivel: boolean;
+}
+
+export interface UnidadBoletinDto {
+  numero: number;
+  zona: number | null;
+  examen: number | null;
+  /** null = la unidad todavía no tiene notas registradas */
+  nota: number | null;
+}
+
+export interface CursoBoletinDto {
+  cursoSeccionId: number;
+  curso: string;
+  catedratico: string;
+  /** null = sección actual; si no, la sección de la que fue trasladado en este ciclo */
+  seccionAnterior: string | null;
+  unidades: UnidadBoletinDto[];
+  promedio: number | null;
+  aprobado: boolean | null;
+}
+
+export interface BoletinHijoDto {
+  alumnoId: number;
+  nombre: string;
+  grado: string;
+  seccion: string;
+  sede: string;
+  anioLectivo: number;
+  notaAprobacion: number;
+  promedioGeneral: number | null;
+  cursosAprobados: number;
+  cursosEvaluados: number;
+  cursos: CursoBoletinDto[];
+}
+
+export interface SeccionMatriculaDto {
+  seccionId: number;
+  nombre: string;
+  anioLectivo: number;
+  alumnos: number;
+  grado: { gradoId: number; nombre: string; nivel: string; orden: number };
+  sede: { sedeId: number; nombre: string };
+  cursos: string[];
+}
+
+export interface OpcionesMatriculaDto {
+  puedeMatricular: boolean;
+  matriculas: { matriculaId: number; anioLectivo: number; estado: string; fechaMatricula: string; grado: string; seccion: string; sede: string }[];
+  secciones: SeccionMatriculaDto[];
+}
+
+export interface MatriculaCreadaResponse {
+  status: "success";
+  message: string;
+  data: { matricula: { matriculaId: number; anioLectivo: number }; cursosAsignados: { cursoSeccionId: number; nombre: string }[] };
+}
+
+export async function getHijosEncargado(): Promise<HijoEncargadoDto[]> {
+  const body = await request<{ status: "success"; data: HijoEncargadoDto[] }>("/api/encargado/hijos");
+  return body.data;
+}
+
+export async function getBoletinHijo(alumnoId: number): Promise<BoletinHijoDto> {
+  const body = await request<{ status: "success"; data: BoletinHijoDto }>(`/api/encargado/hijos/${alumnoId}/notas`);
+  return body.data;
+}
+
+export async function getOpcionesMatricula(alumnoId: number): Promise<OpcionesMatriculaDto> {
+  const body = await request<{ status: "success"; data: OpcionesMatriculaDto }>(`/api/encargado/hijos/${alumnoId}/matricula`);
+  return body.data;
+}
+
+export function crearMatricula(input: { alumnoId: number; seccionId: number; encargadoId: number; anioLectivo: number }): Promise<MatriculaCreadaResponse> {
+  return request("/api/matriculas", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function setNotificacionesHijo(alumnoId: number, recibeNotificaciones: boolean): Promise<MessageResponse> {
+  return request(`/api/encargado/hijos/${alumnoId}/notificaciones`, {
+    method: "PATCH",
+    body: JSON.stringify({ recibeNotificaciones }),
+  });
+}
+
+export function restablecerPasswordHijo(alumnoId: number, password: string): Promise<MessageResponse> {
+  return request(`/api/encargado/hijos/${alumnoId}/password`, { method: "POST", body: JSON.stringify({ password }) });
+}
+
+// ---------- Portal del alumno ----------
+
+export interface PerfilAlumnoDto {
+  alumnoId: number;
+  nombre: string;
+  usuario: string;
+  grado: string;
+  nivel: string;
+  seccion: string;
+  sede: string;
+  anioLectivo: number;
+  encargadoPrincipal: string | null;
+}
+
+export interface ClaseAlumnoDto {
+  horarioId: number;
+  cursoSeccionId: number;
+  diaSemana: number; // 1 = Lunes ... 7 = Domingo
+  horaInicio: string; // "HH:MM"
+  horaFin: string;
+  curso: string;
+  catedratico: string;
+}
+
+export interface AsistenciaAlumnoDto {
+  resumen: AsistenciaHijoDto["resumen"];
+  dias: AsistenciaHijoDto["dias"];
+}
+
+export async function getPerfilAlumno(): Promise<PerfilAlumnoDto> {
+  const body = await request<{ status: "success"; data: PerfilAlumnoDto }>("/api/portal-alumno/perfil");
+  return body.data;
+}
+
+/** Mismo formato que el boletín que ve el encargado */
+export async function getMisNotasAlumno(): Promise<BoletinHijoDto> {
+  const body = await request<{ status: "success"; data: BoletinHijoDto }>("/api/portal-alumno/notas");
+  return body.data;
+}
+
+export async function getMiHorarioAlumno(): Promise<ClaseAlumnoDto[]> {
+  const body = await request<{ status: "success"; data: ClaseAlumnoDto[] }>("/api/portal-alumno/horario");
+  return body.data;
+}
+
+export async function getMiAsistenciaAlumno(): Promise<AsistenciaAlumnoDto> {
+  const body = await request<{ status: "success"; data: AsistenciaAlumnoDto }>("/api/portal-alumno/asistencia");
+  return body.data;
+}
+
+export async function getHorarioHijo(alumnoId: number): Promise<ClaseAlumnoDto[]> {
+  const body = await request<{ status: "success"; data: ClaseAlumnoDto[] }>(`/api/encargado/hijos/${alumnoId}/horario`);
+  return body.data;
+}
+
+// ---------- Solicitudes de inscripción (administración) ----------
+
+export type EstadoSolicitudDto = "PENDIENTE" | "REVISION" | "APROBADA" | "RECHAZADA" | "VENCIDA";
+
+export interface SolicitudDto {
+  solicitudId: number;
+  numero: string;
+  modo: "PUBLICO" | "PRESENCIAL";
+  estado: EstadoSolicitudDto;
+  encargadoNombres: string;
+  encargadoApellidos: string;
+  encargadoDpi: string;
+  encargadoTelefono: string;
+  encargadoCorreo: string;
+  encargadoParentesco: string;
+  alumnoNombres: string;
+  alumnoApellidos: string;
+  alumnoFechaNacimiento: string;
+  alumnoNivel: string;
+  alumnoCarrera: string | null;
+  alumnoAnio: string | null;
+  alumnoGrado: string | null;
+  sedeId: number | null;
+  sede: { sedeId: number; nombre: string } | null;
+  documentos: string[];
+  observaciones: string | null;
+  fechaSolicitud: string;
+  fechaLimite: string;
+  alumnoId: number | null;
+  fechaResolucion: string | null;
+  motivoResolucion: string | null;
+}
+
+export interface OpcionesAprobacionDto {
+  solicitud: SolicitudDto;
+  vencida: boolean;
+  cuentaEncargado: { usuarioId: number; nombre: string; email: string; roles: string[]; dadoDeBaja: boolean; esAlumno: boolean; yaEsEncargado: boolean } | null;
+  duplicados: { alumnoId: number; usuario: { nombres: string; apellidos: string; deletedAt: string | null }; seccion: { nombre: string; anioLectivo: number; grado: { nombre: string }; sede: { nombre: string } } }[];
+  secciones: {
+    seccionId: number; nombre: string; anioLectivo: number; alumnos: number;
+    grado: { gradoId: number; nombre: string; nivel: string };
+    sede: { sedeId: number; nombre: string };
+    accesoPorNivel: boolean;
+    sugerida: boolean;
+  }[];
+}
+
+export interface AprobacionDto {
+  alumnoId: number;
+  encargadoId: number;
+  correoEnviado: boolean;
+  encargado: { usuario: string; passwordTemporal: string | null; cuentaExistente: boolean; nombre: string };
+  alumno: { usuario: string; passwordTemporal: string | null; accesoPortal: boolean; nombre: string };
+}
+
+export async function getSolicitudesAdmin(params: { estado?: EstadoSolicitudDto; q?: string } = {}): Promise<SolicitudDto[]> {
+  const body = await request<{ status: "success"; data: SolicitudDto[] }>(`/api/solicitudes${toQueryString({ ...params })}`);
+  return body.data;
+}
+
+export async function getOpcionesAprobacion(id: number): Promise<OpcionesAprobacionDto> {
+  const body = await request<{ status: "success"; data: OpcionesAprobacionDto }>(`/api/solicitudes/${id}/opciones`);
+  return body.data;
+}
+
+export function marcarSolicitud(id: number, estado: "PENDIENTE" | "REVISION" | "VENCIDA", observaciones?: string): Promise<{ status: "success"; data: SolicitudDto }> {
+  return request(`/api/solicitudes/${id}/estado`, { method: "PUT", body: JSON.stringify({ estado, observaciones }) });
+}
+
+export function aprobarSolicitud(id: number, input: { seccionId: number; accesoPortal: boolean | null; confirmarDuplicado: boolean }): Promise<{ status: "success"; message: string; data: AprobacionDto }> {
+  return request(`/api/solicitudes/${id}/aprobar`, { method: "POST", body: JSON.stringify(input) });
+}
+
+export function rechazarSolicitud(id: number, motivo: string): Promise<MessageResponse> {
+  return request(`/api/solicitudes/${id}/rechazar`, { method: "POST", body: JSON.stringify({ motivo }) });
+}
+
+// ---------- Estructura académica (grados, secciones, cursos, horarios) ----------
+
+export interface GradoDto {
+  gradoId: number;
+  nombre: string;
+  nivel: string;
+  orden: number;
+  cursos: { cursoId: number; nombre: string }[];
+}
+
+export interface SeccionAdminDto {
+  seccionId: number;
+  nombre: string;
+  anioLectivo: number;
+  grado: { gradoId: number; nombre: string; nivel: string; orden: number };
+  sede: { sedeId: number; nombre: string };
+  alumnos: number;
+  cursos: number;
+  matriculas: number;
+}
+
+export async function getGrados(): Promise<GradoDto[]> {
+  const body = await request<{ status: "success"; data: GradoDto[] }>("/api/grados");
+  return body.data;
+}
+
+export async function getSeccionesAdmin(params: { anioLectivo?: number; sedeId?: number } = {}): Promise<{ ciclos: number[]; secciones: SeccionAdminDto[] }> {
+  const body = await request<{ status: "success"; data: { ciclos: number[]; secciones: SeccionAdminDto[] } }>(`/api/grados/secciones${toQueryString({ ...params })}`);
+  return body.data;
+}
+
+export function crearSeccion(input: { gradoId: number; nombre: string; anioLectivo: number; sedeId?: number }): Promise<MessageResponse> {
+  return request("/api/grados/secciones", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function renombrarSeccion(id: number, nombre: string): Promise<MessageResponse> {
+  return request(`/api/grados/secciones/${id}`, { method: "PUT", body: JSON.stringify({ nombre }) });
+}
+
+export function eliminarSeccion(id: number): Promise<MessageResponse> {
+  return request(`/api/grados/secciones/${id}`, { method: "DELETE" });
+}
+
+export function copiarSecciones(input: { desde: number; hasta: number; sedeId?: number }): Promise<MessageResponse> {
+  return request("/api/grados/secciones/copiar", { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface CursoCatalogoDto {
+  cursoId: number;
+  nombre: string;
+  descripcion: string | null;
+  mallas: { gradoId: number; grado: { gradoId: number; nombre: string; nivel: string } }[];
+}
+
+export async function getCursosCatalogo(): Promise<CursoCatalogoDto[]> {
+  const body = await request<{ status: "success"; data: CursoCatalogoDto[] }>("/api/cursos");
+  return body.data;
+}
+
+export function crearCurso(input: { nombre: string; descripcion?: string; gradosIds?: number[] }): Promise<{ status: "success"; data: CursoCatalogoDto }> {
+  return request("/api/cursos", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function asignarCursoAGrado(cursoId: number, gradoId: number): Promise<MessageResponse> {
+  return request(`/api/cursos/${cursoId}/grados`, { method: "POST", body: JSON.stringify({ gradoId }) });
+}
+
+export function quitarCursoDeGrado(cursoId: number, gradoId: number): Promise<MessageResponse> {
+  return request(`/api/cursos/${cursoId}/grados/${gradoId}`, { method: "DELETE" });
+}
+
+export interface CursoSeccionAdminDto {
+  cursoSeccionId: number;
+  cursoId: number;
+  seccionId: number;
+  catedraticoId: number;
+  curso: { cursoId: number; nombre: string };
+  seccion: { seccionId: number; nombre: string; sedeId: number; anioLectivo: number; grado: { gradoId: number; nombre: string }; sede: { nombre: string } };
+  catedratico: { catedraticoId: number; especialidad: string | null; usuario: { usuarioId: number; nombres: string; apellidos: string; email: string } };
+  horarios: HorarioCursoDto[];
+}
+
+export async function getCursosSeccionAdmin(params: { sedeId?: number; seccionId?: number } = {}): Promise<CursoSeccionAdminDto[]> {
+  const body = await request<{ status: "success"; data: CursoSeccionAdminDto[] }>(`/api/curso-seccion${toQueryString({ ...params })}`);
+  return body.data;
+}
+
+export function asignarCursoSeccion(input: { cursoId: number; seccionId: number; catedraticoId: number }): Promise<MessageResponse> {
+  return request("/api/curso-seccion", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function cambiarCatedraticoCurso(cursoSeccionId: number, catedraticoId: number): Promise<MessageResponse> {
+  return request(`/api/curso-seccion/${cursoSeccionId}`, { method: "PUT", body: JSON.stringify({ catedraticoId }) });
+}
+
+export function quitarCursoSeccion(cursoSeccionId: number): Promise<MessageResponse> {
+  return request(`/api/curso-seccion/${cursoSeccionId}`, { method: "DELETE" });
+}
+
+export interface ChoqueHorarioDto { disponible: boolean; choque: unknown }
+
+export function crearHorario(input: { cursoSeccionId: number; diaSemana: number; horaInicio: string; horaFin: string }): Promise<MessageResponse> {
+  return request("/api/horarios", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function eliminarHorario(horarioId: number): Promise<MessageResponse> {
+  return request(`/api/horarios/${horarioId}`, { method: "DELETE" });
+}
+
+// ---------- Eventos (administración) ----------
+
+export interface EventoInput {
+  nombre: string;
+  descripcion?: string | null;
+  fecha: string; // YYYY-MM-DD
+  tipoEvento: TipoEvento | string;
+  sedeId?: number | null;
+  enviarRecordatorio?: boolean;
+  requierePago?: boolean;
+  costo?: number | null;
+  cupoMaximo?: number | null;
+  fechaLimiteInscripcion?: string | null;
+}
+
+export function crearEvento(input: EventoInput): Promise<{ status: "success"; data: EventoDto }> {
+  return request("/api/events", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function actualizarEvento(id: number, input: Partial<EventoInput>): Promise<{ status: "success"; data: EventoDto }> {
+  return request(`/api/events/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export function eliminarEvento(id: number): Promise<MessageResponse> {
+  return request(`/api/events/${id}`, { method: "DELETE" });
+}
+
+// ---------- Dashboard de sede ----------
+
+export interface DashboardSedeDto {
+  sede: string;
+  anioLectivo: number;
+  alumnos: { total: number; anterior: number };
+  aprobacion: { porcentaje: number | null; evaluados: number; promedio: number | null };
+  mora: { alumnos: number; porcentaje: number };
+  becas: { activas: number; porcentaje: number };
+  porGrado: { grado: string; total: number; evaluados: number; aprobados: number }[];
+  pendientes: { solicitudes: number; justificaciones: number; sinEncargado: number };
+  enRiesgo: { alumnoId: number; nombre: string; grado: string; promedio: number; cursosReprobados: number }[];
+  proximosEventos: { eventoId: number; nombre: string; fecha: string; tipoEvento: string }[];
+}
+
+export async function getDashboardSede(sedeId?: number): Promise<DashboardSedeDto> {
+  const body = await request<{ status: "success"; data: DashboardSedeDto }>(`/api/sedes/dashboard${toQueryString({ sedeId })}`);
+  return body.data;
+}
+
+// ---------- Reportes en PDF (generados por el backend) ----------
+
+/** Descarga un PDF protegido (con el token de la sesión) y lo abre en otra pestaña */
+export async function abrirReportePdf(path: string): Promise<void> {
+  const token = getToken();
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new Error("No se pudo conectar con el servidor.");
+  }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message || "No se pudo generar el reporte.");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+export interface CatedraticoSedeDto {
+  catedraticoId: number;
+  nombre: string;
+  email: string;
+  especialidad: string | null;
+  sede: string | null;
+  cursos: { cursoSeccionId: number; curso: string; seccion: string; anioLectivo: number; horarios: { diaSemana: number; horaInicio: string; horaFin: string }[] }[];
+}
+
+export async function getCatedraticosSede(): Promise<CatedraticoSedeDto[]> {
+  const body = await request<{ status: "success"; data: CatedraticoSedeDto[] }>("/api/curso-seccion/catedraticos");
   return body.data;
 }

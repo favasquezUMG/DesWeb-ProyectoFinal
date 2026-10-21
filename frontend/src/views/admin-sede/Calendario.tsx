@@ -1,258 +1,254 @@
-import { useState } from "react";
-import { Plus, Bell, X } from "lucide-react";
-import { EVENTOS } from "../../data";
-import { Card, SectionHeader, Btn } from "../../components/Ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Bell, Edit, Trash2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { Card, SectionHeader, Btn, Modal, Input, Select, Textarea, AlertBanner, Badge, Toggle } from "../../components/Ui";
+import {
+  getEventos, crearEvento, actualizarEvento, eliminarEvento, enviarRecordatorioEvento,
+  type EventoDto, type TipoEvento,
+} from "../../lib/api";
 import EventosCobro from "./EventosCobro";
 
-type TipoEvento = "clases" | "examen" | "descanso" | "actividad" | "asueto" | "festivo" | "institucional";
+const TIPOS: { id: TipoEvento; label: string; dot: string; badge: string }[] = [
+  { id: "Festivo", label: "Festivo / Asueto (sin clases)", dot: "bg-success-600", badge: "bg-success-50 text-success-800 border-success-200" },
+  { id: "Academico", label: "Académico (exámenes, entregas)", dot: "bg-primary-600", badge: "bg-primary-50 text-primary-800 border-primary-200" },
+  { id: "Deportivo", label: "Deportivo / Cultural", dot: "bg-action-500", badge: "bg-action-50 text-action-800 border-action-200" },
+  { id: "Reunion", label: "Reunión de padres", dot: "bg-info-600", badge: "bg-info-50 text-info-800 border-info-200" },
+];
+const cfg = (t: string) => TIPOS.find((x) => x.id === t) ?? { id: t, label: t, dot: "bg-stone-400", badge: "bg-stone-50 text-stone-700 border-stone-200" };
 
-const TIPO_CFG: Record<TipoEvento, { label: string; dot: string; badge: string; bg: string }> = {
-  clases:       { label: "Clases normales",    dot: "bg-stone-400",    badge: "bg-stone-100 text-stone-700 border-stone-200",    bg: "bg-stone-50" },
-  examen:       { label: "Semana de exámenes", dot: "bg-purple-500",   badge: "bg-purple-100 text-purple-800 border-purple-200",  bg: "bg-purple-50" },
-  descanso:     { label: "Descanso / Vacaciones", dot: "bg-amber-400", badge: "bg-amber-100 text-amber-800 border-amber-200",     bg: "bg-amber-50" },
-  actividad:    { label: "Actividad / Recordatorio", dot: "bg-info-500", badge: "bg-info-100 text-info-800 border-info-200",     bg: "bg-info-50" },
-  asueto:       { label: "Asueto",            dot: "bg-warning-500",   badge: "bg-warning-100 text-warning-800 border-warning-200", bg: "bg-warning-50" },
-  festivo:      { label: "Día festivo",        dot: "bg-success-500",  badge: "bg-success-100 text-success-800 border-success-200", bg: "bg-success-50" },
-  institucional:{ label: "Evento institucional", dot: "bg-primary-600", badge: "bg-primary-100 text-primary-800 border-primary-200", bg: "bg-primary-50" },
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const pad = (n: number) => String(n).padStart(2, "0");
+const diaISO = (fecha: string) => fecha.slice(0, 10);
+const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const formatoLargo = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 };
 
-const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"] as const;
-const DIAS_SEM = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"] as const;
+interface Form { eventoId?: number; nombre: string; descripcion: string; fecha: string; tipoEvento: TipoEvento; enviarRecordatorio: boolean; general: boolean }
+const vacio = (fecha = hoyISO()): Form => ({ nombre: "", descripcion: "", fecha, tipoEvento: "Academico", enviarRecordatorio: true, general: false });
 
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDayOfWeek(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
+export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolean }) {
+  const [anio, setAnio] = useState(new Date().getFullYear());
+  const [eventos, setEventos] = useState<EventoDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
+  const [diaSel, setDiaSel] = useState<string | null>(null);
+  const [form, setForm] = useState<Form | null>(null);
+  const [aEliminar, setAEliminar] = useState<EventoDto | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [errorForm, setErrorForm] = useState("");
 
-function eventosEnDia(eventos: typeof import("../../data").EVENTOS, dateStr: string) {
-  return eventos.filter(e => {
-    if (e.fecha === dateStr) return true;
-    if (e.fechaFin) {
-      return dateStr >= e.fecha && dateStr <= e.fechaFin;
+  const cargar = useCallback(async () => {
+    try {
+      setEventos(await getEventos());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudieron cargar los eventos.");
+    } finally {
+      setLoading(false);
     }
-    return false;
-  });
-}
+  }, []);
 
-interface NuevoEvento {
-  titulo: string;
-  tipo: TipoEvento;
-  fecha: string;
-  fechaFin: string;
-  recordatorio: boolean;
-}
+  useEffect(() => { cargar(); }, [cargar]);
 
-function MiniCalendario({ year, month, eventos, onDayClick, selectedDay }: {
-  year: number;
-  month: number;
-  eventos: typeof import("../../data").EVENTOS;
-  onDayClick: (d: string) => void;
-  selectedDay: string | null;
-}) {
-  const days = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfWeek(year, month);
-  const cells = Array.from({ length: firstDay + days }, (_, i) => i < firstDay ? null : i - firstDay + 1);
-  const today = new Date();
-  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+  const porDia = useMemo(() => {
+    const m = new Map<string, EventoDto[]>();
+    for (const e of eventos) m.set(diaISO(e.fecha), [...(m.get(diaISO(e.fecha)) ?? []), e]);
+    return m;
+  }, [eventos]);
 
-  return (
-    <Card className="p-3 hover:shadow-sm transition-shadow">
-      <h3 className="font-display font-semibold text-stone-800 text-sm mb-2 px-1">{MESES[month]}</h3>
-      <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {DIAS_SEM.map(d => <div key={d} className="text-center text-[9px] font-semibold text-stone-400 py-0.5">{d}</div>)}
-      </div>
-      <div className="grid grid-cols-7 gap-0.5">
-        {cells.map((day, i) => {
-          if (!day) return <div key={i} />;
-          const dateStr = `${year}-${String(month + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-          const evts = eventosEnDia(eventos, dateStr);
-          const isToday = isCurrentMonth && today.getDate() === day;
-          const isSelected = selectedDay === dateStr;
-          const isWeekend = [0, 6].includes((firstDay + day - 1) % 7);
+  const hoy = hoyISO();
+  const proximos = eventos.filter((e) => diaISO(e.fecha) >= hoy).slice(0, 6);
+  const delDia = diaSel ? porDia.get(diaSel) ?? [] : [];
 
-          // top event dot color
-          const topEvt = evts.find(e => e.tipo !== "clases");
-          const dotColor = topEvt ? TIPO_CFG[topEvt.tipo as TipoEvento].dot : evts.length > 0 ? TIPO_CFG.clases.dot : "";
-
-          return (
-            <button key={i} onClick={() => onDayClick(dateStr)}
-              className={`relative aspect-square flex flex-col items-center justify-center rounded text-xs transition-colors cursor-pointer
-                ${isSelected ? "bg-primary-700 text-white font-bold ring-2 ring-primary-300"
-                  : isToday ? "bg-primary-100 text-primary-800 font-bold"
-                  : isWeekend ? "text-stone-400 hover:bg-stone-100"
-                  : "text-stone-700 hover:bg-stone-100"}`}
-            >
-              {day}
-              {dotColor && !isSelected && (
-                <span className={`w-1 h-1 rounded-full absolute bottom-0.5 ${dotColor}`} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
-export default function CalendarioView() {
-  const YEAR = 2025;
-  const [eventos, setEventos] = useState(EVENTOS as typeof EVENTOS);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [nuevo, setNuevo] = useState<NuevoEvento>({
-    titulo: "", tipo: "clases", fecha: "", fechaFin: "", recordatorio: false,
-  });
-
-  const eventosDelDia = selectedDay ? eventosEnDia(eventos, selectedDay) : [];
-
-  function handleCrear() {
-    if (!nuevo.titulo || !nuevo.fecha) return;
-    const e = {
-      id: `custom-${Date.now()}`,
-      titulo: nuevo.titulo,
-      fecha: nuevo.fecha,
-      fechaFin: nuevo.fechaFin || undefined,
-      tipo: nuevo.tipo,
-      recordatorio: nuevo.recordatorio,
-    } as typeof EVENTOS[0];
-    setEventos(prev => [...prev, e]);
-    setShowForm(false);
-    setNuevo({ titulo: "", tipo: "clases", fecha: "", fechaFin: "", recordatorio: false });
+  async function guardar() {
+    if (!form) return;
+    if (!form.nombre.trim() || !form.fecha) return setErrorForm("Indique el nombre y la fecha.");
+    setGuardando(true);
+    setErrorForm("");
+    const input = {
+      nombre: form.nombre.trim(),
+      descripcion: form.descripcion.trim() || null,
+      fecha: form.fecha,
+      tipoEvento: form.tipoEvento,
+      enviarRecordatorio: form.enviarRecordatorio,
+      ...(esGlobal ? { sedeId: null } : {}),
+    };
+    try {
+      if (form.eventoId) await actualizarEvento(form.eventoId, input);
+      else await crearEvento(input);
+      setAviso(form.eventoId ? "Evento actualizado." : "Evento creado.");
+      setForm(null);
+      await cargar();
+    } catch (e) {
+      setErrorForm(e instanceof Error ? e.message : "No se pudo guardar el evento.");
+    } finally {
+      setGuardando(false);
+    }
   }
+
+  async function eliminar() {
+    if (!aEliminar) return;
+    setGuardando(true);
+    try {
+      await eliminarEvento(aEliminar.eventoId);
+      setAEliminar(null);
+      setAviso("Evento eliminado.");
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo eliminar el evento.");
+      setAEliminar(null);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function recordar(e: EventoDto) {
+    setError("");
+    try {
+      const res = await enviarRecordatorioEvento(e.eventoId);
+      setAviso(res.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo enviar el recordatorio.");
+    }
+  }
+
+  // Los eventos generales (sin sede) solo los edita el administrador general
+  const editable = (e: EventoDto) => esGlobal || e.sedeId !== null;
+
+  const tarjetaEvento = (e: EventoDto, conFecha = false) => (
+    <div key={e.eventoId} className={`px-3 py-2.5 rounded-xl border text-sm ${cfg(e.tipoEvento).badge}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold">{e.nombre}</p>
+          <p className="text-[11px] opacity-75">
+            {conFecha && `${formatoLargo(diaISO(e.fecha))} · `}{cfg(e.tipoEvento).label} · {e.sede ? e.sede.nombre : "Todas las sedes"}
+          </p>
+          {e.descripcion && <p className="text-xs mt-1 opacity-90">{e.descripcion}</p>}
+        </div>
+        {editable(e) && (
+          <div className="flex gap-0.5 shrink-0">
+            {diaISO(e.fecha) >= hoy && (
+              <button onClick={() => recordar(e)} aria-label="Enviar recordatorio ahora" title="Enviar recordatorio ahora" className="p-1 rounded hover:bg-white/60 cursor-pointer"><Bell className="w-3.5 h-3.5" /></button>
+            )}
+            <button onClick={() => { setErrorForm(""); setForm({ eventoId: e.eventoId, nombre: e.nombre, descripcion: e.descripcion ?? "", fecha: diaISO(e.fecha), tipoEvento: e.tipoEvento as TipoEvento, enviarRecordatorio: e.enviarRecordatorio ?? true, general: e.sedeId === null }); }}
+              aria-label="Editar evento" className="p-1 rounded hover:bg-white/60 cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setAEliminar(e)} aria-label="Eliminar evento" className="p-1 rounded hover:bg-white/60 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
-      <SectionHeader title="Calendario Escolar 2025" subtitle="Vista anual completa — todos los meses"
-        action={<Btn variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setShowForm(true)}>Crear evento</Btn>}
-      />
+      <SectionHeader title="Calendario Escolar" subtitle={esGlobal ? "Eventos generales y de todas las sedes" : "Eventos de la sede y eventos generales del colegio"}
+        action={<Btn variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => { setErrorForm(""); setForm(vacio(diaSel ?? hoyISO())); }}>Crear evento</Btn>} />
+
+      {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
+      {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
 
       <EventosCobro />
 
-      {/* Legend */}
       <div className="flex flex-wrap gap-2">
-        {(Object.entries(TIPO_CFG) as [TipoEvento, typeof TIPO_CFG[TipoEvento]][]).map(([tipo, cfg]) => (
-          <span key={tipo} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${cfg.badge}`}>
-            <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-            {cfg.label}
+        {TIPOS.map((t) => (
+          <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-medium ${t.badge}`}>
+            <span className={`w-2 h-2 rounded-full ${t.dot}`} />{t.label}
           </span>
         ))}
       </div>
 
-      {/* Nueva evento form */}
-      {showForm && (
-        <Card className="p-5 border-2 border-primary-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-stone-900">Nuevo evento</h3>
-            <button onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600"><X className="w-4 h-4" /></button>
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-5">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <button onClick={() => setAnio(anio - 1)} aria-label="Año anterior" className="p-1.5 rounded-lg hover:bg-stone-100 cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="font-display font-semibold text-stone-800">{anio}</span>
+            <button onClick={() => setAnio(anio + 1)} aria-label="Año siguiente" className="p-1.5 rounded-lg hover:bg-stone-100 cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div className="sm:col-span-2">
-              <label className="text-sm font-medium text-stone-700 block mb-1">Título del evento</label>
-              <input value={nuevo.titulo} onChange={e => setNuevo(p => ({ ...p, titulo: e.target.value }))}
-                placeholder="Ej. Día del Alumno, Reunión de Padres…"
-                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700" />
+          {loading ? <div className="h-96 rounded-xl bg-stone-100 animate-pulse" /> : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {MESES.map((mes, m) => {
+                const dias = new Date(anio, m + 1, 0).getDate();
+                const primero = new Date(anio, m, 1).getDay();
+                const celdas = Array.from({ length: primero + dias }, (_, i) => (i < primero ? null : i - primero + 1));
+                return (
+                  <Card key={mes} className="p-3">
+                    <p className="text-sm font-semibold text-stone-800 mb-2">{mes}</p>
+                    <div className="grid grid-cols-7 gap-0.5 text-center">
+                      {DIAS.map((d) => <span key={d} className="text-[9px] text-stone-400">{d[0]}</span>)}
+                      {celdas.map((d, i) => {
+                        if (d === null) return <span key={`v${i}`} />;
+                        const iso = `${anio}-${pad(m + 1)}-${pad(d)}`;
+                        const evs = porDia.get(iso) ?? [];
+                        return (
+                          <button key={iso} onClick={() => setDiaSel(iso)}
+                            className={`relative h-7 text-[11px] rounded cursor-pointer transition-colors
+                              ${iso === diaSel ? "bg-primary-700 text-white" : iso === hoy ? "ring-1 ring-primary-500 text-primary-800" : "hover:bg-stone-100 text-stone-700"}`}>
+                            {d}
+                            {evs.length > 0 && (
+                              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
+                                {evs.slice(0, 3).map((e) => <span key={e.eventoId} className={`w-1 h-1 rounded-full ${cfg(e.tipoEvento).dot}`} />)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
-            <div>
-              <label className="text-sm font-medium text-stone-700 block mb-1">Tipo</label>
-              <select value={nuevo.tipo} onChange={e => setNuevo(p => ({ ...p, tipo: e.target.value as TipoEvento }))}
-                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700">
-                <option value="clases">Clases normales</option>
-                <option value="examen">Semana de exámenes</option>
-                <option value="descanso">Descanso / Vacaciones</option>
-                <option value="actividad">Actividad / Recordatorio</option>
-                <option value="asueto">Asueto</option>
-                <option value="festivo">Día festivo</option>
-                <option value="institucional">Evento institucional</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-stone-700 block mb-1">Fecha inicio</label>
-              <input type="date" value={nuevo.fecha} onChange={e => setNuevo(p => ({ ...p, fecha: e.target.value }))}
-                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-stone-700 block mb-1">Fecha fin <span className="text-stone-400 font-normal">(opcional)</span></label>
-              <input type="date" value={nuevo.fechaFin} onChange={e => setNuevo(p => ({ ...p, fechaFin: e.target.value }))}
-                min={nuevo.fecha}
-                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700" />
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="recordatorio" checked={nuevo.recordatorio}
-                onChange={e => setNuevo(p => ({ ...p, recordatorio: e.target.checked }))}
-                className="w-4 h-4 accent-primary-700 cursor-pointer" />
-              <label htmlFor="recordatorio" className="text-sm text-stone-700 cursor-pointer">
-                Enviar recordatorio un día antes por correo
-              </label>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="outline" size="sm" onClick={() => setShowForm(false)}>Cancelar</Btn>
-            <Btn variant="primary" size="sm" onClick={handleCrear} disabled={!nuevo.titulo || !nuevo.fecha}>
-              Guardar evento
-            </Btn>
-          </div>
-        </Card>
-      )}
+          )}
+        </div>
 
-      {/* Day detail panel */}
-      {selectedDay && (
-        <Card className={`p-4 border-2 ${eventosDelDia.length ? "border-primary-200 bg-primary-50" : "border-stone-200"}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-semibold text-stone-900 text-sm">
-                {new Date(selectedDay + "T12:00:00").toLocaleDateString("es-GT", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-              </p>
-              {eventosDelDia.length === 0 ? (
-                <p className="text-stone-400 text-xs mt-1">Sin eventos · <button className="text-primary-700 underline" onClick={() => { setNuevo(p => ({ ...p, fecha: selectedDay })); setShowForm(true); }}>Agregar evento</button></p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {eventosDelDia.map(e => (
-                    <span key={e.id} className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${TIPO_CFG[e.tipo as TipoEvento]?.badge ?? ""}`}>
-                      {e.titulo}
-                      {e.recordatorio && <Bell className="w-3 h-3 opacity-60" />}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={() => setSelectedDay(null)} className="text-stone-400 hover:text-stone-600 shrink-0"><X className="w-4 h-4" /></button>
-          </div>
-        </Card>
-      )}
-
-      {/* 12-month grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 12 }, (_, m) => (
-          <MiniCalendario key={m} year={YEAR} month={m} eventos={eventos} onDayClick={setSelectedDay} selectedDay={selectedDay} />
-        ))}
+        <div className="space-y-4">
+          {diaSel && (
+            <Card className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-stone-800 capitalize">{formatoLargo(diaSel)}</p>
+                <button onClick={() => { setErrorForm(""); setForm(vacio(diaSel)); }} className="text-xs text-primary-700 hover:underline cursor-pointer">Agregar</button>
+              </div>
+              {delDia.length ? delDia.map((e) => tarjetaEvento(e)) : <p className="text-xs text-stone-500">Sin eventos este día.</p>}
+            </Card>
+          )}
+          <Card className="p-4 space-y-2">
+            <p className="text-sm font-semibold text-stone-800 flex items-center gap-2"><CalendarDays className="w-4 h-4 text-stone-400" />Próximos eventos</p>
+            {proximos.length ? proximos.map((e) => tarjetaEvento(e, true)) : <p className="text-xs text-stone-500">No hay eventos próximos.</p>}
+          </Card>
+        </div>
       </div>
 
-      {/* Upcoming events list */}
-      <Card className="p-5">
-        <h3 className="font-display font-semibold text-stone-800 mb-3">Eventos del ciclo escolar</h3>
-        <div className="space-y-1.5 max-h-80 overflow-y-auto scrollbar-hide">
-          {eventos
-            .filter(e => e.tipo !== "clases")
-            .sort((a, b) => a.fecha.localeCompare(b.fecha))
-            .map(e => {
-              const cfg = TIPO_CFG[e.tipo as TipoEvento] ?? TIPO_CFG.clases;
-              const inicio = e.fecha.split("-").reverse().join("/");
-              const fin = e.fechaFin ? e.fechaFin.split("-").reverse().join("/") : null;
-              return (
-                <div key={e.id} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${cfg.badge} text-xs`}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                    <span className="font-medium truncate">{e.titulo}</span>
-                    {e.recordatorio && <Bell className="w-3 h-3 shrink-0 opacity-60" />}
-                  </div>
-                  <span className="font-mono-data shrink-0 ml-2">{fin ? `${inicio} – ${fin}` : inicio}</span>
-                </div>
-              );
-            })}
-        </div>
-      </Card>
+      <Modal open={!!form} onClose={() => !guardando && setForm(null)} title={form?.eventoId ? "Editar evento" : "Crear evento"}
+        footer={<>
+          <Btn variant="ghost" onClick={() => setForm(null)} disabled={guardando}>Cancelar</Btn>
+          <Btn variant="primary" loading={guardando} onClick={guardar}>Guardar</Btn>
+        </>}>
+        {form && (
+          <div className="space-y-3">
+            <Input label="Nombre" value={form.nombre} maxLength={150} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej. Exámenes de cuarta unidad" />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Fecha" type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
+              <Select label="Tipo" value={form.tipoEvento} onChange={(e) => setForm({ ...form, tipoEvento: e.target.value as TipoEvento })}>
+                {TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </Select>
+            </div>
+            <Textarea label="Descripción (opcional)" rows={3} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
+            <Toggle checked={form.enviarRecordatorio} onChange={(v) => setForm({ ...form, enviarRecordatorio: v })} label="Enviar recordatorio a los encargados el día anterior" />
+            {form.tipoEvento === "Festivo" && <p className="text-xs text-stone-500">Los días festivos aparecen como “sin clases” en el horario de alumnos y encargados.</p>}
+            {esGlobal ? <Badge variant="info">Evento general: aplica a todas las sedes</Badge> : <Badge variant="neutral">Se publica para la sede</Badge>}
+            {errorForm && <AlertBanner type="error" message={errorForm} />}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!aEliminar} onClose={() => !guardando && setAEliminar(null)} title="Eliminar evento"
+        footer={<>
+          <Btn variant="ghost" onClick={() => setAEliminar(null)} disabled={guardando}>Cancelar</Btn>
+          <Btn variant="destructive" loading={guardando} onClick={eliminar}>Eliminar</Btn>
+        </>}>
+        {aEliminar && <p className="text-sm text-stone-600">¿Eliminar “{aEliminar.nombre}” del {formatoLargo(diaISO(aEliminar.fecha))}?</p>}
+      </Modal>
     </div>
   );
 }

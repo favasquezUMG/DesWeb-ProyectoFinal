@@ -114,7 +114,7 @@ export async function actualizarEstadoSolicitud(
   token?: string
 ): Promise<SolicitudGuardada | null> {
   try{
-    const response = await axios.patch(
+    const response = await axios.put(
       `${API_URL}/api/solicitudes/${solicitudId}/estado`,
       {
         estado: nuevoEstado,

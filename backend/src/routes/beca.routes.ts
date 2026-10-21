@@ -15,7 +15,8 @@ import {
     getPolitica,
     upsertPolitica,
     getMisBecas,
-    solicitarBeca
+    solicitarBeca,
+    getBecasActivas
 } from '../controllers/beca.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, verificarRol, ROL } from "../middlewares/role.middleware.js";
@@ -29,6 +30,7 @@ const soloAdmin = permitir('becas');
 // Portal de encargados y alumnos
 router.get('/mias', verificarRol(ROL.ENCARGADO, ROL.ALUMNO), getMisBecas);
 router.post('/solicitar', verificarRol(ROL.ENCARGADO), solicitarBeca);
+router.get("/becas-activas", verificarRol(ROL.ADMIN,ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getBecasActivas);
 
 // Programas y politica de la sede
 router.get('/programas', soloAdmin, getProgramas);

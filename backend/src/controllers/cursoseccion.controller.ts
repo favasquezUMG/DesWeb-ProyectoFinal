@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
-import { puedeOperarSede } from '../middlewares/role.middleware.js';
+import { puedeOperarSede, sedeDelAlcance, obtenerNombreRol, esPersonalAdministrativo } from '../middlewares/role.middleware.js';
 import { formatHora } from '../lib/horas.js';
 
 const incluirDetalle = {
@@ -36,6 +36,11 @@ export const getCursosSeccion = async (req: AuthenticatedRequest, res: Response)
         if (seccionId) where.seccionId = Number(seccionId);
         if (catedraticoId) where.catedraticoId = Number(catedraticoId);
         if (sedeId) where.seccion = { sedeId: Number(sedeId) };
+        // El personal de una sede solo ve las asignaciones de su sede
+        if (esPersonalAdministrativo(await obtenerNombreRol(req))) {
+            const alcance = await sedeDelAlcance(req);
+            if (alcance !== null) where.seccion = { ...(where.seccion ?? {}), sedeId: alcance };
+        }
 
         const asignaciones = await prisma.cursoSeccion.findMany({
             where,
@@ -300,5 +305,42 @@ export const deleteCursoSeccionById = async (req: AuthenticatedRequest, res: Res
         return res.json({ status: 'success', message: `Se eliminó la asignación con ID: ${id} correctamente.` });
     } catch (error) {
         return res.status(500).json({ status: 'error', message: `Error al eliminar la asignación con ID: ${id}.`, error });
+    }
+};
+// GET /api/curso-seccion/catedraticos — docentes activos de la sede con su carga asignada
+export const getCatedraticosSede = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const alcance = await sedeDelAlcance(req);
+        const catedraticos = await prisma.catedratico.findMany({
+            where: { usuario: { deletedAt: null, ...(alcance !== null ? { sedeId: alcance } : {}) } },
+            include: {
+                usuario: { select: { usuarioId: true, nombres: true, apellidos: true, email: true, sede: { select: { nombre: true } } } },
+                cursosSeccion: {
+                    where: alcance !== null ? { seccion: { sedeId: alcance } } : {},
+                    include: { curso: { select: { nombre: true } }, seccion: { include: { grado: { select: { nombre: true } } } }, horarios: true },
+                },
+            },
+            orderBy: { usuario: { apellidos: 'asc' } },
+        });
+
+        return res.json({
+            status: 'success',
+            data: catedraticos.map((c) => ({
+                catedraticoId: c.catedraticoId,
+                nombre: `${c.usuario.nombres} ${c.usuario.apellidos}`,
+                email: c.usuario.email,
+                especialidad: c.especialidad,
+                sede: c.usuario.sede?.nombre ?? null,
+                cursos: c.cursosSeccion.map((cs) => ({
+                    cursoSeccionId: cs.cursoSeccionId,
+                    curso: cs.curso.nombre,
+                    seccion: `${cs.seccion.grado.nombre} ${cs.seccion.nombre}`,
+                    anioLectivo: cs.seccion.anioLectivo,
+                    horarios: cs.horarios.map((h) => ({ diaSemana: h.diaSemana, horaInicio: formatHora(h.horaInicio), horaFin: formatHora(h.horaFin) })),
+                })),
+            })),
+        });
+    } catch (error) {
+        return res.status(500).json({ status: 'error', message: 'Error al obtener los catedráticos.', error });
     }
 };
