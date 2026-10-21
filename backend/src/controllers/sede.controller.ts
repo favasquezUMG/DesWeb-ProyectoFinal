@@ -106,45 +106,40 @@ export const actualizarSede = async (req: Request, res: Response) => {
 // GET /api/sedes/metricas — Métricas consolidadas por sede para gráficos y dashboards
 export const getSedesMetricas = async (_req: Request, res: Response) => {
   try {
-    // 1. Buscamos el rol 'Alumno' en la base de datos
-    const rolAlumno = await prisma.rol.findFirst({
-      where: { nombre: "Alumno" },
-    });
+    const anioActual = new Date().getFullYear();
 
-    if (!rolAlumno) {
-      return res.status(400).json({
-        status: "error",
-        message: "No se encontró el rol 'Alumno' en la base de datos.",
-      });
-    }
-
-    // 2. Obtenemos las sedes activas
+    // 1. Obtenemos las sedes activas
     const sedes = await prisma.sede.findMany({
-      where: { activo: true, deletedAt: null },
-      orderBy: { nombre: "asc" },
+      where: {
+        activo: true,
+        deletedAt: null,
+      },
       select: {
         sedeId: true,
         nombre: true,
       },
     });
 
-    // 3. Calculamos métricas reales por sede
-    const data = await Promise.all(
+    const rolAlumno = await prisma.rol.findFirst({
+      where: { nombre: "Alumno" },
+    });
+
+    if (!rolAlumno) {
+      return res.status(400).json({ status: "error", message: "No se encontró el rol Alumno." });
+    }
+
+    // 2. Procesamos las métricas por cada sede
+    const resultado = await Promise.all(
       sedes.map(async (sede) => {
-        // Alumnos (usuarios) pertenecientes a esta sede
-        const alumnosSede = await prisma.usuario.findMany({
+        // a) Total de alumnos activos en esta sede
+        const totalAlumnos = await prisma.usuario.count({
           where: {
             sedeId: sede.sedeId,
             rolId: rolAlumno.rolId,
             deletedAt: null,
           },
-          select: { usuarioId: true },
         });
 
-        const totalAlumnos = alumnosSede.length;
-        const alumnoIds = alumnosSede.map((a) => a.usuarioId);
-
-        // Si la sede no tiene alumnos registrados, devolvemos 0 en todo
         if (totalAlumnos === 0) {
           return {
             sedeId: sede.sedeId,
@@ -155,56 +150,108 @@ export const getSedesMetricas = async (_req: Request, res: Response) => {
           };
         }
 
-        // --- 1. TASA DE APROBACIÓN REAL ---
-        const totalNotas = await prisma.nota.count({
+        // b) Obtener todas las notas registradas en esta sede para el año actual
+        const notasDetalle = await prisma.nota.findMany({
           where: {
-            alumnoId: { in: alumnoIds },
+            alumno: {
+              usuario: {
+                sedeId: sede.sedeId,
+                deletedAt: null,
+              },
+            },
+            actividad: {
+              unidad: {
+                cursoSeccion: {
+                  seccion: {
+                    anioLectivo: anioActual,
+                  },
+                },
+              },
+            },
+          },
+          select: {
+            alumnoId: true,
+            valor: true,
+            actividad: {
+              select: {
+                unidadId: true,
+              },
+            },
           },
         });
 
-        const notasAprobadas = await prisma.nota.count({
-          where: {
-            alumnoId: { in: alumnoIds },
-            valor: { gte: 60 },
-          },
+        // c) Agrupar y sumar notas por (alumnoId + unidadId) -> Total Unidad
+        const sumaUnidades: Record<string, number> = {}; // Clave: `${alumnoId}_${unidadId}`
+
+        notasDetalle.forEach((n) => {
+          const key = `${n.alumnoId}_${n.actividad.unidadId}`;
+          sumaUnidades[key] = (sumaUnidades[key] || 0) + Number(n.valor);
         });
 
-        const aprobacion = totalNotas > 0
-          ? Math.round((notasAprobadas / totalNotas) * 100)
+        // d) Agrupar los Totales de Unidad por Alumno
+        const promediosAlumnosSede: Record<number, number[]> = {};
+
+        Object.entries(sumaUnidades).forEach(([key, totalUnidad]) => {
+          const [alumnoIdStr] = key.split("_");
+          const alumnoId = Number(alumnoIdStr);
+
+          if (!promediosAlumnosSede[alumnoId]) {
+            promediosAlumnosSede[alumnoId] = [];
+          }
+          promediosAlumnosSede[alumnoId].push(totalUnidad);
+        });
+
+        // e) Calcular tasa de aprobación real de la sede
+        const alumnosEvaluadosSede = Object.keys(promediosAlumnosSede).length;
+        let aprobadosSede = 0;
+
+        Object.values(promediosAlumnosSede).forEach((totalesUnidad) => {
+          const promedioAlumno =
+            totalesUnidad.reduce((acc, curr) => acc + curr, 0) / totalesUnidad.length;
+
+          // Criterio de aprobación: Nota Final promedio >= 61
+          if (promedioAlumno >= 61) {
+            aprobadosSede++;
+          }
+        });
+
+        const tasaAprobacionSede = alumnosEvaluadosSede > 0
+          ? Math.round((aprobadosSede / alumnosEvaluadosSede) * 100)
           : 0;
 
-        // --- 2. PORCENTAJE EN MORA REAL ---
-        // Agrupamos por `alumnoId` (en la tabla pago) buscando pagos en estado 'Pendiente'
-        const alumnosEnMora = await prisma.pago.groupBy({
-          by: ["alumnoId"],
+        // f) Métrica de mora de la sede (pagos pendientes del año actual)
+        const pagosPendientes = await prisma.pago.count({
           where: {
-            alumnoId: { in: alumnoIds },
-            OR: [
-              { estado: "Pendiente" },
-              { estado: "PENDIENTE" },
-            ],
+            anioLectivo: anioActual,
+            estado: "Pendiente",
+            alumno: {
+              usuario: {
+                sedeId: sede.sedeId,
+              },
+            },
           },
         });
 
-        const mora = Math.round((alumnosEnMora.length / totalAlumnos) * 100);
+        const porcentajeMora = totalAlumnos > 0
+          ? Math.round((pagosPendientes / totalAlumnos) * 100)
+          : 0;
 
         return {
           sedeId: sede.sedeId,
           nombre: sede.nombre,
           alumnos: totalAlumnos,
-          aprobacion,
-          mora,
+          aprobacion: tasaAprobacionSede,
+          mora: porcentajeMora,
         };
       })
     );
 
-    return res.json({ status: "success", data });
+    return res.json({ status: "success", data: resultado });
   } catch (error) {
-    console.error("Error en getSedesMetricas:", error);
+    console.error("Error al obtener métricas de sedes:", error);
     return res.status(500).json({
       status: "error",
-      message: "Error al generar las métricas de las sedes.",
-      error: error instanceof Error ? error.message : String(error),
+      message: "Error al generar métricas de las sedes.",
     });
   }
 };

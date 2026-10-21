@@ -542,6 +542,8 @@ export const getConteoAlumnos = async (req: AuthenticatedRequest, res: Response)
 
 export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Response) => {
   try {
+    const anioActual = new Date().getFullYear();
+
     const rolAlumno = await prisma.rol.findFirst({
       where: { nombre: "Alumno" },
     });
@@ -553,7 +555,7 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
       });
     }
 
-    // 1. Obtener IDs de todos los alumnos activos
+    // 1
     const alumnosActivos = await prisma.usuario.findMany({
       where: {
         rolId: rolAlumno.rolId,
@@ -570,45 +572,90 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
         data: {
           tasaAprobacion: 0,
           promedioGeneral: 0,
-          subtexto: "Sin datos registrados",
+          subtexto: "Sin alumnos registrados",
         },
       });
     }
 
-    // 2. Total de notas registradas de alumnos activos
-    const totalNotas = await prisma.nota.count({
+    const notasDetalle = await prisma.nota.findMany({
       where: {
         alumnoId: { in: alumnoIds },
+        actividad: {
+          unidad: {
+            cursoSeccion: {
+              seccion: {
+                anioLectivo: anioActual,
+              },
+            },
+          },
+        },
       },
-    });
-
-    // 3. Cantidad de notas aprobadas (>= 60)
-    const notasAprobadas = await prisma.nota.count({
-      where: {
-        alumnoId: { in: alumnoIds },
-        valor: { gte: 60 },
-      },
-    });
-
-    // 4. Promedio general de todas las notas
-    const promedioAggregate = await prisma.nota.aggregate({
-      where: {
-        alumnoId: { in: alumnoIds },
-      },
-      _avg: {
+      select: {
+        alumnoId: true,
         valor: true,
+        actividad: {
+          select: {
+            unidadId: true,
+          },
+        },
       },
     });
 
-    const tasaAprobacion = totalNotas > 0 
-      ? Math.round((notasAprobadas / totalNotas) * 100) 
-      : 0;
+    const sumaUnidades: Record<string, number> = {}; // key: `${alumnoId}_${unidadId}`
 
-    const promedioGeneral = promedioAggregate._avg.valor
-      ? Number(promedioAggregate._avg.valor).toFixed(1)
-      : "0";
+    notasDetalle.forEach((n) => {
+      const key = `${n.alumnoId}_${n.actividad.unidadId}`;
+      sumaUnidades[key] = (sumaUnidades[key] || 0) + Number(n.valor);
+    });
 
-    // Contamos en cuántas sedes hay presencia de alumnos activos
+    const promediosAlumnos: Record<number, number[]> = {};
+
+    Object.entries(sumaUnidades).forEach(([key, totalUnidad]) => {
+      const [alumnoIdStr] = key.split("_");
+      const alumnoId = Number(alumnoIdStr);
+
+      if (!promediosAlumnos[alumnoId]) {
+        promediosAlumnos[alumnoId] = [];
+      }
+      promediosAlumnos[alumnoId].push(totalUnidad);
+    });
+
+    const totalAlumnosEvaluados = Object.keys(promediosAlumnos).length;
+
+    if (totalAlumnosEvaluados === 0) {
+      return res.json({
+        status: "success",
+        data: {
+          tasaAprobacion: 0,
+          promedioGeneral: 0,
+          subtexto: "Sin evaluaciones en el ciclo actual",
+        },
+      });
+    }
+
+    let alumnosAprobados = 0;
+    let sumaPromediosGenerales = 0;
+
+    // 3
+    Object.values(promediosAlumnos).forEach((totalesUnidad) => {
+      const promedioAlumno =
+        totalesUnidad.reduce((acc, curr) => acc + curr, 0) / totalesUnidad.length;
+
+      sumaPromediosGenerales += promedioAlumno;
+
+      // Criterio de aprobación: Nota Final >= 61 (o 60 según colegio)
+      if (promedioAlumno >= 61) {
+        alumnosAprobados++;
+      }
+    });
+
+    const tasaAprobacion = Math.round(
+      (alumnosAprobados / totalAlumnosEvaluados) * 100
+    );
+    const promedioGeneral = (
+      sumaPromediosGenerales / totalAlumnosEvaluados
+    ).toFixed(1);
+
     const sedesConAlumnos = await prisma.sede.count({
       where: {
         activo: true,
