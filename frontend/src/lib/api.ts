@@ -786,3 +786,131 @@ export async function verificarPago(paymentIntentId: string): Promise<Verificaci
   const body = await request<{ status: "success"; data: VerificacionPagoDto }>(`/api/pagos/verificar/${paymentIntentId}`);
   return body.data;
 }
+
+// ─── Carrito de pagos (eventos con cobro + colegiaturas) ───────────────────────
+
+export interface EventoDisponibleDto {
+  eventoId: number;
+  nombre: string;
+  descripcion: string | null;
+  tipoEvento: string;
+  fecha: string;
+  fechaLimiteInscripcion: string;
+  costo: number;
+  cupoMaximo: number | null;
+  /** null = sin límite de cupo. */
+  cuposDisponibles: number | null;
+  inscripcionAbierta: boolean;
+  alumnos: { alumnoId: number; nombre: string; inscrito: boolean }[];
+}
+
+export type ItemCarritoInput =
+  | { tipo: "evento"; alumnoId: number; eventoId: number }
+  | { tipo: "colegiatura"; alumnoId: number; anioLectivo: number; mes: number };
+
+export interface IntentCarritoDto {
+  ordenId: number;
+  clientSecret: string;
+  paymentIntentId: string;
+  total: number;
+  lineas: { tipo: "evento" | "colegiatura"; alumnoId: number; alumno: string; descripcion: string; monto: number }[];
+}
+
+export interface InscripcionDto {
+  inscripcionId: number;
+  eventoId: number;
+  evento: string;
+  fecha: string;
+  alumnoId: number;
+  alumno: string;
+  monto: number;
+  estado: "Confirmada" | "Reembolsada";
+  fechaPago: string | null;
+}
+
+export async function getEventosDisponibles(): Promise<EventoDisponibleDto[]> {
+  const body = await request<{ status: "success"; data: EventoDisponibleDto[] }>("/api/pagos/carrito/eventos");
+  return body.data;
+}
+
+export async function getMisInscripciones(): Promise<InscripcionDto[]> {
+  const body = await request<{ status: "success"; data: InscripcionDto[] }>("/api/pagos/carrito/inscripciones");
+  return body.data;
+}
+
+/** El servidor valida cada concepto y calcula el total; el frontend solo dice qué quiere pagar. */
+export async function crearIntentCarrito(items: ItemCarritoInput[]): Promise<IntentCarritoDto> {
+  const body = await request<{ status: "success"; data: IntentCarritoDto }>("/api/pagos/carrito/intent", {
+    method: "POST",
+    body: JSON.stringify({ items }),
+  });
+  return body.data;
+}
+
+export async function verificarCarrito(paymentIntentId: string): Promise<VerificacionPagoDto> {
+  const body = await request<{ status: "success"; data: VerificacionPagoDto }>(`/api/pagos/carrito/verificar/${paymentIntentId}`);
+  return body.data;
+}
+
+// ─── Eventos con cobro (administración) ───────────────────────────────────────
+
+export interface EventoDto {
+  eventoId: number;
+  sedeId: number | null;
+  nombre: string;
+  descripcion: string | null;
+  fecha: string;
+  tipoEvento: string;
+  enviarRecordatorio: boolean;
+  requierePago: boolean;
+  costo: string | null;
+  cupoMaximo: number | null;
+  fechaLimiteInscripcion: string | null;
+  sede?: { nombre: string } | null;
+}
+
+export interface EventoInput {
+  nombre: string;
+  descripcion?: string | null;
+  fecha: string;
+  tipoEvento: string;
+  sedeId?: number | null;
+  requierePago: boolean;
+  costo: number | null;
+  cupoMaximo: number | null;
+  fechaLimiteInscripcion: string | null;
+}
+
+export interface InscritosEventoDto {
+  eventoId: number;
+  nombre: string;
+  cupoMaximo: number | null;
+  inscritos: number;
+  recaudado: number;
+  detalle: { inscripcionId: number; alumnoId: number; alumno: string; grado: string; monto: number; estado: string; fechaPago: string | null }[];
+}
+
+export async function getEventos(sedeId?: number | null): Promise<EventoDto[]> {
+  const query = sedeId ? `?sedeId=${sedeId}` : "";
+  const body = await request<{ status: "success"; data: EventoDto[] }>(`/api/events${query}`);
+  return body.data;
+}
+
+export async function crearEvento(input: EventoInput): Promise<EventoDto> {
+  const body = await request<{ status: "success"; data: EventoDto }>("/api/events", { method: "POST", body: JSON.stringify(input) });
+  return body.data;
+}
+
+export async function actualizarEvento(eventoId: number, input: Partial<EventoInput>): Promise<EventoDto> {
+  const body = await request<{ status: "success"; data: EventoDto }>(`/api/events/${eventoId}`, { method: "PUT", body: JSON.stringify(input) });
+  return body.data;
+}
+
+export async function eliminarEvento(eventoId: number): Promise<MessageResponse> {
+  return request(`/api/events/${eventoId}`, { method: "DELETE" });
+}
+
+export async function getInscritosEvento(eventoId: number): Promise<InscritosEventoDto> {
+  const body = await request<{ status: "success"; data: InscritosEventoDto }>(`/api/events/${eventoId}/inscritos`);
+  return body.data;
+}

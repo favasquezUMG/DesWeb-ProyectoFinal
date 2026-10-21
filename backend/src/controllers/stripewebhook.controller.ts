@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { stripe } from '../config/stripe.config.js';
 import type Stripe from 'stripe';
+import { confirmarOrden, reembolsarOrden } from '../services/carrito.service.js';
+import { enviarComprobanteEnSegundoPlano, enviarComprobantePago } from '../services/comprobante.service.js';
 
 /**
  * Webhook de Stripe. ESTO es lo que marca una colegiatura como pagada,
@@ -34,6 +36,16 @@ export const stripeWebhook = async (req: Request, res: Response) => {
         switch (evento.type) {
             case 'payment_intent.succeeded': {
                 const paymentIntent = evento.data.object as Stripe.PaymentIntent;
+
+                // Pago del carrito: confirma todo lo de la orden (colegiaturas e inscripciones)
+                if (paymentIntent.metadata?.ordenId) {
+                    const confirmada = await confirmarOrden(paymentIntent.id);
+                    console.log(confirmada
+                        ? `✅ Orden #${paymentIntent.metadata.ordenId} pagada`
+                        : `Evento repetido ignorado: ${paymentIntent.id}`);
+                    break;
+                }
+
                 const { alumnoId, anioLectivo, mes, concepto } = paymentIntent.metadata ?? {};
 
                 if (!alumnoId || !anioLectivo || !mes || !concepto) {
@@ -65,6 +77,7 @@ export const stripeWebhook = async (req: Request, res: Response) => {
                 }
 
                 console.log(`✅ Pago confirmado: alumno ${alumnoId}, mes ${mes}/${anioLectivo}`);
+                enviarComprobanteEnSegundoPlano(() => enviarComprobantePago(paymentIntent.id));
                 break;
             }
 
@@ -86,7 +99,15 @@ export const stripeWebhook = async (req: Request, res: Response) => {
                         ? charge.payment_intent
                         : charge.payment_intent?.id;
 
+                // Stripe manda este evento también en reembolsos parciales; solo se revierte
+                // el pago cuando ya se devolvió todo el cargo.
+                if (!charge.refunded) {
+                    console.log(`Reembolso parcial de ${charge.amount_refunded / 100} en ${paymentIntentId}; no se cambia el estado.`);
+                    break;
+                }
+
                 if (paymentIntentId) {
+                    await reembolsarOrden(paymentIntentId);
                     await prisma.pago.updateMany({
                         where: { stripePaymentId: paymentIntentId },
                         data: { estado: 'Reembolsado' },
@@ -102,7 +123,9 @@ export const stripeWebhook = async (req: Request, res: Response) => {
 
         return res.json({ received: true });
     } catch (error: any) {
+        // Se responde 500 para que Stripe reintente el evento. Es seguro porque
+        // todos los casos de arriba son idempotentes.
         console.error('Error procesando webhook:', error?.message ?? error);
-        return res.json({ received: true, error: 'procesamiento fallido' });
+        return res.status(500).json({ received: false, error: 'procesamiento fallido' });
     }
 };

@@ -25,7 +25,7 @@ model Sede {
   comunicados   Comunicado[]
   programasBeca ProgramaBeca[]
   politicasBeca PoliticaBeca[]
-  solicitudes Solicitud[]
+  solicitudes   Solicitud[]
 }
 
 // Los roles de sistema (los 5 base) no se pueden renombrar ni eliminar porque el codigo
@@ -106,6 +106,7 @@ model Usuario {
   historialBecas   BecaHistorial[]
   rolesAdicionales UsuarioRol[]
   bitacora         Bitacora[]
+  ordenesPago      OrdenPago[]
 }
 
 model Catedratico {
@@ -140,6 +141,7 @@ model Alumno {
   becas            Beca[]
   pagos            Pago[]
   reportesConducta ReporteConducta[]
+  eventos          InscripcionEvento[]
 }
 
 // Vinculo de un alumno con cada adulto responsable. Un alumno puede tener varios
@@ -399,23 +401,64 @@ model Pago {
   stripePaymentId String?   @unique @db.VarChar(150)
   estado          String    @default("Pendiente") @db.VarChar(20)
   fechaPago       DateTime?
+  ordenId         Int? // pagado dentro de un carrito (el PaymentIntent queda en la orden)
 
-  alumno Alumno @relation(fields: [alumnoId], references: [alumnoId])
+  alumno Alumno     @relation(fields: [alumnoId], references: [alumnoId])
+  orden  OrdenPago? @relation(fields: [ordenId], references: [ordenId])
 
   @@unique([alumnoId, anioLectivo, mes, concepto])
 }
 
 model Evento {
-  eventoId              Int       @id @default(autoincrement())
-  sedeId                Int?
-  nombre                String    @db.VarChar(150)
-  descripcion           String?   @db.VarChar(255)
-  fecha                 DateTime  @db.Date
-  tipoEvento            String    @db.VarChar(20)
-  enviarRecordatorio    Boolean   @default(true)
-  recordatorioEnviadoEn DateTime?
+  eventoId               Int       @id @default(autoincrement())
+  sedeId                 Int?
+  nombre                 String    @db.VarChar(150)
+  descripcion            String?   @db.VarChar(255)
+  fecha                  DateTime  @db.Date
+  tipoEvento             String    @db.VarChar(20)
+  enviarRecordatorio     Boolean   @default(true)
+  recordatorioEnviadoEn  DateTime?
+  // Eventos con cobro: los padres inscriben a sus hijos desde el carrito de pagos
+  requierePago           Boolean   @default(false)
+  costo                  Decimal?  @db.Decimal(10, 2)
+  cupoMaximo             Int? // null = sin limite
+  fechaLimiteInscripcion DateTime? @db.Date // null = hasta el dia anterior al evento
 
-  sede Sede? @relation(fields: [sedeId], references: [sedeId])
+  sede          Sede?               @relation(fields: [sedeId], references: [sedeId])
+  inscripciones InscripcionEvento[]
+}
+
+// Un alumno inscrito a un evento con cobro. Pendiente = en un carrito sin pagar todavia.
+model InscripcionEvento {
+  inscripcionId Int       @id @default(autoincrement())
+  eventoId      Int
+  alumnoId      Int
+  monto         Decimal   @db.Decimal(10, 2) // precio al momento de inscribir
+  estado        String    @default("Pendiente") @db.VarChar(20) // Pendiente, Confirmada, Cancelada, Reembolsada
+  ordenId       Int?
+  createdAt     DateTime  @default(now())
+  fechaPago     DateTime?
+
+  evento Evento     @relation(fields: [eventoId], references: [eventoId], onDelete: Cascade)
+  alumno Alumno     @relation(fields: [alumnoId], references: [alumnoId])
+  orden  OrdenPago? @relation(fields: [ordenId], references: [ordenId])
+
+  @@unique([eventoId, alumnoId])
+}
+
+// Un cobro de Stripe que agrupa todo lo que el encargado pago junto (carrito)
+model OrdenPago {
+  ordenId         Int       @id @default(autoincrement())
+  usuarioId       Int // quien paga
+  total           Decimal   @db.Decimal(10, 2)
+  stripePaymentId String?   @unique @db.VarChar(150)
+  estado          String    @default("Pendiente") @db.VarChar(20) // Pendiente, Pagada, Cancelada, Reembolsada
+  createdAt       DateTime  @default(now())
+  fechaPago       DateTime?
+
+  usuario       Usuario             @relation(fields: [usuarioId], references: [usuarioId])
+  pagos         Pago[]
+  inscripciones InscripcionEvento[]
 }
 
 model Notificacion {
@@ -477,11 +520,11 @@ enum EstadoSolicitud {
 }
 
 model Solicitud {
-  solicitudId     Int             @id @default(autoincrement())
-  numero          String          @unique
-  modo            ModoInscripcion
-  estado          EstadoSolicitud @default(PENDIENTE)
-  
+  solicitudId Int             @id @default(autoincrement())
+  numero      String          @unique
+  modo        ModoInscripcion
+  estado      EstadoSolicitud @default(PENDIENTE)
+
   // Datos Encargado
   encargadoNombres    String
   encargadoApellidos  String
@@ -498,17 +541,17 @@ model Solicitud {
   alumnoCarrera         String?
   alumnoAnio            String?
   alumnoGrado           String?
-  
+
   // Sede
-  sedeId          Int?
-  sede            Sede?           @relation(fields: [sedeId], references: [sedeId])
+  sedeId Int?
+  sede   Sede? @relation(fields: [sedeId], references: [sedeId])
 
   // Metadatos
-  documentos      String[]
-  observaciones   String?
-  fechaSolicitud  DateTime        @default(now())
-  fechaLimite     DateTime
+  documentos     String[]
+  observaciones  String?
+  fechaSolicitud DateTime @default(now())
+  fechaLimite    DateTime
 
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
