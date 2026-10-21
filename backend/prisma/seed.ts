@@ -27,7 +27,9 @@ const SEDES = [
 // Solo las primeras sedes y grados reciben alumnos, cursos y notas, para que el
 // volumen de datos académicos se mantenga manejable. El resto queda con secciones vacías.
 const SEDES_CON_ALUMNOS = 3;
-const GRADOS_CON_ALUMNOS = 6;
+// Grados (índice en GRADOS) que reciben alumnos: mezcla de Primaria, Básico y Diversificado
+// para probar el acceso al portal (Primaria no entra por defecto; Básico y Diversificado sí)
+const GRADOS_CON_ALUMNOS = [0, 2, 4, 6, 7, 9];
 
 const GRADOS = [
     { nombre: 'Primero Primaria', nivel: 'Primaria', orden: 1 },
@@ -198,7 +200,7 @@ async function main() {
     const seccionesConAlumnos = secciones.filter((s) => {
         const iSede = sedes.findIndex((sede) => sede.sedeId === s.sedeId);
         const iGrado = grados.findIndex((grado) => grado.gradoId === s.gradoId);
-        return iSede < SEDES_CON_ALUMNOS && iGrado < GRADOS_CON_ALUMNOS;
+        return iSede < SEDES_CON_ALUMNOS && GRADOS_CON_ALUMNOS.includes(iGrado);
     });
     const sedesConAlumnos = sedes.slice(0, SEDES_CON_ALUMNOS);
 
@@ -314,7 +316,8 @@ async function main() {
             update: {},
             create: {
                 alumnoId: usuario.usuarioId,
-                fechaNacimiento: new Date(2015 - (i % 6), (i * 5) % 12, ((i - 1) % 28) + 1),
+                // Edad acorde al grado: Primero Primaria ~7 años, cada grado suma uno
+                fechaNacimiento: new Date(ANIO_LECTIVO - 6 - (grados.find((g) => g.gradoId === seccion.gradoId)?.orden ?? 1), (i * 5) % 12, ((i - 1) % 28) + 1),
                 seccionId: seccion.seccionId,
             },
         });
@@ -449,15 +452,42 @@ async function main() {
     });
     console.log(`Unidades creadas: ${unidadesCreadas.count}`);
 
-    // 8. Actividades: 3 por unidad, puntosMaximos 10 + 10 + 5 = 25 (las 4 unidades suman 100)
+    // 8. Actividades: cada unidad vale 100 = zona 60 (15 + 15 + 30) + examen 40.
+    // La nota final del curso es el promedio de las 4 unidades.
     // Actividad no tiene @@unique, así que se crean solo las que falten por nombre dentro de la unidad
     const ACTIVIDADES_UNIDAD = [
-        { nombre: 'Actividad 1', puntosMaximos: 10 },
-        { nombre: 'Actividad 2', puntosMaximos: 10 },
-        { nombre: 'Actividad 3', puntosMaximos: 5 },
+        { nombre: 'Tarea 1', puntosMaximos: 15, tipo: 'Zona' as const },
+        { nombre: 'Tarea 2', puntosMaximos: 15, tipo: 'Zona' as const },
+        { nombre: 'Proyecto', puntosMaximos: 30, tipo: 'Zona' as const },
+        { nombre: 'Examen de unidad', puntosMaximos: 40, tipo: 'Examen' as const },
     ];
     // Mes de referencia de cada unidad dentro del ciclo escolar (0 = enero)
     const MES_POR_UNIDAD = [1, 3, 6, 9];
+
+    // Seeds anteriores creaban 'Actividad 1/2/3' de 10 + 10 + 5 puntos (unidades de 25).
+    // Se convierten a la escala nueva y sus notas se escalan en la misma proporción.
+    const CONVERSION_ANTERIOR = [
+        { antes: 'Actividad 1', puntosAntes: 10, ahora: ACTIVIDADES_UNIDAD[0] },
+        { antes: 'Actividad 2', puntosAntes: 10, ahora: ACTIVIDADES_UNIDAD[1] },
+        { antes: 'Actividad 3', puntosAntes: 5, ahora: ACTIVIDADES_UNIDAD[2] },
+    ];
+    for (const { antes, puntosAntes, ahora } of CONVERSION_ANTERIOR) {
+        const viejas = await prisma.actividad.findMany({
+            where: { nombre: antes, puntosMaximos: puntosAntes },
+            select: { actividadId: true },
+        });
+        if (viejas.length === 0) continue;
+        const ids = viejas.map((a) => a.actividadId);
+        const factor = ahora.puntosMaximos / puntosAntes;
+        await prisma.$transaction([
+            prisma.$executeRaw`UPDATE "Nota" SET valor = ROUND(valor * ${factor}::numeric, 2) WHERE "actividadId" = ANY(${ids})`,
+            prisma.actividad.updateMany({
+                where: { actividadId: { in: ids } },
+                data: { nombre: ahora.nombre, puntosMaximos: ahora.puntosMaximos, tipo: ahora.tipo },
+            }),
+        ]);
+        console.log(`Actividades '${antes}' convertidas a '${ahora.nombre}': ${ids.length}`);
+    }
 
     const unidades = await prisma.unidad.findMany({
         select: { unidadId: true, numero: true, actividades: { select: { nombre: true } } },
@@ -465,10 +495,10 @@ async function main() {
     });
 
     const actividadesNuevas = unidades.flatMap((unidad) =>
-        ACTIVIDADES_UNIDAD.flatMap(({ nombre, puntosMaximos }, idx) => {
+        ACTIVIDADES_UNIDAD.flatMap(({ nombre, puntosMaximos, tipo }, idx) => {
             if (unidad.actividades.some((a) => a.nombre === nombre)) return [];
             const fecha = new Date(ANIO_LECTIVO, MES_POR_UNIDAD[(unidad.numero - 1) % 4], 10 + idx * 7);
-            return [{ unidadId: unidad.unidadId, nombre, puntosMaximos, fecha }];
+            return [{ unidadId: unidad.unidadId, nombre, puntosMaximos, fecha, tipo }];
         })
     );
     await prisma.actividad.createMany({ data: actividadesNuevas });
@@ -477,8 +507,8 @@ async function main() {
     // 9. Notas: distribución controlada (no aleatoria) para que ~30% de los alumnos
     // termine con promedio por debajo de 61 y el resto por encima. El "desempeño" de
     // cada alumno es fijo según su posición global y se reparte proporcionalmente
-    // entre las actividades de cada unidad, para que el total de cada curso
-    // (4 unidades x 25 puntos = 100) quede cerca de ese porcentaje.
+    // entre las actividades de cada unidad, para que cada unidad (sobre 100)
+    // y por lo tanto el promedio del curso quede cerca de ese porcentaje.
     // Solo se crean las notas que falten; las ya registradas no se modifican.
     const alumnosOrdenados = await prisma.alumno.findMany({ orderBy: { alumnoId: 'asc' } });
     const desempenoPorAlumno = new Map<number, number>();

@@ -11,6 +11,7 @@ import {
     type Destinatario,
 } from "../services/notificacion.service.js";
 import { plantillaComunicado } from "../templates/mail.templates.js";
+import { filtroAlumnoConAcceso } from "../services/accesoPortal.service.js";
 
 const TIPOS_COMUNICADO = ["Aviso", "Sancion", "Actividad", "Asueto"];
 const DESTINOS = ["encargados", "catedraticos", "alumnos", "todos", "seccion"] as const;
@@ -41,7 +42,8 @@ const resolverDestinatarios = async (
         case "catedraticos":
             return buscarDestinatarios({ catedratico: { isNot: null }, ...(sedeId ? { sedeId } : {}) });
         case "alumnos":
-            return buscarDestinatarios({ alumno: sedeId ? { is: alumnoDeSede } : { isNot: null } });
+            // Solo los alumnos con acceso al portal; a los demas los informa su encargado
+            return buscarDestinatarios({ alumno: { is: { ...alumnoDeSede, ...filtroAlumnoConAcceso } } });
         case "seccion":
             return encargadosDeAlumnos({ seccionId });
         case "todos": {
@@ -190,5 +192,19 @@ export const marcarNotificacionLeida = async (req: AuthenticatedRequest, res: Re
         return res.json({ status: "success", message: "Notificación marcada como leída." });
     } catch (error) {
         return res.status(500).json({ status: "error", message: `Error al actualizar la notificación con ID: ${id}.`, error });
+    }
+};
+
+// PATCH /api/notificaciones/leidas  (marca todas las del usuario como leidas)
+export const marcarTodasLeidas = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const { count } = await prisma.notificacion.updateMany({
+            where: { usuarioId: Number(req.user?.id), leida: false },
+            data: { leida: true },
+        });
+
+        return res.json({ status: "success", message: `${count} notificación(es) marcada(s) como leída(s).` });
+    } catch (error) {
+        return res.status(500).json({ status: "error", message: "Error al marcar las notificaciones como leídas.", error });
     }
 };

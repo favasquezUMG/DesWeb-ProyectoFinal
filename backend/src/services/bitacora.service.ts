@@ -26,3 +26,10 @@ export const obtenerBitacora = (entidad: EntidadBitacora, entidadId: number, lim
         orderBy: { fecha: "desc" },
         take: limite,
     });
+
+export const obtenerBitacoraRecienteGlobal = (limite = 10) =>
+  prisma.bitacora.findMany({
+    take: limite,
+    orderBy: { fecha: "desc" },
+    include: { usuario: { select: { nombres: true, apellidos: true } } },
+  });

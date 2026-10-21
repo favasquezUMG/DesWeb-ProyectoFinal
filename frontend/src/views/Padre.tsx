@@ -1,396 +1,751 @@
-import { useCallback, useEffect, useState } from "react";
-import { CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, Lock, User, Bell, BookOpen, X } from "lucide-react";
-import type { View } from "../types";
-import { PAGOS, NOTAS_ALUMNO } from "../data";
-import { getEstadoCuenta, getMisHijos, type EstadoCuentaDto, type HijoDto, type MesEstadoCuentaDto } from "../lib/api";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, User, Bell, BookOpen,
+  ClipboardList, GraduationCap, KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock,
+} from "lucide-react";
+import type { AppUser, View } from "../types";
+import {
+  getEstadoCuenta, getMisHijos, getHijosEncargado, getBoletinHijo, getOpcionesMatricula, crearMatricula,
+  getAsistenciaHijos, setNotificacionesHijo, cambiarPassword, restablecerPasswordHijo, getHorarioHijo, getEventos,
+  type EstadoCuentaDto, type HijoDto, type MesEstadoCuentaDto, type HijoEncargadoDto, type BoletinHijoDto,
+  type OpcionesMatriculaDto, type SeccionMatriculaDto, type MatriculaCreadaResponse,
+  type AsistenciaHijoDto, type ClaseAlumnoDto, type EventoDto,
+} from "../lib/api";
+import { generarBoletinPdf } from "../lib/boletinPdf";
 import { PagoColegiaturaModal, formatoQ } from "../components/PagoColegiatura";
 import { CarritoBoton, claveColegiatura, useCarrito } from "../components/Carrito";
+import SolicitudInscripcion from "../components/SolicitudInscripcion";
+import CalendarioEventos from "../components/CalendarioEventos";
+import HorarioSemanal, { asuetosDeLaSemana, diaSemanaHoy, jornadaPorDia } from "../components/HorarioSemanal";
 import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
-  AlertBanner, Stepper, TH, TD, Select, EmptyState
+  AlertBanner, Stepper, TH, TD, Select, EmptyState, Input, Toggle, Modal
 } from "../components/Ui";
 import AvisosPadre from "./AvisosPadre";
+import AsistenciaPadre from "./AsistenciaPadre";
 import BecasPadre from "./BecasPadre";
 import EventosPadre from "./EventosPadre";
 
-function DashboardPadre() {
-  const [hijo, setHijo] = useState("María José Ajú Pac");
-  const hijos = ["María José Ajú Pac", "Pedro José Ajú Pac"];
+const errorDe = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
-  const cursosConNotas = NOTAS_ALUMNO.filter(c => c.u1 !== null);
-  const promedioGeneral = Math.round(
-    cursosConNotas.reduce((acc, c) => {
-      const vals = [c.u1, c.u2, c.u3].filter(v => v !== null) as number[];
-      return acc + (vals.reduce((a, b) => a + b, 0) / vals.length);
-    }, 0) / cursosConNotas.length
+// ─── Hijos a cargo (compartido por las pantallas) ────────────────────────────
+
+function useHijosEncargado() {
+  const [hijos, setHijos] = useState<HijoEncargadoDto[] | null>(null);
+  const [error, setError] = useState("");
+
+  const recargar = useCallback(() => {
+    return getHijosEncargado()
+      .then(setHijos)
+      .catch((e) => setError(errorDe(e, "No se pudieron cargar los alumnos a su cargo.")));
+  }, []);
+
+  useEffect(() => { recargar(); }, [recargar]);
+
+  return { hijos, setHijos, error, recargar };
+}
+
+function SelectorHijo({ hijos, value, onChange }: { hijos: HijoEncargadoDto[]; value: number | null; onChange: (id: number) => void }) {
+  if (hijos.length <= 1) return null;
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-sm text-stone-500">Viendo:</span>
+      {hijos.map((h) => (
+        <button key={h.alumnoId} onClick={() => onChange(h.alumnoId)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer
+            ${value === h.alumnoId ? "bg-primary-700 text-white" : "bg-white border border-stone-200 text-stone-700 hover:border-primary-300"}`}>
+          {h.nombre.split(" ").slice(0, 2).join(" ")}{h.retirado ? " (retirado)" : ""}
+        </button>
+      ))}
+    </div>
   );
+}
 
-  const pagoPendiente = PAGOS.filter(p => p.estado === "vencido" || p.estado === "pendiente");
+function SinHijos({ title }: { title: string }) {
+  return (
+    <div className="space-y-5">
+      <SectionHeader title={title} />
+      <EmptyState icon={<User className="w-10 h-10" />} title="Sin alumnos asociados"
+        description="Su cuenta no tiene alumnos a cargo. Comuníquese con la administración del colegio." />
+    </div>
+  );
+}
+
+function Cargando({ filas = 3 }: { filas?: number }) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {Array.from({ length: filas }, (_, i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
+    </div>
+  );
+}
+
+const colorNota = (n: number | null, minimo = 61) =>
+  n === null ? "text-stone-300" : n >= minimo ? "text-success-700" : "text-danger-700";
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v: View) => void }) {
+  const anio = new Date().getFullYear();
+  const mesActual = new Date().getMonth() + 1;
+  const { hijos, error: errorHijos } = useHijosEncargado();
+  const [hijoId, setHijoId] = useState<number | null>(null);
+  const [boletin, setBoletin] = useState<BoletinHijoDto | null>(null);
+  const [cuenta, setCuenta] = useState<EstadoCuentaDto | null>(null);
+  const [asistencia, setAsistencia] = useState<Map<number, AsistenciaHijoDto>>(new Map());
+  const [clases, setClases] = useState<ClaseAlumnoDto[]>([]);
+  const [eventos, setEventos] = useState<EventoDto[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (hijos && hijoId === null && hijos.length) setHijoId(hijos[0].alumnoId);
+  }, [hijos, hijoId]);
+
+  // La asistencia viene de todos los hijos en una sola llamada
+  useEffect(() => {
+    getAsistenciaHijos()
+      .then((data) => setAsistencia(new Map(data.map((h) => [h.alumnoId, h]))))
+      .catch(() => setAsistencia(new Map()));
+    getEventos().then(setEventos).catch(() => setEventos([]));
+  }, []);
+
+  const hijo = hijos?.find((h) => h.alumnoId === hijoId) ?? null;
+
+  useEffect(() => {
+    if (!hijo) return;
+    let cancelado = false;
+    setCargando(true);
+    setError("");
+    setBoletin(null);
+    setCuenta(null);
+    setClases([]);
+    Promise.all([
+      hijo.puedeVerNotas ? getBoletinHijo(hijo.alumnoId) : Promise.resolve(null),
+      hijo.puedeVerPagos ? getEstadoCuenta(hijo.alumnoId, anio) : Promise.resolve(null),
+      getHorarioHijo(hijo.alumnoId).catch(() => [] as ClaseAlumnoDto[]),
+    ])
+      .then(([b, c, h]) => { if (!cancelado) { setBoletin(b); setCuenta(c); setClases(h); } })
+      .catch((e) => { if (!cancelado) setError(errorDe(e, "No se pudo cargar el resumen.")); })
+      .finally(() => { if (!cancelado) setCargando(false); });
+    return () => { cancelado = true; };
+  }, [hijo, anio]);
+
+  if (hijos && hijos.length === 0) return <SinHijos title="Panel del Encargado" />;
+
+  const meses = cuenta?.detalle.map((m) => ({ ...m, ui: estadoMesUi(m, anio) })) ?? [];
+  const vencidos = meses.filter((m) => m.ui === "vencido");
+  const saldoVencido = vencidos.reduce((s, m) => s + m.montoAPagar, 0);
+  const proximo = vencidos[0] ?? meses.find((m) => m.ui === "pendiente" && m.mes >= mesActual) ?? null;
+  const recientes = meses.filter((m) => m.mes <= Math.max(mesActual, meses[0]?.mes ?? 1)).slice(-5);
+  const asistenciaHijo = hijo ? asistencia.get(hijo.alumnoId) : undefined;
+  const porcentajeAsistencia = asistenciaHijo?.resumen.porcentaje;
+  const primerNombre = hijo?.nombre.split(" ")[0] ?? "";
+
+  // Lo que pasa hoy: asueto, horario de entrada/salida y faltas ya registradas
+  const hoyDia = diaSemanaHoy();
+  const asuetoHoy = hijo ? asuetosDeLaSemana(eventos, hijo.sedeId).get(hoyDia) : undefined;
+  const jornadaHoy = jornadaPorDia(clases).get(hoyDia);
+  const ahora = new Date();
+  const hoyIso = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+  const faltasHoy = asistenciaHijo?.dias.find((x) => x.fecha === hoyIso)?.clases.filter((c) => c.estado === "Ausente" || c.estado === "Tarde") ?? [];
 
   return (
     <div className="space-y-6">
-      {/* Child selector */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <SectionHeader title="Panel del Encargado" subtitle="Sra. Rosa Elena Pac Cuc" />
-        <div className="flex items-center gap-2 sm:ml-auto shrink-0">
-          <span className="text-sm text-stone-500">Viendo:</span>
-          <div className="flex gap-1">
-            {hijos.map(h => (
-              <button key={h} onClick={() => setHijo(h)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer
-                  ${hijo === h ? "bg-primary-700 text-white" : "bg-white border border-stone-200 text-stone-700 hover:border-primary-300"}`}>
-                {h.split(" ")[0]} {h.split(" ")[1]}
-              </button>
-            ))}
-          </div>
+        <SectionHeader title="Panel del Encargado" subtitle={user?.name} />
+        <div className="sm:ml-auto shrink-0">
+          {hijos && <SelectorHijo hijos={hijos} value={hijoId} onChange={setHijoId} />}
         </div>
       </div>
 
-      {pagoPendiente.length > 0 && (
-        <AlertBanner
-          type="error"
-          title={`Pago vencido — ${hijo.split(" ")[0]}`}
-          message={`La cuota de junio 2025 (Q1,125.00) está vencida desde el 01/06/2025. Regularice su cuenta para evitar recargos.`}
-        />
+      {(errorHijos || error) && <AlertBanner type="error" message={errorHijos || error} />}
+
+      {hijo && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 text-sm text-stone-600">
+          <p><span className="font-medium text-stone-900">{hijo.nombre}</span> · {hijo.grado} sección {hijo.seccion} · {hijo.sede}</p>
+          {!hijo.retirado && (
+            <p className="flex items-center gap-1.5 sm:ml-auto">
+              <Clock className="w-4 h-4 text-stone-400" />
+              {asuetoHoy ? `Hoy no hay clases (${asuetoHoy})`
+                : jornadaHoy ? <>Hoy: entrada <span className="font-mono-data">{jornadaHoy.entrada}</span> · salida <span className="font-mono-data">{jornadaHoy.salida}</span></>
+                : "Hoy no tiene clases programadas"}
+            </p>
+          )}
+        </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Promedio general" value={promedioGeneral} sub={hijo.split(" ")[0]} icon={<BookOpen className="w-5 h-5" />} variant={promedioGeneral >= 61 ? "success" : "danger"} />
-        <MetricCard label="Cursos" value={`${NOTAS_ALUMNO.filter(c => { const v = [c.u1, c.u2, c.u3].filter(Boolean) as number[]; return v.length > 0 && v.reduce((a, b) => a + b) / v.length >= 61; }).length}/${NOTAS_ALUMNO.length}`} sub="Aprobados al 3ra unidad" icon={<CheckCircle2 className="w-5 h-5" />} variant="success" />
-        <MetricCard label="Beca aplicada" value="10%" sub="Q125.00 de descuento" icon={<Badge variant="success" className="text-base">%</Badge>} />
-        <MetricCard label="Próximo pago" value="Q1,125.00" sub="Julio 2025 · Pendiente" icon={<CreditCard className="w-5 h-5" />} variant="warning" />
-      </div>
+      {hijo?.retirado && (
+        <AlertBanner type="info" title={`${primerNombre} figura como retirado del ciclo ${hijo.anioLectivo}`}
+          message="Puede consultar su historial de notas y pagos. Para reincorporarlo, use Matrícula o comuníquese con la administración." />
+      )}
+
+      {hijo && !hijo.autorizadoRecoger && !hijo.retirado && (
+        <AlertBanner type="warning" message={`Usted no figura como autorizado para recoger a ${primerNombre}. Si necesita hacerlo, la persona autorizada o la administración de la sede deben gestionarlo antes.`} />
+      )}
+
+      {faltasHoy.length > 0 && (
+        <AlertBanner type="warning" title={`Asistencia de hoy — ${primerNombre}`}
+          message={`${faltasHoy.map((c) => `${c.estado === "Ausente" ? "Ausente" : "Tarde"} en ${c.curso}`).join(", ")}. Si hubo un motivo, puede solicitar la justificación en Asistencia.`} />
+      )}
+
+      {saldoVencido > 0 && (
+        <AlertBanner type="error" title={`Pago vencido — ${primerNombre}`}
+          message={`Tiene ${vencidos.length} ${vencidos.length === 1 ? "cuota vencida" : "cuotas vencidas"} por ${formatoQ(saldoVencido)}. La más antigua es ${vencidos[0].nombreMes} ${anio}. Regularice su cuenta para evitar recargos.`} />
+      )}
+
+      {!hijos || cargando ? <Cargando filas={4} /> : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard label="Promedio general"
+            value={boletin?.promedioGeneral != null ? Math.round(boletin.promedioGeneral) : "—"}
+            sub={hijo?.puedeVerNotas ? (boletin?.cursosEvaluados ? `${boletin.cursosEvaluados} cursos evaluados` : "Sin notas aún") : "Sin acceso a notas"}
+            icon={<BookOpen className="w-5 h-5" />}
+            variant={boletin?.promedioGeneral == null ? "default" : boletin.promedioGeneral >= boletin.notaAprobacion ? "success" : "danger"} />
+          <MetricCard label="Cursos aprobados"
+            value={boletin ? `${boletin.cursosAprobados}/${boletin.cursos.length}` : "—"}
+            sub="Según unidades evaluadas" icon={<CheckCircle2 className="w-5 h-5" />}
+            variant={boletin && boletin.cursosAprobados < boletin.cursosEvaluados ? "warning" : "success"} />
+          <MetricCard label="Asistencia"
+            value={porcentajeAsistencia !== undefined ? `${Math.round(porcentajeAsistencia)}%` : "—"}
+            sub="Del ciclo en curso" icon={<ClipboardList className="w-5 h-5" />}
+            variant={porcentajeAsistencia === undefined ? "default" : porcentajeAsistencia >= 80 ? "success" : "warning"} />
+          <MetricCard label="Próximo pago"
+            value={!hijo?.puedeVerPagos ? "—" : proximo ? formatoQ(proximo.montoAPagar) : "Al día"}
+            sub={!hijo?.puedeVerPagos ? "Sin acceso a pagos"
+              : proximo ? `${proximo.nombreMes} ${anio} · ${proximo.ui === "vencido" ? "Vencido" : "Pendiente"}${proximo.descuentoPorcentaje > 0 ? ` · Beca ${proximo.descuentoPorcentaje}%` : ""}`
+              : "Sin cuotas pendientes"}
+            icon={<CreditCard className="w-5 h-5" />}
+            variant={proximo?.ui === "vencido" ? "danger" : proximo ? "warning" : "success"} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-semibold text-stone-800 text-base">Resumen académico</h3>
-            <button className="text-xs text-primary-700 hover:underline flex items-center gap-1">Ver completo <ChevronRight className="w-3.5 h-3.5" /></button>
+            {onNavigate && hijo?.puedeVerNotas && (
+              <button onClick={() => onNavigate("pad-notas")} className="text-xs text-primary-700 hover:underline flex items-center gap-1 cursor-pointer">
+                Ver completo <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          <div className="space-y-2">
-            {NOTAS_ALUMNO.slice(0, 5).map(c => {
-              const vals = [c.u1, c.u2, c.u3].filter(v => v !== null) as number[];
-              const prom = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-              return (
-                <div key={c.curso} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
+          {!hijo?.puedeVerNotas ? (
+            <p className="text-sm text-stone-500">Su vínculo con este alumno no incluye la consulta de notas.</p>
+          ) : !boletin || boletin.cursos.length === 0 ? (
+            <p className="text-sm text-stone-500">{cargando ? "Cargando…" : "El alumno aún no tiene cursos asignados."}</p>
+          ) : (
+            <div className="space-y-2">
+              {boletin.cursos.slice(0, 6).map((c) => (
+                <div key={c.cursoSeccionId} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
                   <span className="text-sm text-stone-700">{c.curso}</span>
                   <div className="flex items-center gap-2">
-                    {prom !== null && <span className={`font-mono-data font-bold text-sm ${prom >= 61 ? "text-success-700" : "text-danger-700"}`}>{prom}</span>}
-                    {prom !== null && <EstadoBadge aprobado={prom >= 61} />}
+                    {c.promedio !== null ? (
+                      <>
+                        <span className={`font-mono-data font-bold text-sm ${colorNota(c.promedio, boletin.notaAprobacion)}`}>{Math.round(c.promedio)}</span>
+                        <EstadoBadge aprobado={!!c.aprobado} />
+                      </>
+                    ) : <span className="text-xs text-stone-400">Sin notas</span>}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-semibold text-stone-800 text-base">Estado de cuenta</h3>
-            <button className="text-xs text-primary-700 hover:underline flex items-center gap-1">Ver historial <ChevronRight className="w-3.5 h-3.5" /></button>
+            {onNavigate && hijo?.puedeVerPagos && (
+              <button onClick={() => onNavigate("pad-pagos")} className="text-xs text-primary-700 hover:underline flex items-center gap-1 cursor-pointer">
+                Ver historial <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          <div className="space-y-2">
-            {PAGOS.slice(-5).map(p => (
-              <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
-                <div>
-                  <span className="text-sm text-stone-700">{p.mes}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono-data text-sm text-stone-700">Q{p.total.toLocaleString("es-GT", { minimumFractionDigits: 2 })}</span>
-                  <PagoBadge estado={p.estado} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-type MatriculaStep = 0 | 1 | 2 | 3;
-
-function MatriculaView() {
-  const [step, setStep] = useState<MatriculaStep>(0);
-  const [formData, setFormData] = useState({
-    nombre: "", apellidos: "", nacimiento: "", dpi: "",
-    sede: "Sede Central", grado: "Primero Básico",
-  });
-  const [pagado, setPagado] = useState(false);
-  const [procesando, setProcesando] = useState(false);
-
-  const pasos = ["Datos del alumno", "Sede y grado", "Confirmar malla", "Pago"];
-
-  function handlePagar() {
-    setProcesando(true);
-    setTimeout(() => {
-      setProcesando(false);
-      setPagado(true);
-    }, 2000);
-  }
-
-  const cursosGrado = [
-    "Matemática", "Comunicación y Lenguaje", "Ciencias Naturales",
-    "Estudios Sociales", "Tecnologías del Aprendizaje", "Inglés",
-    "Educación Física", "Expresión Artística", "Formación Ciudadana",
-  ];
-
-  return (
-    <div className="space-y-6">
-      <SectionHeader title="Matrícula" subtitle="Inscripción de alumno — Ciclo escolar 2025" />
-
-      <Stepper steps={pasos} current={step} />
-
-      {/* Step 0: Student data */}
-      {step === 0 && (
-        <Card className="p-6">
-          <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Datos del alumno</h3>
-          <p className="text-stone-500 text-sm mb-5">Complete los datos personales del alumno a inscribir.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-            {[
-              ["Primer nombre", "nombre", "Ej. María José"],
-              ["Primer apellido", "apellidos", "Ej. Ajú"],
-              ["Fecha de nacimiento", "nacimiento", "dd/mm/aaaa"],
-              ["CUI / DPI del alumno", "dpi", "0000 00000 0101"],
-            ].map(([label, key, ph]) => (
-              <div key={key}>
-                <label className="text-sm font-medium text-stone-700 block mb-1">{label}</label>
-                <input placeholder={ph}
-                  value={formData[key as keyof typeof formData]}
-                  onChange={e => setFormData(prev => ({ ...prev, [key]: e.target.value }))}
-                  className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700" />
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end">
-            <Btn variant="primary" onClick={() => setStep(1)}>Continuar <ChevronRight className="w-4 h-4" /></Btn>
-          </div>
-        </Card>
-      )}
-
-      {/* Step 1: Sede and grade */}
-      {step === 1 && (
-        <Card className="p-6">
-          <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Sede y grado</h3>
-          <p className="text-stone-500 text-sm mb-5">Seleccione la sede y el grado al que se inscribirá el alumno. Los cursos se asignan automáticamente según la malla del grado.</p>
-          <div className="space-y-4 mb-6">
-            <div>
-              <label className="text-sm font-medium text-stone-700 block mb-2">Sede</label>
-              <div className="space-y-2">
-                {["Sede Central — Guatemala City", "Sede Xela — Quetzaltenango", "Sede Coatepeque — Coatepeque"].map(s => {
-                  const val = s.split(" — ")[0];
-                  return (
-                    <button key={s} onClick={() => setFormData(prev => ({ ...prev, sede: val }))}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors cursor-pointer text-left
-                        ${formData.sede === val ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${formData.sede === val ? "border-primary-700" : "border-stone-300"}`}>
-                        {formData.sede === val && <div className="w-2 h-2 rounded-full bg-primary-700" />}
-                      </div>
-                      <span className="text-sm font-medium text-stone-800">{s}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-stone-700 block mb-1">Grado</label>
-              <select value={formData.grado} onChange={e => setFormData(prev => ({ ...prev, grado: e.target.value }))}
-                className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700">
-                <option>Primero Básico</option>
-                <option>Segundo Básico</option>
-                <option>Tercero Básico</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-between">
-            <Btn variant="ghost" onClick={() => setStep(0)}>← Volver</Btn>
-            <Btn variant="primary" onClick={() => setStep(2)}>Continuar <ChevronRight className="w-4 h-4" /></Btn>
-          </div>
-        </Card>
-      )}
-
-      {/* Step 2: Confirm curriculum */}
-      {step === 2 && (
-        <Card className="p-6">
-          <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Malla curricular de {formData.grado}</h3>
-          <p className="text-stone-500 text-sm mb-5">El alumno será inscrito en los siguientes cursos del CNB. No puede seleccionar cursos individuales.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
-            {cursosGrado.map(c => (
-              <div key={c} className="flex items-center gap-2.5 px-3 py-2.5 bg-primary-50 border border-primary-100 rounded-xl">
-                <CheckCircle2 className="w-4 h-4 text-primary-600 shrink-0" />
-                <span className="text-sm font-medium text-primary-900">{c}</span>
-              </div>
-            ))}
-          </div>
-          <AlertBanner type="info" message={`Al continuar, confirma la inscripción de ${formData.nombre || "el alumno"} en ${formData.grado} — ${formData.sede}.`} />
-          <div className="flex justify-between mt-4">
-            <Btn variant="ghost" onClick={() => setStep(1)}>← Volver</Btn>
-            <Btn variant="primary" onClick={() => setStep(3)}>Continuar al pago <ChevronRight className="w-4 h-4" /></Btn>
-          </div>
-        </Card>
-      )}
-
-      {/* Step 3: Payment */}
-      {step === 3 && (
-        <Card className="p-6">
-          {!pagado ? (
-            <>
-              <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Pago de inscripción</h3>
-              <p className="text-stone-500 text-sm mb-5">Pague con tarjeta de débito o crédito de forma segura.</p>
-
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 mb-5 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-stone-600">Inscripción — {formData.grado}</span><span className="font-mono-data">Q350.00</span></div>
-                <div className="flex justify-between"><span className="text-stone-600">Primera mensualidad</span><span className="font-mono-data">Q1,250.00</span></div>
-                <div className="flex justify-between text-success-700"><span>Beca (10%)</span><span className="font-mono-data">−Q125.00</span></div>
-                <div className="border-t border-stone-200 pt-2 flex justify-between font-semibold"><span>Total a pagar</span><span className="font-mono-data font-bold text-primary-800">Q1,475.00</span></div>
-              </div>
-
-              <div className="space-y-4 mb-5">
-                <div>
-                  <label className="text-sm font-medium text-stone-700 block mb-1">Número de tarjeta</label>
-                  <div className="relative">
-                    <input placeholder="1234 5678 9012 3456" maxLength={19}
-                      className="w-full border border-stone-300 rounded-lg pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700 font-mono-data" />
-                    <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium text-stone-700 block mb-1">Vencimiento</label>
-                    <input placeholder="MM/AA" maxLength={5} className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700 font-mono-data" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-stone-700 block mb-1">CVV</label>
-                    <input placeholder="···" maxLength={4} type="password" className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700 font-mono-data" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-stone-700 block mb-1">Nombre en la tarjeta</label>
-                  <input placeholder="Como aparece en la tarjeta" className="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700" />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-stone-400 mb-4">
-                <Lock className="w-3.5 h-3.5" />Pago procesado de forma segura con <span className="font-semibold">Stripe</span>. Sus datos están cifrados.
-              </div>
-
-              <div className="flex justify-between gap-3">
-                <Btn variant="ghost" onClick={() => setStep(2)}>← Volver</Btn>
-                <Btn variant="secondary" size="lg" loading={procesando} onClick={handlePagar} icon={<Lock className="w-4 h-4" />}>
-                  {procesando ? "Procesando pago…" : "Pagar Q1,475.00"}
-                </Btn>
-              </div>
-            </>
+          {!hijo?.puedeVerPagos ? (
+            <p className="text-sm text-stone-500">Su vínculo con este alumno no incluye la consulta de pagos.</p>
+          ) : recientes.length === 0 ? (
+            <p className="text-sm text-stone-500">{cargando ? "Cargando…" : "No hay colegiaturas registradas para este ciclo."}</p>
           ) : (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-success-600" />
-              </div>
-              <h3 className="font-display text-2xl font-bold text-success-800 mb-2">¡Matrícula completada!</h3>
-              <p className="text-stone-600 mb-1">Pago de <span className="font-mono-data font-semibold">Q1,475.00</span> procesado exitosamente.</p>
-              <p className="text-stone-500 text-sm mb-6">Se enviará un comprobante a <strong>rpac.encargado@gmail.com</strong>.</p>
-              <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-left text-sm mb-6 max-w-xs mx-auto">
-                <div className="flex justify-between mb-1"><span className="text-stone-500">Alumno</span><span className="font-medium">{formData.nombre || "María José"} Ajú Pac</span></div>
-                <div className="flex justify-between mb-1"><span className="text-stone-500">Grado</span><span className="font-medium">{formData.grado}</span></div>
-                <div className="flex justify-between mb-1"><span className="text-stone-500">Sede</span><span className="font-medium">{formData.sede}</span></div>
-                <div className="flex justify-between"><span className="text-stone-500">Referencia</span><span className="font-mono-data text-xs">CN-2025-08741</span></div>
-              </div>
-              <Btn variant="outline" icon={<Download className="w-4 h-4" />}>Descargar comprobante PDF</Btn>
+            <div className="space-y-2">
+              {recientes.map((m) => (
+                <div key={m.mes} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
+                  <span className="text-sm text-stone-700">{m.nombreMes} {anio}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono-data text-sm text-stone-700">{formatoQ(m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar)}</span>
+                    <EstadoMesBadge estado={m.ui} />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── Horario ─────────────────────────────────────────────────────────────────
+
+function HorarioHijo() {
+  const { hijos, error: errorHijos } = useHijosEncargado();
+  const [hijoId, setHijoId] = useState<number | null>(null);
+  const [clases, setClases] = useState<ClaseAlumnoDto[] | null>(null);
+  const [eventos, setEventos] = useState<EventoDto[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (hijos && hijoId === null && hijos.length) setHijoId(hijos[0].alumnoId);
+  }, [hijos, hijoId]);
+
+  useEffect(() => { getEventos().then(setEventos).catch(() => setEventos([])); }, []);
+
+  useEffect(() => {
+    if (hijoId === null) return;
+    let cancelado = false;
+    setClases(null);
+    setError("");
+    getHorarioHijo(hijoId)
+      .then((c) => { if (!cancelado) setClases(c); })
+      .catch((e) => { if (!cancelado) setError(errorDe(e, "No se pudo cargar el horario.")); });
+    return () => { cancelado = true; };
+  }, [hijoId]);
+
+  if (hijos && hijos.length === 0) return <SinHijos title="Horario" />;
+
+  const hijo = hijos?.find((h) => h.alumnoId === hijoId) ?? null;
+  const primerNombre = hijo?.nombre.split(" ")[0] ?? "";
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <SectionHeader title="Horario" subtitle={hijo ? `${hijo.nombre} · ${hijo.grado} ${hijo.seccion} · ${hijo.sede}` : undefined} />
+        <div className="sm:ml-auto">{hijos && <SelectorHijo hijos={hijos} value={hijoId} onChange={setHijoId} />}</div>
+      </div>
+
+      {(errorHijos || error) && <AlertBanner type="error" message={errorHijos || error} />}
+
+      {hijo?.retirado && (
+        <AlertBanner type="info" message={`${primerNombre} figura como retirado; este era el horario de su última sección.`} />
+      )}
+      {hijo && !hijo.autorizadoRecoger && (
+        <AlertBanner type="warning" message={`Usted no figura como autorizado para recoger a ${primerNombre} a la hora de salida.`} />
+      )}
+
+      {!clases ? <Cargando filas={2} /> : (
+        <HorarioSemanal clases={clases} asuetos={asuetosDeLaSemana(eventos, hijo?.sedeId)} mostrarJornada />
       )}
     </div>
   );
 }
 
-function NotasHijo() {
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <SectionHeader title="Notas y Reportes" subtitle="María José Ajú Pac · 3ro Básico A" />
-        <Btn variant="outline" size="sm" icon={<Download className="w-4 h-4" />}>Descargar PDF</Btn>
-      </div>
+// ─── Matrícula ───────────────────────────────────────────────────────────────
 
-      {/* Mobile cards */}
-      <div className="md:hidden space-y-3">
-        {NOTAS_ALUMNO.map(c => {
-          const vals = [c.u1, c.u2, c.u3, c.u4].filter(v => v !== null) as number[];
-          const prom = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-          return (
-            <Card key={c.curso} className="p-4">
-              <div className="flex justify-between items-start mb-3">
-                <p className="font-semibold text-stone-900">{c.curso}</p>
-                {prom !== null && <EstadoBadge aprobado={prom >= 61} />}
+type MatriculaStep = 0 | 1 | 2 | 3;
+
+function MatriculaView({ user }: { user?: AppUser }) {
+  const { hijos, error: errorHijos } = useHijosEncargado();
+  const [modoNuevo, setModoNuevo] = useState(false);
+  const [step, setStep] = useState<MatriculaStep>(0);
+  const [hijoId, setHijoId] = useState<number | null>(null);
+  const [opciones, setOpciones] = useState<OpcionesMatriculaDto | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+  const [anio, setAnio] = useState<number | null>(null);
+  const [sedeId, setSedeId] = useState<number | null>(null);
+  const [gradoId, setGradoId] = useState<number | null>(null);
+  const [seccionId, setSeccionId] = useState<number | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<MatriculaCreadaResponse | null>(null);
+
+  useEffect(() => {
+    if (hijos && hijoId === null && hijos.length) setHijoId(hijos[0].alumnoId);
+  }, [hijos, hijoId]);
+
+  const cargarOpciones = useCallback(async (alumnoId: number) => {
+    setCargando(true);
+    setError("");
+    try {
+      const data = await getOpcionesMatricula(alumnoId);
+      setOpciones(data);
+      const anios = [...new Set(data.secciones.map((s) => s.anioLectivo))];
+      // Por defecto el primer año en el que aún no tiene matrícula activa
+      const libre = anios.find((a) => !data.matriculas.some((m) => m.anioLectivo === a && m.estado === "Activa"));
+      setAnio(libre ?? anios[0] ?? null);
+    } catch (e) {
+      setError(errorDe(e, "No se pudieron cargar las opciones de matrícula."));
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hijoId === null) return;
+    setStep(0);
+    setSedeId(null);
+    setGradoId(null);
+    setSeccionId(null);
+    setResultado(null);
+    cargarOpciones(hijoId);
+  }, [hijoId, cargarOpciones]);
+
+  if (modoNuevo) {
+    return (
+      <div className="space-y-5">
+        <SectionHeader title="Inscribir a un alumno nuevo" subtitle="La solicitud la revisa la administración de la sede antes de crear la cuenta del alumno."
+          action={<Btn variant="ghost" size="sm" onClick={() => setModoNuevo(false)}>← Volver a matrícula</Btn>} />
+        <SolicitudInscripcion modo="publico" onFinalizar={() => setModoNuevo(false)} onCancelar={() => setModoNuevo(false)} />
+      </div>
+    );
+  }
+
+  const accionNuevo = (
+    <Btn variant="outline" size="sm" icon={<UserPlus className="w-4 h-4" />} onClick={() => setModoNuevo(true)}>Alumno nuevo</Btn>
+  );
+
+  if (hijos && hijos.length === 0) {
+    return (
+      <div className="space-y-5">
+        <SectionHeader title="Matrícula" action={accionNuevo} />
+        <EmptyState icon={<User className="w-10 h-10" />} title="Sin alumnos asociados"
+          description="Para inscribir a un alumno que aún no estudia en el colegio, envíe una solicitud de inscripción." />
+      </div>
+    );
+  }
+
+  const hijo = hijos?.find((h) => h.alumnoId === hijoId) ?? null;
+  const secciones = opciones?.secciones ?? [];
+  const anios = [...new Set(secciones.map((s) => s.anioLectivo))];
+  const delAnio = secciones.filter((s) => s.anioLectivo === anio);
+  const sedes = [...new Map(delAnio.map((s) => [s.sede.sedeId, s.sede])).values()];
+  const grados = [...new Map(delAnio.filter((s) => s.sede.sedeId === sedeId).map((s) => [s.grado.gradoId, s.grado])).values()]
+    .sort((a, b) => a.orden - b.orden);
+  const seccionesGrado = delAnio.filter((s) => s.sede.sedeId === sedeId && s.grado.gradoId === gradoId);
+  const seccion: SeccionMatriculaDto | null = secciones.find((s) => s.seccionId === seccionId) ?? null;
+  const yaMatriculado = opciones?.matriculas.find((m) => m.anioLectivo === anio && m.estado === "Activa");
+
+  async function confirmar() {
+    if (!hijo || !seccion || !user) return;
+    setEnviando(true);
+    setError("");
+    try {
+      const res = await crearMatricula({ alumnoId: hijo.alumnoId, seccionId: seccion.seccionId, encargadoId: Number(user.id), anioLectivo: seccion.anioLectivo });
+      setResultado(res);
+      await cargarOpciones(hijo.alumnoId);
+      setStep(3);
+    } catch (e) {
+      setError(errorDe(e, "No se pudo completar la matrícula."));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  function reiniciar() {
+    setStep(0);
+    setSedeId(null);
+    setGradoId(null);
+    setSeccionId(null);
+    setResultado(null);
+  }
+
+  const pasos = ["Alumno y ciclo", "Sede y grado", "Confirmar malla", "Listo"];
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader title="Matrícula" subtitle="Inscriba a sus hijos en el ciclo escolar" action={accionNuevo} />
+
+      {(errorHijos || error) && <AlertBanner type="error" message={errorHijos || error} onClose={error ? () => setError("") : undefined} />}
+
+      {!hijos || (cargando && !opciones) ? <Cargando filas={2} /> : (
+        <>
+          <Stepper steps={pasos} current={step} />
+
+          {step === 0 && (
+            <Card className="p-6 space-y-5">
+              <div>
+                <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Alumno y ciclo escolar</h3>
+                <p className="text-stone-500 text-sm">Seleccione a quién desea matricular y para qué ciclo.</p>
               </div>
-              <div className="grid grid-cols-4 gap-2 mb-2">
-                {[c.u1, c.u2, c.u3, c.u4].map((nota, i) => (
-                  <div key={i} className="text-center">
-                    <p className="text-[10px] text-stone-400 mb-1">U{i + 1}</p>
-                    <span className={`font-mono-data text-sm font-semibold ${nota === null ? "text-stone-300" : nota >= 61 ? "text-success-700" : "text-danger-700"}`}>
-                      {nota ?? "—"}
-                    </span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select label="Alumno" value={hijoId ?? ""} onChange={(e) => setHijoId(Number(e.target.value))}>
+                  {hijos.map((h) => <option key={h.alumnoId} value={h.alumnoId}>{h.nombre}</option>)}
+                </Select>
+                <Select label="Ciclo escolar" value={anio ?? ""} disabled={anios.length === 0}
+                  onChange={(e) => { setAnio(Number(e.target.value)); setSedeId(null); setGradoId(null); setSeccionId(null); }}>
+                  {anios.length === 0 && <option value="">Sin ciclos abiertos</option>}
+                  {anios.map((a) => <option key={a} value={a}>{a}</option>)}
+                </Select>
               </div>
-              {prom !== null && (
-                <div className="flex justify-between text-sm border-t border-stone-100 pt-2">
-                  <span className="text-stone-500">Promedio</span>
-                  <span className={`font-mono-data font-bold ${prom >= 61 ? "text-success-700" : "text-danger-700"}`}>{prom}</span>
+
+              {hijo && (
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-sm">
+                  <p className="text-stone-500 mb-1">Inscripción actual</p>
+                  <p className="font-medium text-stone-900">{hijo.grado} sección {hijo.seccion} · {hijo.sede} · Ciclo {hijo.anioLectivo}</p>
                 </div>
               )}
+
+              {opciones && opciones.matriculas.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-stone-700 mb-2">Historial de matrículas</p>
+                  <div className="divide-y divide-stone-100 border border-stone-200 rounded-xl">
+                    {opciones.matriculas.map((m) => (
+                      <div key={m.matriculaId} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-stone-700"><span className="font-mono-data">{m.anioLectivo}</span> · {m.grado} {m.seccion} · {m.sede}</span>
+                        <Badge variant={m.estado === "Activa" ? "success" : "neutral"}>{m.estado}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {opciones && !opciones.puedeMatricular && (
+                <AlertBanner type="warning" message="Solo el contacto principal o el responsable de pagos del alumno puede matricularlo. Comuníquese con la administración si necesita hacerlo." />
+              )}
+              {yaMatriculado && (
+                <AlertBanner type="info" message={`${hijo?.nombre.split(" ")[0]} ya está matriculado en ${yaMatriculado.anioLectivo} (${yaMatriculado.grado} ${yaMatriculado.seccion}, ${yaMatriculado.sede}). Para cambiar de sección solicite un traslado en la administración.`} />
+              )}
+              {opciones && anios.length === 0 && (
+                <AlertBanner type="info" message="Aún no hay secciones abiertas para inscripción. Vuelva a intentarlo cuando la sede publique el nuevo ciclo." />
+              )}
+
+              <div className="flex justify-end">
+                <Btn variant="primary" disabled={!opciones?.puedeMatricular || !!yaMatriculado || anio === null} onClick={() => setStep(1)}>
+                  Continuar <ChevronRight className="w-4 h-4" />
+                </Btn>
+              </div>
             </Card>
-          );
-        })}
+          )}
+
+          {step === 1 && (
+            <Card className="p-6">
+              <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Sede y grado</h3>
+              <p className="text-stone-500 text-sm mb-5">Los cursos se asignan automáticamente según la malla del grado.</p>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-sm font-medium text-stone-700 block mb-2">Sede</label>
+                  <div className="space-y-2">
+                    {sedes.map((s) => (
+                      <button key={s.sedeId} onClick={() => { setSedeId(s.sedeId); setGradoId(null); setSeccionId(null); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors cursor-pointer text-left
+                          ${sedeId === s.sedeId ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
+                        <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${sedeId === s.sedeId ? "border-primary-700" : "border-stone-300"}`}>
+                          {sedeId === s.sedeId && <div className="w-2 h-2 rounded-full bg-primary-700" />}
+                        </div>
+                        <School className="w-4 h-4 text-stone-400" />
+                        <span className="text-sm font-medium text-stone-800">{s.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Select label="Grado" value={gradoId ?? ""} disabled={sedeId === null}
+                    onChange={(e) => { setGradoId(Number(e.target.value) || null); setSeccionId(null); }}>
+                    <option value="">Seleccione…</option>
+                    {grados.map((g) => <option key={g.gradoId} value={g.gradoId}>{g.nombre} — {g.nivel}</option>)}
+                  </Select>
+                  <Select label="Sección" value={seccionId ?? ""} disabled={gradoId === null}
+                    onChange={(e) => setSeccionId(Number(e.target.value) || null)}>
+                    <option value="">Seleccione…</option>
+                    {seccionesGrado.map((s) => <option key={s.seccionId} value={s.seccionId}>Sección {s.nombre} ({s.alumnos} alumnos)</option>)}
+                  </Select>
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <Btn variant="ghost" onClick={() => setStep(0)}>← Volver</Btn>
+                <Btn variant="primary" disabled={!seccion} onClick={() => setStep(2)}>Continuar <ChevronRight className="w-4 h-4" /></Btn>
+              </div>
+            </Card>
+          )}
+
+          {step === 2 && seccion && hijo && (
+            <Card className="p-6">
+              <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Malla curricular de {seccion.grado.nombre}</h3>
+              <p className="text-stone-500 text-sm mb-5">El alumno quedará inscrito en los siguientes cursos. No se pueden seleccionar cursos individuales.</p>
+              {seccion.cursos.length ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
+                  {seccion.cursos.map((c) => (
+                    <div key={c} className="flex items-center gap-2.5 px-3 py-2.5 bg-primary-50 border border-primary-100 rounded-xl">
+                      <CheckCircle2 className="w-4 h-4 text-primary-600 shrink-0" />
+                      <span className="text-sm font-medium text-primary-900">{c}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-stone-500 mb-5">La sede aún no ha publicado los cursos de este grado.</p>
+              )}
+              <AlertBanner type="info" message={`Confirma la inscripción de ${hijo.nombre} en ${seccion.grado.nombre} sección ${seccion.nombre} — ${seccion.sede.nombre}, ciclo ${seccion.anioLectivo}. Las colegiaturas se pagan mes a mes desde la sección Pagos.`} />
+              <div className="flex justify-between mt-4">
+                <Btn variant="ghost" onClick={() => setStep(1)}>← Volver</Btn>
+                <Btn variant="primary" loading={enviando} onClick={confirmar}>Confirmar matrícula</Btn>
+              </div>
+            </Card>
+          )}
+
+          {step === 3 && resultado && (
+            <Card className="p-6">
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-success-600" />
+                </div>
+                <h3 className="font-display text-2xl font-bold text-success-800 mb-2">¡Matrícula completada!</h3>
+                <p className="text-stone-600 mb-6">{resultado.message}</p>
+                {resultado.data.cursosAsignados.length > 0 && (
+                  <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-left text-sm mb-6 max-w-md mx-auto">
+                    <p className="font-medium text-stone-700 mb-2">Cursos asignados</p>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-stone-600">
+                      {resultado.data.cursosAsignados.map((c) => <li key={c.cursoSeccionId}>• {c.nombre}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <Btn variant="outline" onClick={reiniciar}>Volver al inicio</Btn>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Notas ───────────────────────────────────────────────────────────────────
+
+function NotasHijo() {
+  const { hijos: todos, error: errorHijos } = useHijosEncargado();
+  const hijos = todos?.filter((h) => h.puedeVerNotas) ?? null;
+  const [hijoId, setHijoId] = useState<number | null>(null);
+  const [boletin, setBoletin] = useState<BoletinHijoDto | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (hijos && hijoId === null && hijos.length) setHijoId(hijos[0].alumnoId);
+  }, [hijos, hijoId]);
+
+  useEffect(() => {
+    if (hijoId === null) return;
+    let cancelado = false;
+    setCargando(true);
+    setError("");
+    getBoletinHijo(hijoId)
+      .then((b) => { if (!cancelado) setBoletin(b); })
+      .catch((e) => { if (!cancelado) setError(errorDe(e, "No se pudieron cargar las notas.")); })
+      .finally(() => { if (!cancelado) setCargando(false); });
+    return () => { cancelado = true; };
+  }, [hijoId]);
+
+  if (hijos && hijos.length === 0) return <SinHijos title="Notas y Reportes" />;
+
+  const minimo = boletin?.notaAprobacion ?? 61;
+  const romanos = ["I", "II", "III", "IV"];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <SectionHeader title="Notas y Reportes"
+          subtitle={boletin ? `${boletin.nombre} · ${boletin.grado} ${boletin.seccion} · Ciclo ${boletin.anioLectivo}` : undefined} />
+        <div className="flex items-center gap-3 sm:ml-auto flex-wrap">
+          {hijos && <SelectorHijo hijos={hijos} value={hijoId} onChange={setHijoId} />}
+          <Btn variant="outline" size="sm" icon={<Download className="w-4 h-4" />} disabled={!boletin || boletin.cursos.length === 0}
+            onClick={() => boletin && generarBoletinPdf(boletin)}>
+            Descargar PDF
+          </Btn>
+        </div>
       </div>
 
-      {/* Desktop table */}
-      <Card className="hidden md:block overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-200">
-                <TH>Curso</TH>
-                <TH className="text-center">I Unidad</TH>
-                <TH className="text-center">II Unidad</TH>
-                <TH className="text-center">III Unidad</TH>
-                <TH className="text-center">IV Unidad</TH>
-                <TH className="text-center">Promedio</TH>
-                <TH className="text-center">Estado</TH>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-50">
-              {NOTAS_ALUMNO.map(c => {
-                const notas = [c.u1, c.u2, c.u3, c.u4];
-                const vals = notas.filter(v => v !== null) as number[];
-                const prom = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
-                return (
-                  <tr key={c.curso} className="hover:bg-stone-50 transition-colors">
-                    <TD><span className="font-medium text-stone-900">{c.curso}</span></TD>
-                    {notas.map((nota, i) => (
-                      <TD key={i} className="text-center">
-                        {nota !== null ? (
-                          <span className={`font-mono-data font-semibold px-2 py-0.5 rounded-md text-sm
-                            ${nota >= 61 ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}
-                            aria-label={nota >= 61 ? `${nota}, aprobado` : `${nota}, reprobado`}>
-                            {nota}
-                          </span>
-                        ) : <span className="text-stone-300 font-mono-data">—</span>}
-                      </TD>
+      {(errorHijos || error) && <AlertBanner type="error" message={errorHijos || error} />}
+
+      {!hijos || (cargando && !boletin) ? <Cargando filas={3} /> : boletin && (
+        boletin.cursos.length === 0 ? (
+          <EmptyState icon={<BookOpen className="w-10 h-10" />} title="Sin cursos asignados" description="La sección del alumno todavía no tiene cursos registrados." />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <MetricCard label="Promedio general" value={boletin.promedioGeneral !== null ? Math.round(boletin.promedioGeneral) : "—"}
+                variant={boletin.promedioGeneral === null ? "default" : boletin.promedioGeneral >= minimo ? "success" : "danger"}
+                sub={`Mínimo para aprobar: ${minimo}`} />
+              <MetricCard label="Cursos aprobados" value={`${boletin.cursosAprobados}/${boletin.cursosEvaluados}`} sub="De los cursos ya evaluados" variant="success" />
+              <MetricCard label="Cursos en riesgo" value={boletin.cursosEvaluados - boletin.cursosAprobados}
+                sub="Promedio por debajo del mínimo" variant={boletin.cursosEvaluados - boletin.cursosAprobados > 0 ? "danger" : "default"} />
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
+              {boletin.cursos.map((c) => (
+                <Card key={c.cursoSeccionId} className="p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="font-semibold text-stone-900">{c.curso}</p>
+                      <p className="text-xs text-stone-500">{c.catedratico}</p>
+                      {c.seccionAnterior && <Badge variant="neutral" className="mt-1">Sección anterior: {c.seccionAnterior}</Badge>}
+                    </div>
+                    {c.aprobado !== null && <EstadoBadge aprobado={c.aprobado} />}
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {c.unidades.map((u) => (
+                      <div key={u.numero} className="text-center">
+                        <p className="text-[10px] text-stone-400 mb-1">U{u.numero}</p>
+                        <span className={`font-mono-data text-sm font-semibold ${colorNota(u.nota, minimo)}`}>{u.nota !== null ? Math.round(u.nota) : "—"}</span>
+                      </div>
                     ))}
-                    <TD className="text-center">
-                      {prom !== null ? <span className={`font-mono-data font-bold text-base ${prom >= 61 ? "text-success-700" : "text-danger-700"}`}>{prom}</span> : "—"}
-                    </TD>
-                    <TD className="text-center">
-                      {prom !== null ? <EstadoBadge aprobado={prom >= 61} /> : <span className="text-xs text-stone-400">Pendiente</span>}
-                    </TD>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                  </div>
+                  {c.promedio !== null && (
+                    <div className="flex justify-between text-sm border-t border-stone-100 pt-2">
+                      <span className="text-stone-500">Promedio</span>
+                      <span className={`font-mono-data font-bold ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <Card className="hidden md:block overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-stone-50 border-b border-stone-200">
+                      <TH>Curso</TH>
+                      {romanos.map((r) => <TH key={r} className="text-center">{r} Unidad</TH>)}
+                      <TH className="text-center">Promedio</TH>
+                      <TH className="text-center">Estado</TH>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-50">
+                    {boletin.cursos.map((c) => (
+                      <tr key={c.cursoSeccionId} className="hover:bg-stone-50 transition-colors">
+                        <TD>
+                          <span className="font-medium text-stone-900 block">{c.curso}</span>
+                          <span className="text-xs text-stone-500">{c.catedratico}</span>
+                          {c.seccionAnterior && <Badge variant="neutral" className="ml-2">Sección anterior: {c.seccionAnterior}</Badge>}
+                        </TD>
+                        {c.unidades.map((u) => (
+                          <TD key={u.numero} className="text-center">
+                            {u.nota !== null ? (
+                              <span title={`Zona ${u.zona ?? 0} + Examen ${u.examen ?? 0}`}
+                                className={`font-mono-data font-semibold px-2 py-0.5 rounded-md text-sm
+                                  ${u.nota >= minimo ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}
+                                aria-label={u.nota >= minimo ? `${u.nota}, aprobado` : `${u.nota}, reprobado`}>
+                                {Math.round(u.nota)}
+                              </span>
+                            ) : <span className="text-stone-300 font-mono-data">—</span>}
+                          </TD>
+                        ))}
+                        <TD className="text-center">
+                          {c.promedio !== null
+                            ? <span className={`font-mono-data font-bold text-base ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                            : "—"}
+                        </TD>
+                        <TD className="text-center">
+                          {c.aprobado !== null ? <EstadoBadge aprobado={c.aprobado} /> : <span className="text-xs text-stone-400">Pendiente</span>}
+                        </TD>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+            <p className="text-xs text-stone-500">Cada unidad se califica sobre 100 puntos (zona + examen). El promedio considera solo las unidades ya evaluadas.</p>
+          </>
+        )
+      )}
     </div>
   );
 }
@@ -663,89 +1018,230 @@ function PagosView() {
 
 const MESES_NOMBRE = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
+function EstadoMesBadge({ estado }: { estado: EstadoMesUi }) {
+  if (estado === "reembolsado") return <Badge variant="info">Reembolsado</Badge>;
+  if (estado === "becado") return <Badge variant="success">Cubierto por beca</Badge>;
+  if (estado === "procesando") return <Badge variant="warning">En proceso</Badge>;
+  return <PagoBadge estado={estado} />;
+}
+
 // ─── Perfil ───────────────────────────────────────────────────────────────────
 
-function PerfilView() {
-  const [saved, setSaved] = useState(false);
-  const notifOptions = [
-    { key: "notas", label: "Publicación de notas", desc: "Cuando el catedrático publica notas de una unidad" },
-    { key: "pagos", label: "Recordatorio de pago", desc: "5 días antes del vencimiento de la cuota mensual" },
-    { key: "avisos", label: "Avisos institucionales", desc: "Comunicados generales de la sede" },
-    { key: "asistencia", label: "Ausencias del alumno", desc: "Cuando el alumno es marcado como ausente" },
-    { key: "eventos", label: "Eventos del calendario", desc: "Recordatorio un día antes de cada evento" },
+const passwordVacio = { actual: "", nueva: "", confirmar: "" };
+
+function Permiso({ activo, children }: { activo: boolean; children: ReactNode }) {
+  return <Badge variant={activo ? "success" : "neutral"}>{children}</Badge>;
+}
+
+function PerfilView({ user }: { user?: AppUser }) {
+  const { hijos, setHijos, error: errorHijos } = useHijosEncargado();
+  const [aviso, setAviso] = useState<{ tipo: "success" | "error"; texto: string } | null>(null);
+  const [guardandoId, setGuardandoId] = useState<number | null>(null);
+
+  const [pass, setPass] = useState(passwordVacio);
+  const [passError, setPassError] = useState("");
+  const [passOk, setPassOk] = useState("");
+  const [guardandoPass, setGuardandoPass] = useState(false);
+
+  // Contraseña del portal de un hijo (los alumnos sin correo propio no pueden recuperarla solos)
+  const [passHijo, setPassHijo] = useState<HijoEncargadoDto | null>(null);
+  const [nuevaHijo, setNuevaHijo] = useState({ nueva: "", confirmar: "" });
+  const [errorHijo, setErrorHijo] = useState("");
+  const [guardandoHijo, setGuardandoHijo] = useState(false);
+
+  function abrirPassHijo(h: HijoEncargadoDto) {
+    setPassHijo(h);
+    setNuevaHijo({ nueva: "", confirmar: "" });
+    setErrorHijo("");
+  }
+
+  async function guardarPassHijo() {
+    if (!passHijo) return;
+    if (nuevaHijo.nueva.length < 8) return setErrorHijo("La contraseña debe tener al menos 8 caracteres.");
+    if (nuevaHijo.nueva !== nuevaHijo.confirmar) return setErrorHijo("La confirmación no coincide.");
+    setGuardandoHijo(true);
+    setErrorHijo("");
+    try {
+      const res = await restablecerPasswordHijo(passHijo.alumnoId, nuevaHijo.nueva);
+      setAviso({ tipo: "success", texto: `${passHijo.nombre.split(" ")[0]}: ${res.message}` });
+      setPassHijo(null);
+    } catch (e) {
+      setErrorHijo(errorDe(e, "No se pudo cambiar la contraseña."));
+    } finally {
+      setGuardandoHijo(false);
+    }
+  }
+
+  async function cambiarNotificaciones(hijo: HijoEncargadoDto, valor: boolean) {
+    setGuardandoId(hijo.alumnoId);
+    setAviso(null);
+    try {
+      const res = await setNotificacionesHijo(hijo.alumnoId, valor);
+      setHijos((prev) => prev?.map((h) => (h.alumnoId === hijo.alumnoId ? { ...h, recibeNotificaciones: valor } : h)) ?? prev);
+      setAviso({ tipo: "success", texto: `${hijo.nombre.split(" ")[0]}: ${res.message}` });
+    } catch (e) {
+      setAviso({ tipo: "error", texto: errorDe(e, "No se pudo guardar la preferencia.") });
+    } finally {
+      setGuardandoId(null);
+    }
+  }
+
+  async function guardarPassword() {
+    setPassError("");
+    setPassOk("");
+    if (!pass.actual || !pass.nueva) return setPassError("Complete la contraseña actual y la nueva.");
+    if (pass.nueva.length < 8) return setPassError("La nueva contraseña debe tener al menos 8 caracteres.");
+    if (pass.nueva !== pass.confirmar) return setPassError("La confirmación no coincide con la nueva contraseña.");
+    setGuardandoPass(true);
+    try {
+      const res = await cambiarPassword(pass.actual, pass.nueva);
+      setPassOk(res.message);
+      setPass(passwordVacio);
+    } catch (e) {
+      setPassError(errorDe(e, "No se pudo cambiar la contraseña."));
+    } finally {
+      setGuardandoPass(false);
+    }
+  }
+
+  const datos: [string, string | undefined][] = [
+    ["Nombre completo", user?.name],
+    ["Correo electrónico", user?.email],
+    ["Rol", user?.roleName ?? "Encargado"],
+    ["Sede", user?.sede],
   ];
-  const [notifState, setNotifState] = useState<Record<string, boolean>>(
-    Object.fromEntries(notifOptions.map(n => [n.key, true]))
-  );
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Perfil y Preferencias" subtitle="Gestione sus datos personales y notificaciones" />
+      <SectionHeader title="Perfil y Preferencias" subtitle="Sus datos, sus alumnos a cargo y las notificaciones que recibe" />
+
+      {errorHijos && <AlertBanner type="error" message={errorHijos} />}
+      {aviso && <AlertBanner type={aviso.tipo} message={aviso.texto} onClose={() => setAviso(null)} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="p-6">
           <h3 className="font-display font-semibold text-stone-900 mb-4">Datos personales</h3>
           <div className="flex items-center gap-4 mb-5">
-            <div className="w-16 h-16 rounded-full bg-primary-700 flex items-center justify-center text-white font-bold text-xl">RP</div>
+            <div className="w-16 h-16 rounded-full bg-primary-700 flex items-center justify-center text-white font-bold text-xl">{user?.initials}</div>
             <div>
-              <p className="font-semibold text-stone-900">Sra. Rosa Elena Pac Cuc</p>
-              <p className="text-sm text-stone-500">rpac.encargado@gmail.com</p>
+              <p className="font-semibold text-stone-900">{user?.name}</p>
+              <p className="text-sm text-stone-500">{user?.email}</p>
               <p className="text-xs text-stone-400 mt-0.5">Padre / Encargado</p>
             </div>
           </div>
-          <div className="space-y-3">
-            {[["Nombre completo", "Rosa Elena Pac Cuc"], ["Correo electrónico", "rpac.encargado@gmail.com"], ["Teléfono", "(502) 5555-8891"], ["DPI", "1234 56789 0101"]].map(([k, v]) => (
+          <dl className="space-y-3">
+            {datos.filter(([, v]) => v).map(([k, v]) => (
               <div key={k}>
-                <label className="text-xs font-medium text-stone-500 block mb-1">{k}</label>
-                <input defaultValue={v} className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700" />
+                <dt className="text-xs font-medium text-stone-500">{k}</dt>
+                <dd className="text-sm text-stone-900">{v}</dd>
               </div>
             ))}
-          </div>
-          <div className="flex justify-end mt-4">
-            {saved && <span className="text-xs text-success-700 flex items-center gap-1 mr-3 py-2"><CheckCircle2 className="w-3.5 h-3.5" />Datos actualizados</span>}
-            <Btn variant="primary" size="sm" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}>Guardar cambios</Btn>
-          </div>
+          </dl>
+          <p className="text-xs text-stone-400 mt-4">Si algún dato es incorrecto, solicite la corrección a la administración de la sede.</p>
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-display font-semibold text-stone-900 mb-1 flex items-center gap-2"><Bell className="w-4 h-4 text-stone-400" />Preferencias de notificación</h3>
-          <p className="text-sm text-stone-500 mb-4">Seleccione qué notificaciones desea recibir por correo electrónico.</p>
+          <h3 className="font-display font-semibold text-stone-900 mb-1 flex items-center gap-2"><KeyRound className="w-4 h-4 text-stone-400" />Cambiar contraseña</h3>
+          <p className="text-sm text-stone-500 mb-4">Use al menos 8 caracteres.</p>
           <div className="space-y-3">
-            {notifOptions.map(n => (
-              <div key={n.key} className="flex items-start justify-between gap-3 py-2 border-b border-stone-50 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-stone-800">{n.label}</p>
-                  <p className="text-xs text-stone-500">{n.desc}</p>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={notifState[n.key]}
-                  onClick={() => setNotifState(prev => ({ ...prev, [n.key]: !prev[n.key] }))}
-                  className={`relative w-10 h-6 rounded-full transition-colors duration-200 shrink-0 mt-0.5 cursor-pointer
-                    ${notifState[n.key] ? "bg-primary-700" : "bg-stone-300"}`}
-                  aria-label={`${n.label}: ${notifState[n.key] ? "activo" : "inactivo"}`}
-                >
-                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${notifState[n.key] ? "translate-x-4" : "translate-x-0"}`} />
-                </button>
-              </div>
-            ))}
+            <Input label="Contraseña actual" type="password" autoComplete="current-password" value={pass.actual}
+              onChange={(e) => setPass((p) => ({ ...p, actual: e.target.value }))} />
+            <Input label="Nueva contraseña" type="password" autoComplete="new-password" value={pass.nueva}
+              onChange={(e) => setPass((p) => ({ ...p, nueva: e.target.value }))} />
+            <Input label="Confirmar nueva contraseña" type="password" autoComplete="new-password" value={pass.confirmar}
+              onChange={(e) => setPass((p) => ({ ...p, confirmar: e.target.value }))} />
           </div>
+          {passError && <div className="mt-3"><AlertBanner type="error" message={passError} /></div>}
+          {passOk && <div className="mt-3"><AlertBanner type="success" message={passOk} /></div>}
           <div className="flex justify-end mt-4">
-            <Btn variant="outline" size="sm">Guardar preferencias</Btn>
+            <Btn variant="primary" size="sm" loading={guardandoPass} onClick={guardarPassword}>Actualizar contraseña</Btn>
           </div>
         </Card>
       </div>
+
+      <Card className="p-6">
+        <h3 className="font-display font-semibold text-stone-900 mb-1 flex items-center gap-2"><Bell className="w-4 h-4 text-stone-400" />Alumnos a cargo y notificaciones</h3>
+        <p className="text-sm text-stone-500 mb-4">
+          Elija de qué alumnos desea recibir avisos por correo (notas, ausencias, conducta y comunicados). Los permisos de su vínculo los administra la sede.
+        </p>
+        {!hijos ? <div className="h-24 rounded-xl bg-stone-100 animate-pulse" /> : hijos.length === 0 ? (
+          <p className="text-sm text-stone-500">Su cuenta no tiene alumnos a cargo.</p>
+        ) : (
+          <div className="divide-y divide-stone-100">
+            {hijos.map((h) => (
+              <div key={h.alumnoId} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-stone-900">{h.nombre}</p>
+                    <p className="text-xs text-stone-500">
+                      {h.grado} sección {h.seccion} · {h.sede}{h.parentesco ? ` · ${h.parentesco}` : ""}
+                      {h.vigenteHasta ? ` · Vínculo vigente hasta ${new Date(h.vigenteHasta + "T00:00:00").toLocaleDateString("es-GT")}` : ""}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {h.esPrincipal && <Badge variant="primary"><ShieldCheck className="w-3 h-3" />Contacto principal</Badge>}
+                      {h.responsableFinanciero && <Badge variant="primary"><CreditCard className="w-3 h-3" />Responsable de pagos</Badge>}
+                      <Permiso activo={h.puedeVerNotas}>Notas</Permiso>
+                      <Permiso activo={h.puedeVerPagos}>Pagos</Permiso>
+                      <Permiso activo={h.autorizadoRecoger}>Autorizado a recoger</Permiso>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-stone-600">
+                      <span className="flex items-center gap-1">
+                        <Laptop className="w-3.5 h-3.5 text-stone-400" />
+                        {h.accesoPortal
+                          ? <>Entra al portal con <span className="font-mono-data text-stone-800">{h.usuarioPortal}</span></>
+                          : h.accesoPorNivel ? "La sede deshabilitó su acceso al portal" : "Sin acceso al portal por su nivel (usted consulta su información)"}
+                      </span>
+                      {h.accesoPortal && (h.esPrincipal || h.responsableFinanciero) && (
+                        <button onClick={() => abrirPassHijo(h)} className="text-primary-700 hover:underline font-medium cursor-pointer">
+                          Asignar contraseña
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className={`shrink-0 ${guardandoId === h.alumnoId ? "opacity-50 pointer-events-none" : ""}`}>
+                  <Toggle checked={h.recibeNotificaciones} onChange={(v) => cambiarNotificaciones(h, v)}
+                    label={h.recibeNotificaciones ? "Recibe correos" : "Sin correos"} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Modal open={!!passHijo} onClose={() => !guardandoHijo && setPassHijo(null)} title={`Contraseña de ${passHijo?.nombre.split(" ")[0] ?? ""}`}
+        footer={<>
+          <Btn variant="ghost" onClick={() => setPassHijo(null)} disabled={guardandoHijo}>Cancelar</Btn>
+          <Btn variant="primary" loading={guardandoHijo} onClick={guardarPassHijo}>Guardar</Btn>
+        </>}>
+        <div className="space-y-3">
+          <p className="text-sm text-stone-600">
+            Usuario: <span className="font-mono-data text-stone-900">{passHijo?.usuarioPortal}</span>. Entréguele la nueva contraseña al alumno; la anterior deja de funcionar.
+          </p>
+          <Input label="Nueva contraseña" type="password" autoComplete="new-password" value={nuevaHijo.nueva}
+            onChange={(e) => setNuevaHijo((p) => ({ ...p, nueva: e.target.value }))} />
+          <Input label="Confirmar contraseña" type="password" autoComplete="new-password" value={nuevaHijo.confirmar}
+            onChange={(e) => setNuevaHijo((p) => ({ ...p, confirmar: e.target.value }))} />
+          {errorHijo && <AlertBanner type="error" message={errorHijo} />}
+        </div>
+      </Modal>
     </div>
   );
 }
 
-export default function Padre({ view }: { view: View }) {
-  if (view === "pad-matricula") return <MatriculaView />;
+export default function Padre({ view, user, onNavigate }: { view: View; user?: AppUser; onNavigate?: (v: View) => void }) {
+  if (view === "pad-matricula") return <MatriculaView user={user} />;
   if (view === "pad-notas") return <NotasHijo />;
   if (view === "pad-pagos") return <PagosView />;
   if (view === "pad-eventos") return <EventosPadre />;
   if (view === "pad-becas") return <BecasPadre />;
   if (view === "pad-avisos") return <AvisosPadre />;
-  if (view === "pad-perfil") return <PerfilView />;
-  return <DashboardPadre />;
+  if (view === "pad-asistencia") return <AsistenciaPadre />;
+  if (view === "pad-horario") return <HorarioHijo />;
+  if (view === "pad-calendario") return <CalendarioEventos subtitle="Eventos de las sedes de sus hijos y eventos generales" />;
+  if (view === "pad-perfil") return <PerfilView user={user} />;
+  return <DashboardPadre user={user} onNavigate={onNavigate} />;
 }

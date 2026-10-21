@@ -6,7 +6,8 @@ import {
     cotizarColegiatura,
     crearIntentPago,
     verificarPago,
-    getMisHijos
+    getMisHijos,
+    getMoraPagosMetrica
 } from '../controllers/pago.controller.js'
 import {
     getEventosDisponibles,
@@ -15,7 +16,7 @@ import {
     getMisInscripciones
 } from '../controllers/carrito.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
-import { permitir, verificarRol, ROL } from "../middlewares/role.middleware.js";
+import { permitir, ROL, verificarRol } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.get('/carrito/inscripciones', verificarRol(ROL.ENCARGADO), getMisInscripc
 router.get('/carrito/verificar/:paymentIntentId', verificarRol(ROL.ENCARGADO), verificarCarrito);
 router.post('/carrito/intent', verificarRol(ROL.ENCARGADO), crearIntentCarrito);
 
+router.get('/metrica-mora', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getMoraPagosMetrica);
 router.get('/estado-cuenta/:alumnoId', getEstadoCuenta);
 router.get('/cotizar/:alumnoId', cotizarColegiatura);
 router.get('/verificar/:paymentIntentId', verificarPago);

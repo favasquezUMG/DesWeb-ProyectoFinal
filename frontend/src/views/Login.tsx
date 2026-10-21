@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download, GraduationCap, ArrowLeft } from "lucide-react";
-import type { AppUser, Role } from "../types";
+import { Sede, type AppUser, type Role } from "../types";
 import type { Portal } from "./Home";
 import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
-import { login } from "../lib/api";
+import { type SedeDto, getSedes, login, restablecerPassword, solicitarRecuperacion } from "../lib/api";
 import { buildAppUser, clearSession, mapBackendRole, saveSession } from "../lib/auth";
 import {
   type SolicitudGuardada,
@@ -54,9 +54,9 @@ interface LoginProps {
   onBack: () => void;
   initialPortal?: Portal;
   initialScreen?: Screen;
+  resetToken?: string;
 }
 
-const SEDES_DEMO = ["Sede Central", "Sede Xela", "Sede Coatepeque"];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,7 +72,7 @@ function validarPassword(value: string): string {
   return "";
 }
 
-export default function Login({ onLogin, onBack, initialPortal = "estudiante", initialScreen = "login" }: LoginProps) {
+export default function Login({ onLogin, onBack, initialPortal = "estudiante", initialScreen = "login", resetToken }: LoginProps) {
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [portal, setPortal] = useState<Portal>(initialPortal);
   const [email, setEmail] = useState("");
@@ -84,8 +84,15 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
   const [loading, setLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetDone, setResetDone] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [selectedSede, setSelectedSede] = useState("Sede Central");
+
+  const [sedes, setSedes] = useState<SedeDto[]>([]);
 
   const [consultaTab, setConsultaTab] = useState<"numero" | "dpi">("numero");
   const [consultaNumero, setConsultaNumero] = useState("");
@@ -144,10 +151,39 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     }
   }
 
-  function handleForgot(e: React.FormEvent) {
+  async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
+    const err = validarEmail(forgotEmail);
+    setForgotError(err);
+    if (err) return;
+
     setLoading(true);
-    setTimeout(() => { setLoading(false); setForgotSent(true); }, 900);
+    try {
+      await solicitarRecuperacion(forgotEmail.trim());
+      setForgotSent(true);
+    } catch (error) {
+      setForgotError(error instanceof Error ? error.message : "No se pudo enviar el correo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) return setResetError("La contraseña debe tener al menos 8 caracteres.");
+    if (newPassword !== confirmPassword) return setResetError("Las contraseñas no coinciden.");
+    if (!resetToken) return setResetError("El enlace no es válido. Solicite uno nuevo.");
+
+    setResetError("");
+    setLoading(true);
+    try {
+      await restablecerPassword(resetToken, newPassword);
+      setResetDone(true);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "No se pudo restablecer la contraseña.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleSedeConfirm() {
@@ -207,6 +243,19 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     }
     setConsultaResultado(encontrada);
   }
+
+  useEffect(() => {
+    async function cargarSedes() {
+      try{
+        const data = await getSedes();
+        setSedes(data);
+      } catch (error) {
+        console.error("Error al cargar datos desde el backend:", error)
+      }
+    }
+    cargarSedes();
+
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -362,7 +411,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
                 {forgotSent ? (
                   <div className="space-y-4">
-                    <AlertBanner type="success" title="Correo enviado" message={`Revise la bandeja de entrada de ${forgotEmail}. El enlace expira en 24 horas.`} />
+                    <AlertBanner type="success" title="Solicitud enviada" message={`Si ${forgotEmail} está registrado, recibirá un enlace para restablecer su contraseña. El enlace vence en 60 minutos.`} />
                     <Btn variant="outline" size="md" className="w-full justify-center" onClick={() => { setScreen("login"); setForgotSent(false); setForgotEmail(""); }}>
                       Volver al inicio de sesión
                     </Btn>
@@ -373,7 +422,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                       <Input
                         label="Correo electrónico"
                         id="forgot-email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
-                        placeholder="usuario@colegio.edu.gt"
+                        placeholder="usuario@colegio.edu.gt" error={forgotError}
                       />
                     </div>
                     <Btn type="submit" variant="primary" size="lg" loading={loading} className="w-full justify-center">
@@ -387,20 +436,60 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
               </form>
             )}
 
+            {screen === "reset" && (
+              <form onSubmit={handleReset} noValidate>
+                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Nueva contraseña</h2>
+                <p className="text-stone-500 text-sm mb-6">Escriba la contraseña que usará a partir de ahora (mínimo 8 caracteres).</p>
+
+                {resetDone ? (
+                  <div className="space-y-4">
+                    <AlertBanner type="success" title="Contraseña actualizada" message="Ya puede iniciar sesión con su nueva contraseña." />
+                    <Btn variant="primary" size="md" className="w-full justify-center" onClick={() => setScreen("login")}>
+                      Ir a iniciar sesión
+                    </Btn>
+                  </div>
+                ) : (
+                  <>
+                    {resetError && <div className="mb-4"><AlertBanner type="error" message={resetError} /></div>}
+                    <div className="mb-4">
+                      <Input
+                        label="Nueva contraseña"
+                        id="reset-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <Input
+                        label="Confirmar contraseña"
+                        id="reset-confirm" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <Btn type="submit" variant="primary" size="lg" loading={loading} className="w-full justify-center">
+                      {loading ? "Guardando…" : "Guardar contraseña"}
+                    </Btn>
+                    <button type="button" onClick={() => setScreen("forgot")} className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-3 py-1">
+                      Solicitar un enlace nuevo
+                    </button>
+                  </>
+                )}
+              </form>
+            )}
+
             {screen === "sede" && selectedUser && (
               <div>
                 <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Seleccionar sede</h2>
                 <p className="text-stone-500 text-sm mb-6">Su usuario tiene acceso a varias sedes. Seleccione la sede de trabajo para esta sesión.</p>
 
                 <div className="space-y-2 mb-6">
-                  {SEDES_DEMO.map(s => (
-                    <button key={s} type="button" onClick={() => setSelectedSede(s)}
+                  {sedes.map(s => (
+                    <button key={s.sedeId} type="button" onClick={() => setSelectedSede(s.nombre)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors cursor-pointer text-left
-                        ${selectedSede === s ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedSede === s ? "border-primary-700" : "border-stone-300"}`}>
-                        {selectedSede === s && <div className="w-2 h-2 rounded-full bg-primary-700" />}
+                        ${selectedSede === s.nombre ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedSede === s.nombre ? "border-primary-700" : "border-stone-300"}`}>
+                        {selectedSede === s.nombre && <div className="w-2 h-2 rounded-full bg-primary-700" />}
                       </div>
-                      <span className={`text-sm font-medium ${selectedSede === s ? "text-primary-900" : "text-stone-700"}`}>{s}</span>
+                      <span className={`text-sm font-medium ${selectedSede === s.nombre ? "text-primary-900" : "text-stone-700"}`}>{s.nombre}</span>
                     </button>
                   ))}
                 </div>

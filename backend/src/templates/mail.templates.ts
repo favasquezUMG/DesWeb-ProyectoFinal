@@ -173,11 +173,11 @@ export const plantillaBoletaNotas = (datos: {
                 <tr style="background-color:#f3f4f6;">
                     <th style="${celda} text-align:left;">Curso</th>
                     ${numerosUnidad.map((n) => `<th style="${celda}">U${n}</th>`).join("")}
-                    <th style="${celda}">Total</th>
+                    <th style="${celda}">Promedio</th>
                 </tr>
                 ${filas}
             </table>
-            <p style="font-size:12px; color:#6b7280;">La nota mínima de aprobación es 61 puntos.</p>
+            <p style="font-size:12px; color:#6b7280;">Cada unidad se califica sobre 100 puntos (60 de zona y 40 de examen). La nota final es el promedio de las unidades; la mínima de aprobación es 61 puntos.</p>
             ${botonIngresar()}
             `
         ),
@@ -318,3 +318,110 @@ export const plantillaComprobantePago = (datos: {
         ),
     };
 };
+
+export const plantillaRecuperarPassword = (datos: {
+    nombreDestinatario: string;
+    enlace: string;
+    minutosVigencia: number;
+}): PlantillaResult => {
+    return {
+        subject: "Restablecer contraseña",
+        html: baseTemplate(
+            "Restablecer contraseña",
+            `
+            <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de su cuenta. Haga clic en el botón para crear una nueva:</p>
+            <p style="margin-top:20px;"><a href="${datos.enlace}" style="background-color:#1d4ed8; color:#ffffff; padding:10px 18px; border-radius:6px; text-decoration:none; font-weight:bold;">Crear nueva contraseña</a></p>
+            <p style="margin-top:20px;">El enlace vence en ${datos.minutosVigencia} minutos y solo puede usarse una vez.</p>
+            <p>Si usted no lo solicitó, ignore este correo: su contraseña actual sigue funcionando.</p>
+            `
+        ),
+    };
+};
+
+export const plantillaJustificacion = (datos: {
+    nombreDestinatario: string;
+    nombreAlumno: string;
+    fecha: Date | string;
+    aprobada: boolean;
+    comentario?: string | null;
+}): PlantillaResult => {
+    const color = datos.aprobada ? "#16a34a" : "#dc2626";
+    const resultado = datos.aprobada ? "aprobada" : "rechazada";
+    return {
+        subject: `Justificación ${resultado} - ${datos.nombreAlumno}`,
+        html: baseTemplate(
+            `Justificación de ausencia ${resultado}`,
+            `
+            <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+            <p>La solicitud para justificar la ausencia de <strong>${escapeHtml(datos.nombreAlumno)}</strong>
+            del ${formatearFecha(datos.fecha)} fue
+            <strong style="color:${color};">${resultado}</strong>.</p>
+            ${datos.aprobada ? "<p>Las faltas de ese día quedan registradas como justificadas.</p>" : ""}
+            ${datos.comentario ? `<div style="border-left:3px solid ${color}; padding-left:12px; margin:12px 0;">${parrafos(datos.comentario)}</div>` : ""}
+            ${botonIngresar()}
+            `
+        ),
+    };
+};
+
+type Credencial = { usuario: string; password: string };
+
+const bloqueCredencial = (titulo: string, c: Credencial): string => `
+    <div style="background-color:#f3f4f6; border-radius:6px; padding:12px 16px; margin:12px 0;">
+        <p style="margin:0 0 6px 0; font-weight:bold;">${escapeHtml(titulo)}</p>
+        <p style="margin:0;">Usuario: <strong>${escapeHtml(c.usuario)}</strong></p>
+        <p style="margin:0;">Contraseña temporal: <strong style="font-family:monospace;">${escapeHtml(c.password)}</strong></p>
+    </div>`;
+
+export const plantillaInscripcionAprobada = (datos: {
+    nombreDestinatario: string;
+    nombreAlumno: string;
+    grado: string;
+    seccion: string;
+    sede: string;
+    anioLectivo: number;
+    /** null si el encargado ya tenía cuenta: usa su contraseña de siempre */
+    credencialEncargado: Credencial | null;
+    usuarioEncargado: string;
+    /** null si el alumno no tiene acceso al portal (por su nivel) */
+    credencialAlumno: Credencial | null;
+}): PlantillaResult => ({
+    subject: `Inscripción aprobada - ${datos.nombreAlumno}`,
+    html: baseTemplate(
+        "¡Bienvenidos al colegio!",
+        `
+        <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+        <p>La solicitud de inscripción de <strong>${escapeHtml(datos.nombreAlumno)}</strong> fue
+        <strong style="color:#16a34a;">aprobada</strong>. Quedó matriculado en
+        <strong>${escapeHtml(datos.grado)} sección ${escapeHtml(datos.seccion)}</strong>, ${escapeHtml(datos.sede)}, ciclo ${datos.anioLectivo}.</p>
+        ${datos.credencialEncargado
+            ? bloqueCredencial("Su cuenta de encargado", datos.credencialEncargado)
+            : `<p>Ya tenía una cuenta en el sistema (<strong>${escapeHtml(datos.usuarioEncargado)}</strong>): el alumno aparece ahora entre sus hijos.</p>`}
+        ${datos.credencialAlumno
+            ? bloqueCredencial("Cuenta del alumno", datos.credencialAlumno)
+            : "<p>Por su nivel, el alumno no tiene cuenta propia en el portal: usted consulta sus notas, asistencia, horario y avisos desde su cuenta.</p>"}
+        ${datos.credencialEncargado || datos.credencialAlumno ? "<p>Por seguridad, cambie la contraseña temporal la primera vez que ingrese.</p>" : ""}
+        ${botonIngresar()}
+        `,
+    ),
+});
+
+export const plantillaInscripcionRechazada = (datos: {
+    nombreDestinatario: string;
+    nombreAlumno: string;
+    numero: string;
+    motivo: string;
+}): PlantillaResult => ({
+    subject: `Solicitud de inscripción ${datos.numero}`,
+    html: baseTemplate(
+        "Resultado de su solicitud de inscripción",
+        `
+        <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+        <p>Lamentamos informarle que la solicitud <strong>${escapeHtml(datos.numero)}</strong> para inscribir a
+        <strong>${escapeHtml(datos.nombreAlumno)}</strong> no fue aprobada.</p>
+        <div style="border-left:3px solid #dc2626; padding-left:12px; margin:12px 0;">${parrafos(datos.motivo)}</div>
+        <p>Si tiene dudas, comuníquese con la administración de la sede.</p>
+        `,
+    ),
+});

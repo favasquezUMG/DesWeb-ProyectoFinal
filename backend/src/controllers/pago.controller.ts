@@ -487,3 +487,81 @@ export const verificarPago = async (req: AuthenticatedRequest, res: Response) =>
         });
     }
 };
+
+export const getMoraPagosMetrica = async (_req: AuthenticatedRequest, res: Response) => {
+    try {
+        const rolAlumno = await prisma.rol.findFirst({
+            where: { nombre: "Alumno" },
+        });
+
+        if (!rolAlumno) {
+            return res.status(400).json({
+                status: "error",
+                message: "No se encontró el rol 'Alumno'.",
+            });
+        }
+
+        // 1. Obtener IDs de alumnos activos
+        const alumnosActivos = await prisma.usuario.findMany({
+            where: {
+                rolId: rolAlumno.rolId,
+                deletedAt: null,
+            },
+            select: { usuarioId: true },
+        });
+
+        const totalAlumnos = alumnosActivos.length;
+        const alumnoIds = alumnosActivos.map((a) => a.usuarioId);
+
+        if (totalAlumnos === 0) {
+            return res.json({
+                status: "success",
+                data: {
+                porcentajeMora: 0,
+                cuentasPendientes: 0,
+                subtexto: "0 cuentas pendientes",
+                },
+            });
+        }
+
+        // 2. Alumnos únicos que tienen al menos un pago pendiente
+        const alumnosEnMora = await prisma.pago.groupBy({
+            by: ["alumnoId"],
+            where: {
+                alumnoId: { in: alumnoIds },
+                OR: [
+                { estado: "Pendiente" },
+                { estado: "PENDIENTE" },
+                ],
+            },
+        });
+
+        // 3. Conteo total de cuentas/pagos pendientes en el sistema
+        const totalPagosPendientes = await prisma.pago.count({
+            where: {
+                alumnoId: { in: alumnoIds },
+                OR: [
+                { estado: "Pendiente" },
+                { estado: "PENDIENTE" },
+                ],
+            },
+        });
+
+        const porcentajeMora = Math.round((alumnosEnMora.length / totalAlumnos) * 100);
+
+        return res.json({
+            status: "success",
+            data: {
+                porcentajeMora,
+                cuentasPendientes: totalPagosPendientes,
+                subtexto: `${totalPagosPendientes} cuentas pendientes`,
+            },
+        });
+    } catch (error) {
+        console.error("Error al calcular métrica de mora:", error);
+        return res.status(500).json({
+            status: "error",
+            message: "Error al calcular métricas de mora de pagos.",
+        });
+    }
+};

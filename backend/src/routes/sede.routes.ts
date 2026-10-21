@@ -1,23 +1,23 @@
 import { Router } from "express";
-import { prisma } from "../lib/prisma.js";
 import { authenticateToken } from "../middlewares/auth.middleware.js";
+import { verificarRol, ROL } from "../middlewares/role.middleware.js";
+import { getDashboardSede } from "../controllers/dashboardSede.controller.js";
+import { 
+    get,
+    crearSede,
+    actualizarSede,
+    getSedesMetricas
+} from "../controllers/sede.controller.js";
 
 const router = Router();
 
-// GET /api/sedes  — sedes activas (para formularios)
-router.get("/", async (_req, res) => {
-    try {
-        const sedes = await prisma.sede.findMany({
-            where: { activo: true, deletedAt: null },
-            select: { sedeId: true, nombre: true, direccion: true },
-            orderBy: { nombre: "asc" },
-        });
-        return res.json({ status: "success", data: sedes });
-    } catch (error) {
-        return res.status(500).json({ status: "error", message: "Error al obtener las sedes.", error });
-    }
-});
+router.get("/", get);
 
 router.use(authenticateToken);
+
+router.post("/", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), crearSede);
+router.put("/:id", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), actualizarSede);
+router.get("/metricas", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), getSedesMetricas);
+router.get("/dashboard", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getDashboardSede);
 
 export default router;
