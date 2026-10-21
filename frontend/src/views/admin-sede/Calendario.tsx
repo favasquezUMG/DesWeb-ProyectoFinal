@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Bell, X } from "lucide-react";
 import { EVENTOS } from "../../data";
 import { Card, SectionHeader, Btn } from "../../components/Ui";
+import EventosCobro from "./EventosCobro";
 
 type TipoEvento = "clases" | "examen" | "descanso" | "actividad" | "asueto" | "festivo" | "institucional";
 
@@ -126,6 +127,8 @@ export default function CalendarioView() {
       <SectionHeader title="Calendario Escolar 2025" subtitle="Vista anual completa — todos los meses"
         action={<Btn variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setShowForm(true)}>Crear evento</Btn>}
       />
+
+      <EventosCobro />
 
       {/* Legend */}
       <div className="flex flex-wrap gap-2">

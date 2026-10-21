@@ -7,6 +7,8 @@ import { descuentoColegiatura } from '../services/becas.service.js';
 import { puedeVerAlumno } from '../services/acceso.service.js';
 import { hijosDe } from '../services/vinculos.service.js';
 import { sedeDelAlcance } from '../middlewares/role.middleware.js';
+import { OrdenEnProcesoError, liberarOrdenesPendientes } from '../services/carrito.service.js';
+import { enviarComprobanteEnSegundoPlano, enviarComprobantePago } from '../services/comprobante.service.js';
 
 const sinAcceso = (res: Response) =>
     res.status(403).json({ status: 'error', message: 'No tiene permisos para ver la información de pagos de este alumno.' });
@@ -173,6 +175,9 @@ export const crearIntentPago = async (req: AuthenticatedRequest, res: Response) 
             });
         }
 
+        // Si el mes estaba en un carrito sin pagar, ese carrito se cancela para no cobrarlo dos veces
+        if (pagoExistente?.ordenId) await liberarOrdenesPendientes([pagoExistente.ordenId]);
+
         const fechaReferencia = new Date(Date.UTC(anio, mesNum - 1, 1));
         const descuento = await descuentoColegiatura(Number(alumnoId), fechaReferencia);
         const montoFinal = calcularMonto(descuento.total);
@@ -253,6 +258,7 @@ export const crearIntentPago = async (req: AuthenticatedRequest, res: Response) 
                     anioLectivo: String(anio),
                     mes: String(mesNum),
                     concepto: CONCEPTO_COLEGIATURA,
+                    usuarioId: String(req.user?.id),
                 },
             });
         }
@@ -293,6 +299,7 @@ export const crearIntentPago = async (req: AuthenticatedRequest, res: Response) 
             },
         });
     } catch (error: any) {
+        if (error instanceof OrdenEnProcesoError) return res.status(409).json({ status: 'error', message: error.message });
         return res.status(500).json({
             status: 'error',
             message: 'Error al iniciar el pago.',
@@ -453,10 +460,13 @@ export const verificarPago = async (req: AuthenticatedRequest, res: Response) =>
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
         if (paymentIntent.status === 'succeeded' && pago.estado !== 'Pagado') {
-            pago = await prisma.pago.update({
-                where: { pagoId: pago.pagoId },
+            // Condicional: si el webhook lo marco al mismo tiempo, solo uno de los dos envia el comprobante
+            const { count } = await prisma.pago.updateMany({
+                where: { pagoId: pago.pagoId, estado: { not: 'Pagado' } },
                 data: { estado: 'Pagado', fechaPago: new Date() },
             });
+            if (count > 0) enviarComprobanteEnSegundoPlano(() => enviarComprobantePago(paymentIntentId));
+            pago = (await prisma.pago.findUnique({ where: { pagoId: pago.pagoId } })) ?? pago;
         }
 
         return res.json({

@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { loadStripe, type StripeCardNumberElementOptions, type StripeElementsOptions } from "@stripe/stripe-js";
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { AlertCircle, CheckCircle2, Clock, CreditCard, Lock, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, CreditCard, Lock, Mail, ShieldCheck } from "lucide-react";
 import { Btn, Input, Modal } from "./Ui";
 import { crearIntentPago, verificarPago, type IntentPagoDto } from "../lib/api";
+import { getSession } from "../lib/auth";
 
 const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
@@ -12,6 +13,8 @@ const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = STRIPE_KEY ? loadStripe(STRIPE_KEY, { locale: "es-419" }) : null;
 
 const MODO_PRUEBA = STRIPE_KEY?.startsWith("pk_test_") ?? false;
+
+const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const formatoQ = (monto: number) =>
   `Q${monto.toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -48,38 +51,51 @@ const FONTS: StripeElementsOptions["fonts"] = [
   { cssSrc: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" },
 ];
 
-type Resultado = { tipo: "exitoso"; monto: number } | { tipo: "procesando" };
+type Resultado = { tipo: "exitoso"; monto: number; correo: string } | { tipo: "procesando"; correo: string };
 
-interface PagoColegiaturaModalProps {
-  /** Periodo a pagar. null = modal cerrado. */
-  periodo: { alumnoId: number; anioLectivo: number; mes: number } | null;
+/** Lo que el modal necesita para cobrar: sale del backend (el monto lo calcula el servidor). */
+export interface CobroPreparado {
+  clientSecret: string;
+  monto: number;
+  titulo: string;
+  resumen: ReactNode;
+}
+
+interface PagoStripeModalProps {
+  /** Identifica el cobro; null = modal cerrado. Al cambiar, se vuelve a preparar el cobro. */
+  clave: string | null;
+  /** Pide al backend el PaymentIntent. Si lanza un error, se muestra su mensaje. */
+  preparar: () => Promise<CobroPreparado>;
+  /** Avisa al backend que Stripe ya cobró, para no depender de que llegue el webhook. */
+  verificar: (paymentIntentId: string) => Promise<unknown>;
+  tituloInicial: string;
   onClose: () => void;
   /**
    * Se llama al cerrar el modal después de enviar el pago, para refrescar
-   * el estado de cuenta. "procesando" = el banco todavía no lo confirma.
+   * la pantalla. "procesando" = el banco todavía no lo confirma.
    */
   onTerminado: (tipo: Resultado["tipo"]) => void;
 }
 
 /**
- * Modal de pago de colegiatura. Todo el flujo ocurre dentro de nuestra
- * página: no hay redirect a la pantalla de Stripe Checkout.
+ * Modal de pago con tarjeta. Todo el flujo ocurre dentro de nuestra página:
+ * no hay redirect a la pantalla de Stripe Checkout.
  *
- * 1. Al abrir, pide al backend el PaymentIntent (monto ya con beca).
+ * 1. Al abrir, pide al backend el PaymentIntent (preparar).
  * 2. Muestra el resumen + el formulario de tarjeta (Stripe Elements).
  * 3. Confirma con Stripe y verifica el resultado contra el backend.
  */
-export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoColegiaturaModalProps) {
-  const [intent, setIntent] = useState<IntentPagoDto | null>(null);
+export function PagoStripeModal({ clave, preparar, verificar, tituloInicial, onClose, onTerminado }: PagoStripeModalProps) {
+  const [cobro, setCobro] = useState<CobroPreparado | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    setIntent(null);
+    setCobro(null);
     setError(null);
     setResultado(null);
-    if (!periodo) return;
+    if (clave === null) return;
 
     if (!stripePromise) {
       setError("Los pagos en línea no están configurados (falta VITE_STRIPE_PUBLISHABLE_KEY).");
@@ -87,16 +103,13 @@ export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoCole
     }
 
     let cancelado = false;
-    crearIntentPago(periodo)
-      .then((data) => {
-        if (cancelado) return;
-        // Beca del 100%: el backend lo registra como exonerado y no hay nada que cobrar
-        if (data.exonerado || !data.clientSecret) setError("Este mes está cubierto al 100% por beca. No hay nada que pagar.");
-        else setIntent(data);
-      })
+    preparar()
+      .then((data) => { if (!cancelado) setCobro(data); })
       .catch((e: Error) => { if (!cancelado) setError(e.message); });
     return () => { cancelado = true; };
-  }, [periodo]);
+    // preparar cambia en cada render del padre; el cobro solo se prepara de nuevo cuando cambia la clave
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clave]);
 
   function cerrar() {
     // Mientras Stripe procesa no se deja cerrar: el cobro podría completarse
@@ -106,10 +119,10 @@ export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoCole
     onClose();
   }
 
-  const titulo = resultado ? "Resultado del pago" : intent ? intent.concepto : "Pago de colegiatura";
+  const titulo = resultado ? "Resultado del pago" : cobro ? cobro.titulo : tituloInicial;
 
   return (
-    <Modal open={periodo !== null} onClose={cerrar} title={titulo}>
+    <Modal open={clave !== null} onClose={cerrar} title={titulo}>
       {resultado ? (
         <ResultadoPago resultado={resultado} onCerrar={cerrar} />
       ) : error ? (
@@ -120,22 +133,23 @@ export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoCole
           <p className="text-stone-700 text-sm max-w-sm">{error}</p>
           <Btn variant="outline" onClick={cerrar}>Cerrar</Btn>
         </div>
-      ) : !intent ? (
+      ) : !cobro ? (
         <div className="flex flex-col items-center py-10 gap-3 text-stone-500 text-sm">
           <span className="w-6 h-6 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
           Preparando el pago…
         </div>
       ) : (
         <div className="space-y-5">
-          <ResumenPago intent={intent} />
+          {cobro.resumen}
           {/* key: Elements no permite cambiar el clientSecret después de montarse */}
           <Elements
-            key={intent.clientSecret}
+            key={cobro.clientSecret}
             stripe={stripePromise}
             options={{ fonts: FONTS }}
           >
             <FormularioTarjeta
-              intent={intent}
+              cobro={cobro}
+              verificar={verificar}
               onEnviando={setEnviando}
               onResultado={setResultado}
             />
@@ -143,6 +157,32 @@ export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoCole
         </div>
       )}
     </Modal>
+  );
+}
+
+interface PagoColegiaturaModalProps {
+  /** Periodo a pagar. null = modal cerrado. */
+  periodo: { alumnoId: number; anioLectivo: number; mes: number } | null;
+  onClose: () => void;
+  onTerminado: (tipo: Resultado["tipo"]) => void;
+}
+
+/** Pago de un solo mes de colegiatura (monto ya con beca). */
+export function PagoColegiaturaModal({ periodo, onClose, onTerminado }: PagoColegiaturaModalProps) {
+  return (
+    <PagoStripeModal
+      clave={periodo ? `${periodo.alumnoId}-${periodo.anioLectivo}-${periodo.mes}` : null}
+      tituloInicial="Pago de colegiatura"
+      preparar={async () => {
+        const intent = await crearIntentPago(periodo!);
+        // Beca del 100%: el backend lo registra como exonerado y no hay nada que cobrar
+        if (intent.exonerado || !intent.clientSecret) throw new Error("Este mes está cubierto al 100% por beca. No hay nada que pagar.");
+        return { clientSecret: intent.clientSecret, monto: intent.montoFinal, titulo: intent.concepto, resumen: <ResumenPago intent={intent} /> };
+      }}
+      verificar={verificarPago}
+      onClose={onClose}
+      onTerminado={onTerminado}
+    />
   );
 }
 
@@ -172,8 +212,9 @@ function ResumenPago({ intent }: { intent: IntentPagoDto }) {
   );
 }
 
-function FormularioTarjeta({ intent, onEnviando, onResultado }: {
-  intent: IntentPagoDto;
+function FormularioTarjeta({ cobro, verificar, onEnviando, onResultado }: {
+  cobro: CobroPreparado;
+  verificar: (paymentIntentId: string) => Promise<unknown>;
   onEnviando: (v: boolean) => void;
   onResultado: (r: Resultado) => void;
 }) {
@@ -183,6 +224,8 @@ function FormularioTarjeta({ intent, onEnviando, onResultado }: {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
+  // A donde llega el comprobante; por defecto el correo de la cuenta
+  const [correo, setCorreo] = useState(() => getSession()?.user.email ?? "");
   const [marca, setMarca] = useState("unknown");
   const [enfocado, setEnfocado] = useState<Campo | null>(null);
   const [campos, setCampos] = useState<Record<CampoStripe, { completo: boolean; error?: string }>>({
@@ -192,7 +235,8 @@ function FormularioTarjeta({ intent, onEnviando, onResultado }: {
   });
 
   const listo = listos >= 3;
-  const completo = campos.numero.completo && campos.vencimiento.completo && campos.cvc.completo && nombre.trim() !== "";
+  const correoValido = CORREO_VALIDO.test(correo.trim());
+  const completo = campos.numero.completo && campos.vencimiento.completo && campos.cvc.completo && nombre.trim() !== "" && correoValido;
 
   function marcarEnviando(v: boolean) {
     setEnviando(v);
@@ -222,8 +266,10 @@ function FormularioTarjeta({ intent, onEnviando, onResultado }: {
 
     // Con tarjeta nunca sale de la página. Si el banco pide 3D Secure,
     // Stripe lo muestra como ventana encima de la app.
-    const { error: errorStripe, paymentIntent } = await stripe.confirmCardPayment(intent.clientSecret, {
-      payment_method: { card: tarjeta, billing_details: { name: nombre.trim() } },
+    const { error: errorStripe, paymentIntent } = await stripe.confirmCardPayment(cobro.clientSecret, {
+      payment_method: { card: tarjeta, billing_details: { name: nombre.trim(), email: correo.trim() } },
+      // El backend manda el comprobante a este correo (queda guardado en el PaymentIntent)
+      receipt_email: correo.trim(),
     });
 
     if (errorStripe) {
@@ -238,10 +284,10 @@ function FormularioTarjeta({ intent, onEnviando, onResultado }: {
       // Se avisa al backend para que el estado de cuenta se actualice ya,
       // sin depender de que el webhook llegue primero. Si falla, el pago
       // igual está hecho y el webhook lo registrará.
-      await verificarPago(paymentIntent.id).catch(() => null);
-      onResultado({ tipo: "exitoso", monto: intent.montoFinal });
+      await verificar(paymentIntent.id).catch(() => null);
+      onResultado({ tipo: "exitoso", monto: cobro.monto, correo: correo.trim() });
     } else {
-      onResultado({ tipo: "procesando" });
+      onResultado({ tipo: "procesando", correo: correo.trim() });
     }
     marcarEnviando(false);
   }
@@ -258,6 +304,19 @@ function FormularioTarjeta({ intent, onEnviando, onResultado }: {
         onChange={(e) => setNombre(e.target.value)}
         onFocus={() => setEnfocado("nombre")}
         onBlur={() => setEnfocado(null)}
+        disabled={enviando}
+      />
+
+      <Input
+        label="Correo para el comprobante"
+        type="email"
+        placeholder="correo@ejemplo.com"
+        autoComplete="email"
+        prefix={<Mail className="w-4 h-4" />}
+        value={correo}
+        onChange={(e) => { setCorreo(e.target.value); setError(null); }}
+        error={correo.trim() !== "" && !correoValido ? "Ingrese un correo válido" : undefined}
+        hint="Aquí le enviaremos el comprobante del pago."
         disabled={enviando}
       />
 
@@ -304,7 +363,7 @@ function FormularioTarjeta({ intent, onEnviando, onResultado }: {
         disabled={!stripe || !listo || !completo}
         icon={<Lock className="w-4 h-4" />}
       >
-        {enviando ? "Procesando pago…" : `Pagar ${formatoQ(intent.montoFinal)}`}
+        {enviando ? "Procesando pago…" : `Pagar ${formatoQ(cobro.monto)}`}
       </Btn>
 
       <div className="flex items-center justify-center gap-1.5 text-xs text-stone-500">
@@ -406,7 +465,8 @@ function ResultadoPago({ resultado, onCerrar }: { resultado: Resultado; onCerrar
         </div>
         <h3 className="font-display font-semibold text-stone-900 text-lg">Pago en proceso</h3>
         <p className="text-stone-600 text-sm max-w-sm">
-          Su banco todavía está procesando el pago. El estado de cuenta se actualizará automáticamente cuando se confirme.
+          Su banco todavía está procesando el pago. El estado de cuenta se actualizará automáticamente cuando se confirme,
+          y el comprobante llegará a <span className="font-medium text-stone-900">{resultado.correo}</span>.
         </p>
         <Btn variant="outline" onClick={onCerrar}>Entendido</Btn>
       </div>
@@ -421,7 +481,8 @@ function ResultadoPago({ resultado, onCerrar }: { resultado: Resultado; onCerrar
       <h3 className="font-display font-semibold text-stone-900 text-lg">¡Pago realizado!</h3>
       <p className="text-stone-600 text-sm max-w-sm">
         Se cobraron <span className="font-mono-data font-semibold text-stone-900">{formatoQ(resultado.monto)}</span> correctamente.
-        El pago ya aparece en su estado de cuenta.
+        El pago ya aparece en su estado de cuenta y el comprobante se envió a{" "}
+        <span className="font-medium text-stone-900">{resultado.correo}</span>.
       </p>
       <Btn variant="primary" onClick={onCerrar}>Listo</Btn>
     </div>

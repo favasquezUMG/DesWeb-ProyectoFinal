@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { CreditCard, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, Lock, User, Bell, BookOpen, X } from "lucide-react";
+import { CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, Lock, User, Bell, BookOpen, X } from "lucide-react";
 import type { View } from "../types";
 import { PAGOS, NOTAS_ALUMNO } from "../data";
 import { getEstadoCuenta, getMisHijos, type EstadoCuentaDto, type HijoDto, type MesEstadoCuentaDto } from "../lib/api";
 import { PagoColegiaturaModal, formatoQ } from "../components/PagoColegiatura";
+import { CarritoBoton, claveColegiatura, useCarrito } from "../components/Carrito";
 import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
   AlertBanner, Stepper, TH, TD, Select, EmptyState
 } from "../components/Ui";
 import AvisosPadre from "./AvisosPadre";
 import BecasPadre from "./BecasPadre";
+import EventosPadre from "./EventosPadre";
 
 function DashboardPadre() {
   const [hijo, setHijo] = useState("María José Ajú Pac");
@@ -426,6 +428,7 @@ function PagosView() {
   // "Pendiente" hasta que llegue el webhook, así que sin esto se volvería a
   // ofrecer "Pagar" (y el backend respondería 409).
   const [enProceso, setEnProceso] = useState<Set<string>>(new Set());
+  const carrito = useCarrito();
 
   useEffect(() => {
     getMisHijos()
@@ -487,11 +490,16 @@ function PagosView() {
       <SectionHeader
         title="Pagos y Estado de Cuenta"
         subtitle={hijo ? `${hijo.nombre} · ${hijo.grado} sección ${hijo.seccion}` : undefined}
-        action={hijos && hijos.length > 1 ? (
-          <Select aria-label="Alumno" value={hijoId ?? ""} onChange={(e) => setHijoId(Number(e.target.value))}>
-            {hijos.map((h) => <option key={h.alumnoId} value={h.alumnoId}>{h.nombre}</option>)}
-          </Select>
-        ) : undefined}
+        action={
+          <div className="flex items-center gap-2">
+            {hijos && hijos.length > 1 && (
+              <Select aria-label="Alumno" value={hijoId ?? ""} onChange={(e) => setHijoId(Number(e.target.value))}>
+                {hijos.map((h) => <option key={h.alumnoId} value={h.alumnoId}>{h.nombre}</option>)}
+              </Select>
+            )}
+            <CarritoBoton onPagado={() => { if (hijoId !== null) cargarEstadoCuenta(hijoId); }} />
+          </div>
+        }
       />
 
       {mesPagado && (
@@ -591,14 +599,40 @@ function PagosView() {
                           </span>
                         </TD>
                         <TD className="text-right">
-                          {m.ui === "pagado" || m.ui === "reembolsado" || m.ui === "becado" || m.ui === "procesando" ? null : (
-                            <Btn
-                              variant={m.ui === "vencido" ? "secondary" : "outline"}
-                              size="sm"
-                              onClick={() => pagar(m.mes)}
-                            >
-                              {m.mes > mesActual ? "Adelantar" : "Pagar"}
-                            </Btn>
+                          {m.ui === "pagado" || m.ui === "reembolsado" || m.ui === "becado" || m.ui === "procesando" || !hijo ? null : (
+                            <div className="flex items-center justify-end gap-1.5">
+                              {carrito.contiene(claveColegiatura(hijo.alumnoId, anio, m.mes)) ? (
+                                <Btn variant="ghost" size="sm" onClick={() => carrito.quitar(claveColegiatura(hijo.alumnoId, anio, m.mes))} aria-label={`Quitar ${m.nombreMes} del carrito`}>
+                                  <ShoppingCart className="w-4 h-4 text-primary-700" />Quitar
+                                </Btn>
+                              ) : (
+                                <Btn
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Agregar ${m.nombreMes} al carrito`}
+                                  title="Agregar al carrito"
+                                  onClick={() => carrito.agregar({
+                                    clave: claveColegiatura(hijo.alumnoId, anio, m.mes),
+                                    tipo: "colegiatura",
+                                    alumnoId: hijo.alumnoId,
+                                    anioLectivo: anio,
+                                    mes: m.mes,
+                                    alumno: hijo.nombre,
+                                    descripcion: `Colegiatura ${m.nombreMes} ${anio}`,
+                                    monto: m.montoAPagar,
+                                  })}
+                                >
+                                  <ShoppingCart className="w-4 h-4" />
+                                </Btn>
+                              )}
+                              <Btn
+                                variant={m.ui === "vencido" ? "secondary" : "outline"}
+                                size="sm"
+                                onClick={() => pagar(m.mes)}
+                              >
+                                {m.mes > mesActual ? "Adelantar" : "Pagar"}
+                              </Btn>
+                            </div>
                           )}
                         </TD>
                       </tr>
@@ -616,6 +650,7 @@ function PagosView() {
         onClose={() => setPeriodo(null)}
         onTerminado={(tipo) => {
           if (periodo && tipo === "exitoso") setMesPagado(`${MESES_NOMBRE[periodo.mes - 1]} ${periodo.anioLectivo}`);
+          if (periodo) carrito.quitar(claveColegiatura(periodo.alumnoId, periodo.anioLectivo, periodo.mes));
           if (periodo && tipo === "procesando") {
             setEnProceso((prev) => new Set(prev).add(claveMes(periodo.alumnoId, periodo.mes)));
           }
@@ -708,6 +743,7 @@ export default function Padre({ view }: { view: View }) {
   if (view === "pad-matricula") return <MatriculaView />;
   if (view === "pad-notas") return <NotasHijo />;
   if (view === "pad-pagos") return <PagosView />;
+  if (view === "pad-eventos") return <EventosPadre />;
   if (view === "pad-becas") return <BecasPadre />;
   if (view === "pad-avisos") return <AvisosPadre />;
   if (view === "pad-perfil") return <PerfilView />;

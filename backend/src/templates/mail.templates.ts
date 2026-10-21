@@ -256,3 +256,65 @@ export const plantillaBeca = (datos: {
         ),
     };
 };
+
+const quetzales = (monto: number): string =>
+    `Q${monto.toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export const plantillaComprobantePago = (datos: {
+    nombreDestinatario: string;
+    numero: string;
+    fechaPago: Date;
+    conceptos: { descripcion: string; alumno: string; monto: number }[];
+    total: number;
+    referencia: string;
+    tarjeta?: string | null;
+}): PlantillaResult => {
+    const celda = "padding:6px 8px; border-bottom:1px solid #e5e7eb;";
+    const fecha = datos.fechaPago.toLocaleString("es-GT", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: process.env.COLEGIO_ZONA_HORARIA || "America/Guatemala",
+    });
+
+    const filas = datos.conceptos
+        .map(
+            (c) => `<tr>
+                <td style="${celda}">${escapeHtml(c.descripcion)}<br /><span style="color:#6b7280; font-size:12px;">${escapeHtml(c.alumno)}</span></td>
+                <td style="${celda} text-align:right; white-space:nowrap;">${quetzales(c.monto)}</td>
+            </tr>`
+        )
+        .join("");
+
+    return {
+        subject: `Comprobante de pago ${datos.numero}`,
+        html: baseTemplate(
+            "Comprobante de pago",
+            `
+            <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+            <p>Recibimos su pago correctamente. Este es el detalle:</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; margin:12px 0;">
+                <tr><td style="color:#6b7280;">No. de comprobante</td><td style="text-align:right; font-weight:bold;">${escapeHtml(datos.numero)}</td></tr>
+                <tr><td style="color:#6b7280;">Fecha de pago</td><td style="text-align:right;">${fecha}</td></tr>
+                ${datos.tarjeta ? `<tr><td style="color:#6b7280;">Método de pago</td><td style="text-align:right;">${escapeHtml(datos.tarjeta)}</td></tr>` : ""}
+                <tr><td style="color:#6b7280;">Referencia</td><td style="text-align:right; font-size:11px;">${escapeHtml(datos.referencia)}</td></tr>
+            </table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; font-size:13px; margin:12px 0;">
+                <tr style="background-color:#f3f4f6;">
+                    <th style="${celda} text-align:left;">Concepto</th>
+                    <th style="${celda} text-align:right;">Monto</th>
+                </tr>
+                ${filas}
+                <tr>
+                    <td style="padding:8px; font-weight:bold;">Total pagado</td>
+                    <td style="padding:8px; text-align:right; font-weight:bold; color:#16a34a;">${quetzales(datos.total)}</td>
+                </tr>
+            </table>
+            <p style="font-size:12px; color:#6b7280;">Este comprobante no sustituye a la factura electrónica (FEL).</p>
+            ${botonIngresar()}
+            `
+        ),
+    };
+};
