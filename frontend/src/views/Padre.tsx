@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+<<<<<<< HEAD
   CreditCard, CheckCircle2, Download, ChevronRight, User, Bell, BookOpen,
   ClipboardList, GraduationCap, KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock,
 } from "lucide-react";
+=======
+  CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, User, Bell, BookOpen,
+  KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock, Heart,
+} from "../components/Iconos";
+>>>>>>> origin/main
 import type { AppUser, View } from "../types";
 import {
   getEstadoCuenta, getMisHijos, getHijosEncargado, getBoletinHijo, getOpcionesMatricula, crearMatricula,
-  getAsistenciaHijos, setNotificacionesHijo, cambiarPassword, restablecerPasswordHijo, getHorarioHijo, getEventos,
+  getAsistenciaHijos, setNotificacionesHijo, cambiarPassword, restablecerPasswordHijo, setSaludHijo, getHorarioHijo, getEventos,
   type EstadoCuentaDto, type HijoDto, type MesEstadoCuentaDto, type HijoEncargadoDto, type BoletinHijoDto,
   type OpcionesMatriculaDto, type SeccionMatriculaDto, type MatriculaCreadaResponse,
-  type AsistenciaHijoDto, type ClaseAlumnoDto, type EventoDto,
+  type AsistenciaHijoDto, type ClaseAlumnoDto, type EventoDto, type DatosSaludDto,
 } from "../lib/api";
+import { ModalSalud, tieneSalud } from "../components/InfoSalud";
 import { generarBoletinPdf } from "../lib/boletinPdf";
 import { PagoColegiaturaModal, formatoQ } from "../components/PagoColegiatura";
 import CargosPendientes from "../components/CargosPendientes";
@@ -19,7 +26,8 @@ import CalendarioEventos from "../components/CalendarioEventos";
 import HorarioSemanal, { asuetosDeLaSemana, diaSemanaHoy, jornadaPorDia } from "../components/HorarioSemanal";
 import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
-  AlertBanner, Stepper, TH, TD, Select, EmptyState, Input, Toggle, Modal
+  AlertBanner, Stepper, TH, TD, Select, EmptyState, Input, Toggle, Modal,
+  CursoMarca, Anillo, CardTitulo, LinkAccion,
 } from "../components/Ui";
 import AvisosPadre from "./AvisosPadre";
 import AsistenciaPadre from "./AsistenciaPadre";
@@ -48,15 +56,20 @@ function useHijosEncargado() {
 function SelectorHijo({ hijos, value, onChange }: { hijos: HijoEncargadoDto[]; value: number | null; onChange: (id: number) => void }) {
   if (hijos.length <= 1) return null;
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-sm text-stone-500">Viendo:</span>
-      {hijos.map((h) => (
-        <button key={h.alumnoId} onClick={() => onChange(h.alumnoId)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer
-            ${value === h.alumnoId ? "bg-primary-700 text-white" : "bg-white border border-stone-200 text-stone-700 hover:border-primary-300"}`}>
-          {h.nombre.split(" ").slice(0, 2).join(" ")}{h.retirado ? " (retirado)" : ""}
-        </button>
-      ))}
+    <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-full bg-white border-[1.5px] border-stone-200" role="group" aria-label="Alumno que está viendo">
+      {hijos.map((h) => {
+        const on = value === h.alumnoId;
+        return (
+          <button key={h.alumnoId} onClick={() => onChange(h.alumnoId)} aria-pressed={on}
+            className={`flex items-center gap-2 pl-1 pr-3.5 py-1 rounded-full text-sm font-semibold transition-colors cursor-pointer
+              ${on ? "bg-primary-800 text-white" : "text-stone-600 hover:text-stone-900 hover:bg-stone-100"}`}>
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${on ? "bg-subject-social text-stone-900" : "bg-stone-100 text-stone-600"}`}>
+              {h.nombre.charAt(0)}
+            </span>
+            {h.nombre.split(" ").slice(0, 2).join(" ")}{h.retirado ? " (retirado)" : ""}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -74,7 +87,7 @@ function SinHijos({ title }: { title: string }) {
 function Cargando({ filas = 3 }: { filas?: number }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {Array.from({ length: filas }, (_, i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
+      {Array.from({ length: filas }, (_, i) => <div key={i} className="h-28 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}
     </div>
   );
 }
@@ -151,9 +164,9 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <SectionHeader title="Panel del Encargado" subtitle={user?.name} />
-        <div className="sm:ml-auto shrink-0">
+      <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+        <SectionHeader title={`Hola, ${user?.name.split(" ")[0] ?? ""}`} subtitle="Así va todo con sus hijos en el colegio" />
+        <div className="lg:ml-auto shrink-0">
           {hijos && <SelectorHijo hijos={hijos} value={hijoId} onChange={setHijoId} />}
         </div>
       </div>
@@ -161,15 +174,28 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
       {(errorHijos || error) && <AlertBanner type="error" message={errorHijos || error} />}
 
       {hijo && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 text-sm text-stone-600">
-          <p><span className="font-medium text-stone-900">{hijo.nombre}</span> · {hijo.grado} sección {hijo.seccion} · {hijo.sede}</p>
+        <div className="flex flex-col md:flex-row md:items-center gap-4 p-5 rounded-[20px] bg-primary-800 textile-pattern text-white">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            <span className="w-14 h-14 rounded-2xl bg-subject-social text-stone-900 font-display font-extrabold text-2xl flex items-center justify-center shrink-0 rotate-[-3deg]">
+              {hijo.nombre.charAt(0)}
+            </span>
+            <div className="min-w-0">
+              <p className="font-display font-bold text-2xl leading-tight truncate">{hijo.nombre}</p>
+              <p className="text-white/70 text-sm mt-0.5">{hijo.grado}, sección {hijo.seccion}. {hijo.sede}</p>
+            </div>
+          </div>
           {!hijo.retirado && (
-            <p className="flex items-center gap-1.5 sm:ml-auto">
-              <Clock className="w-4 h-4 text-stone-400" />
-              {asuetoHoy ? `Hoy no hay clases (${asuetoHoy})`
-                : jornadaHoy ? <>Hoy: entrada <span className="font-mono-data">{jornadaHoy.entrada}</span> · salida <span className="font-mono-data">{jornadaHoy.salida}</span></>
-                : "Hoy no tiene clases programadas"}
-            </p>
+            <div className="flex items-center gap-3 md:pl-5 md:border-l border-white/15">
+              <Clock className="w-5 h-5 text-subject-social shrink-0" />
+              {asuetoHoy ? <p className="text-sm font-semibold">Hoy no hay clases: {asuetoHoy}</p>
+                : jornadaHoy ? (
+                  <div className="flex gap-5">
+                    <div><p className="text-xs text-white/60">Entrada hoy</p><p className="font-display font-bold text-xl tabular-nums">{jornadaHoy.entrada}</p></div>
+                    <div><p className="text-xs text-white/60">Salida</p><p className="font-display font-bold text-xl tabular-nums">{jornadaHoy.salida}</p></div>
+                  </div>
+                )
+                : <p className="text-sm font-semibold text-white/80">Hoy no tiene clases programadas</p>}
+            </div>
           )}
         </div>
       )}
@@ -184,98 +210,101 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
       )}
 
       {faltasHoy.length > 0 && (
-        <AlertBanner type="warning" title={`Asistencia de hoy — ${primerNombre}`}
+        <AlertBanner type="warning" title={`Asistencia de hoy de ${primerNombre}`}
           message={`${faltasHoy.map((c) => `${c.estado === "Ausente" ? "Ausente" : "Tarde"} en ${c.curso}`).join(", ")}. Si hubo un motivo, puede solicitar la justificación en Asistencia.`} />
       )}
 
       {saldoVencido > 0 && (
-        <AlertBanner type="error" title={`Pago vencido — ${primerNombre}`}
+        <AlertBanner type="error" title={`${primerNombre} tiene pagos vencidos`}
           message={`Tiene ${vencidos.length} ${vencidos.length === 1 ? "cuota vencida" : "cuotas vencidas"} por ${formatoQ(saldoVencido)}. La más antigua es ${vencidos[0].nombreMes} ${anio}. Regularice su cuenta para evitar recargos.`} />
       )}
 
-      {!hijos || cargando ? <Cargando filas={4} /> : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard label="Promedio general"
-            value={boletin?.promedioGeneral != null ? Math.round(boletin.promedioGeneral) : "—"}
-            sub={hijo?.puedeVerNotas ? (boletin?.cursosEvaluados ? `${boletin.cursosEvaluados} cursos evaluados` : "Sin notas aún") : "Sin acceso a notas"}
-            icon={<BookOpen className="w-5 h-5" />}
-            variant={boletin?.promedioGeneral == null ? "default" : boletin.promedioGeneral >= boletin.notaAprobacion ? "success" : "danger"} />
-          <MetricCard label="Cursos aprobados"
-            value={boletin ? `${boletin.cursosAprobados}/${boletin.cursos.length}` : "—"}
-            sub="Según unidades evaluadas" icon={<CheckCircle2 className="w-5 h-5" />}
-            variant={boletin && boletin.cursosAprobados < boletin.cursosEvaluados ? "warning" : "success"} />
-          <MetricCard label="Asistencia"
-            value={porcentajeAsistencia !== undefined ? `${Math.round(porcentajeAsistencia)}%` : "—"}
-            sub="Del ciclo en curso" icon={<ClipboardList className="w-5 h-5" />}
-            variant={porcentajeAsistencia === undefined ? "default" : porcentajeAsistencia >= 80 ? "success" : "warning"} />
-          <MetricCard label="Próximo pago"
-            value={!hijo?.puedeVerPagos ? "—" : proximo ? formatoQ(proximo.montoAPagar) : "Al día"}
-            sub={!hijo?.puedeVerPagos ? "Sin acceso a pagos"
-              : proximo ? `${proximo.nombreMes} ${anio} · ${proximo.ui === "vencido" ? "Vencido" : "Pendiente"}${proximo.descuentoPorcentaje > 0 ? ` · Beca ${proximo.descuentoPorcentaje}%` : ""}`
-              : "Sin cuotas pendientes"}
-            icon={<CreditCard className="w-5 h-5" />}
-            variant={proximo?.ui === "vencido" ? "danger" : proximo ? "warning" : "success"} />
+      {!hijos || cargando ? <Cargando filas={3} /> : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <Card className="p-6">
+            <p className="text-sm font-semibold text-stone-500">Promedio general</p>
+            <p className={`font-display font-bold text-[3.75rem] leading-none tabular-nums tracking-tight mt-2 ${boletin?.promedioGeneral == null ? "text-stone-300" : boletin.promedioGeneral >= boletin.notaAprobacion ? "text-stone-900" : "text-danger-700"}`}>
+              {boletin?.promedioGeneral != null ? Math.round(boletin.promedioGeneral) : "—"}
+            </p>
+            {boletin && boletin.cursos.length > 0 ? (
+              <>
+                <div className="flex gap-1 mt-5" aria-hidden="true">
+                  {boletin.cursos.map((c) => (
+                    <span key={c.cursoSeccionId} title={c.curso} className={`h-2.5 flex-1 rounded-full ${c.aprobado === null ? "bg-stone-200" : c.aprobado ? "bg-primary-700" : "bg-danger-600"}`} />
+                  ))}
+                </div>
+                <p className="text-[13px] text-stone-500 mt-2"><span className="font-bold text-stone-900">{boletin.cursosAprobados} de {boletin.cursos.length}</span> cursos aprobados</p>
+              </>
+            ) : <p className="text-[13px] text-stone-500 mt-3">{hijo?.puedeVerNotas ? "Sin notas aún" : "Sin acceso a notas"}</p>}
+          </Card>
+
+          <Card className="p-6 flex items-center gap-5">
+            <Anillo valor={porcentajeAsistencia ?? 0} size={104} grosor={11} color={porcentajeAsistencia === undefined ? "#d2c8b7" : porcentajeAsistencia >= 80 ? "#0f7b5f" : "#d99e00"}>
+              <span className="font-display font-bold text-2xl tabular-nums text-stone-900">{porcentajeAsistencia !== undefined ? `${Math.round(porcentajeAsistencia)}%` : "—"}</span>
+            </Anillo>
+            <div>
+              <p className="font-display font-bold text-lg text-stone-900 leading-tight">Asistencia</p>
+              <p className="text-[13px] text-stone-500 mt-1">En lo que va del ciclo</p>
+              {asistenciaHijo && <p className="text-[13px] text-stone-600 mt-2"><span className="font-bold">{asistenciaHijo.resumen.ausentes}</span> ausencias, <span className="font-bold">{asistenciaHijo.resumen.tardes}</span> tardes</p>}
+            </div>
+          </Card>
+
+          <div className={`rounded-[20px] p-6 flex flex-col ${!hijo?.puedeVerPagos ? "bg-white border border-stone-200/80" : proximo?.ui === "vencido" ? "bg-danger-600 text-white" : proximo ? "bg-subject-social text-stone-900" : "bg-success-600 text-white"}`}>
+            <p className="text-sm font-semibold opacity-80 flex items-center gap-1.5"><CreditCard className="w-4 h-4" />Próximo pago</p>
+            <p className="font-display font-bold text-[2.6rem] leading-none tabular-nums tracking-tight mt-3">
+              {!hijo?.puedeVerPagos ? "—" : proximo ? formatoQ(proximo.montoAPagar) : "Al día"}
+            </p>
+            <p className="text-[13px] font-medium opacity-85 mt-auto pt-3">
+              {!hijo?.puedeVerPagos ? "Sin acceso a pagos"
+                : proximo ? `${proximo.nombreMes} ${anio}, ${proximo.ui === "vencido" ? "vencido" : "pendiente"}${proximo.descuentoPorcentaje > 0 ? `. Beca de ${proximo.descuentoPorcentaje}% aplicada` : ""}`
+                : "No hay cuotas pendientes"}
+            </p>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-stone-800 text-base">Resumen académico</h3>
-            {onNavigate && hijo?.puedeVerNotas && (
-              <button onClick={() => onNavigate("pad-notas")} className="text-xs text-primary-700 hover:underline flex items-center gap-1 cursor-pointer">
-                Ver completo <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <Card className="p-6 lg:col-span-3">
+          <CardTitulo titulo="Resumen académico" accion={onNavigate && hijo?.puedeVerNotas && <LinkAccion onClick={() => onNavigate("pad-notas")}>Ver notas y boletas</LinkAccion>} />
           {!hijo?.puedeVerNotas ? (
             <p className="text-sm text-stone-500">Su vínculo con este alumno no incluye la consulta de notas.</p>
           ) : !boletin || boletin.cursos.length === 0 ? (
             <p className="text-sm text-stone-500">{cargando ? "Cargando…" : "El alumno aún no tiene cursos asignados."}</p>
           ) : (
-            <div className="space-y-2">
-              {boletin.cursos.slice(0, 6).map((c) => (
-                <div key={c.cursoSeccionId} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
-                  <span className="text-sm text-stone-700">{c.curso}</span>
-                  <div className="flex items-center gap-2">
-                    {c.promedio !== null ? (
-                      <>
-                        <span className={`font-mono-data font-bold text-sm ${colorNota(c.promedio, boletin.notaAprobacion)}`}>{Math.round(c.promedio)}</span>
-                        <EstadoBadge aprobado={!!c.aprobado} />
-                      </>
-                    ) : <span className="text-xs text-stone-400">Sin notas</span>}
-                  </div>
-                </div>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+              {boletin.cursos.slice(0, 8).map((c) => (
+                <li key={c.cursoSeccionId} className="flex items-center gap-3 py-2.5 border-b border-stone-100">
+                  <CursoMarca nombre={c.curso} size="sm" />
+                  <span className="text-[15px] font-medium text-stone-800 flex-1 min-w-0 truncate">{c.curso}</span>
+                  {c.promedio !== null
+                    ? <span className={`font-display font-bold text-lg tabular-nums ${colorNota(c.promedio, boletin.notaAprobacion)}`} aria-label={c.aprobado ? "aprobado" : "reprobado"}>{Math.round(c.promedio)}</span>
+                    : <span className="text-xs text-stone-400">Sin notas</span>}
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </Card>
 
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-stone-800 text-base">Estado de cuenta</h3>
-            {onNavigate && hijo?.puedeVerPagos && (
-              <button onClick={() => onNavigate("pad-pagos")} className="text-xs text-primary-700 hover:underline flex items-center gap-1 cursor-pointer">
-                Ver historial <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+        <Card className="p-6 lg:col-span-2">
+          <CardTitulo titulo="Colegiaturas" accion={onNavigate && hijo?.puedeVerPagos && <LinkAccion onClick={() => onNavigate("pad-pagos")}>Ir a pagos</LinkAccion>} />
           {!hijo?.puedeVerPagos ? (
             <p className="text-sm text-stone-500">Su vínculo con este alumno no incluye la consulta de pagos.</p>
           ) : recientes.length === 0 ? (
             <p className="text-sm text-stone-500">{cargando ? "Cargando…" : "No hay colegiaturas registradas para este ciclo."}</p>
           ) : (
-            <div className="space-y-2">
-              {recientes.map((m) => (
-                <div key={m.mes} className="flex items-center justify-between py-1.5 border-b border-stone-50 last:border-0">
-                  <span className="text-sm text-stone-700">{m.nombreMes} {anio}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono-data text-sm text-stone-700">{formatoQ(m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar)}</span>
-                    <EstadoMesBadge estado={m.ui} />
-                  </div>
-                </div>
+            <ol className="relative">
+              {recientes.map((m, i) => (
+                <li key={m.mes} className="flex items-center gap-3.5 py-2">
+                  <span className="relative flex flex-col items-center self-stretch">
+                    <span className={`w-3.5 h-3.5 rounded-full mt-1.5 ring-4 ring-white z-10 ${m.ui === "pagado" ? "bg-success-600" : m.ui === "vencido" ? "bg-danger-600" : "bg-warning-600"}`} />
+                    {i < recientes.length - 1 && <span className="absolute top-4 -bottom-4 w-0.5 bg-stone-200" />}
+                  </span>
+                  <span className="text-[15px] font-medium text-stone-800 flex-1">{m.nombreMes}</span>
+                  <span className="text-sm font-semibold text-stone-700 tabular-nums">{formatoQ(m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar)}</span>
+                  <EstadoMesBadge estado={m.ui} />
+                </li>
               ))}
-            </div>
+            </ol>
           )}
         </Card>
       </div>
@@ -461,7 +490,7 @@ function MatriculaView({ user }: { user?: AppUser }) {
           {step === 0 && (
             <Card className="p-6 space-y-5">
               <div>
-                <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Alumno y ciclo escolar</h3>
+                <h3 className="font-display font-bold text-stone-900 text-lg mb-1">Alumno y ciclo escolar</h3>
                 <p className="text-stone-500 text-sm">Seleccione a quién desea matricular y para qué ciclo.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -478,7 +507,7 @@ function MatriculaView({ user }: { user?: AppUser }) {
               {hijo && (
                 <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-sm">
                   <p className="text-stone-500 mb-1">Inscripción actual</p>
-                  <p className="font-medium text-stone-900">{hijo.grado} sección {hijo.seccion} · {hijo.sede} · Ciclo {hijo.anioLectivo}</p>
+                  <p className="font-semibold text-stone-900 text-[15px]">{hijo.grado} sección {hijo.seccion} · {hijo.sede} · Ciclo {hijo.anioLectivo}</p>
                 </div>
               )}
 
@@ -516,7 +545,7 @@ function MatriculaView({ user }: { user?: AppUser }) {
 
           {step === 1 && (
             <Card className="p-6">
-              <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Sede y grado</h3>
+              <h3 className="font-display font-bold text-stone-900 text-lg mb-1">Sede y grado</h3>
               <p className="text-stone-500 text-sm mb-5">Los cursos se asignan automáticamente según la malla del grado.</p>
               <div className="space-y-4 mb-6">
                 <div>
@@ -557,7 +586,7 @@ function MatriculaView({ user }: { user?: AppUser }) {
 
           {step === 2 && seccion && hijo && (
             <Card className="p-6">
-              <h3 className="font-display font-semibold text-stone-900 text-lg mb-1">Malla curricular de {seccion.grado.nombre}</h3>
+              <h3 className="font-display font-bold text-stone-900 text-lg mb-1">Malla curricular de {seccion.grado.nombre}</h3>
               <p className="text-stone-500 text-sm mb-5">El alumno quedará inscrito en los siguientes cursos. No se pueden seleccionar cursos individuales.</p>
               {seccion.cursos.length ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5">
@@ -670,26 +699,29 @@ function NotasHijo() {
             <div className="md:hidden space-y-3">
               {boletin.cursos.map((c) => (
                 <Card key={c.cursoSeccionId} className="p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <p className="font-semibold text-stone-900">{c.curso}</p>
+                  <div className="flex justify-between items-start gap-3 mb-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                    <CursoMarca nombre={c.curso} />
+                    <div className="min-w-0">
+                      <p className="font-display font-bold text-[17px] leading-tight text-stone-900">{c.curso}</p>
                       <p className="text-xs text-stone-500">{c.catedratico}</p>
                       {c.seccionAnterior && <Badge variant="neutral" className="mt-1">Sección anterior: {c.seccionAnterior}</Badge>}
+                    </div>
                     </div>
                     {c.aprobado !== null && <EstadoBadge aprobado={c.aprobado} />}
                   </div>
                   <div className="grid grid-cols-4 gap-2 mb-2">
                     {c.unidades.map((u) => (
                       <div key={u.numero} className="text-center">
-                        <p className="text-[10px] text-stone-400 mb-1">U{u.numero}</p>
-                        <span className={`font-mono-data text-sm font-semibold ${colorNota(u.nota, minimo)}`}>{u.nota !== null ? Math.round(u.nota) : "—"}</span>
+                        <p className="text-xs font-semibold text-stone-500 mb-1.5">Unidad {u.numero}</p>
+                        <span className={`block font-display font-bold text-lg tabular-nums py-1.5 rounded-xl ${u.nota === null ? "border-[1.5px] border-dashed border-stone-200 text-stone-300" : u.nota >= minimo ? "bg-sand-100 text-stone-900" : "bg-danger-50 text-danger-700"}`}>{u.nota !== null ? Math.round(u.nota) : "—"}</span>
                       </div>
                     ))}
                   </div>
                   {c.promedio !== null && (
-                    <div className="flex justify-between text-sm border-t border-stone-100 pt-2">
-                      <span className="text-stone-500">Promedio</span>
-                      <span className={`font-mono-data font-bold ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                    <div className="flex items-baseline justify-between text-sm border-t border-stone-100 pt-3 mt-3">
+                      <span className="font-semibold text-stone-600">Promedio</span>
+                      <span className={`font-display font-bold text-2xl tabular-nums ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
                     </div>
                   )}
                 </Card>
@@ -701,27 +733,32 @@ function NotasHijo() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-stone-50 border-b border-stone-200">
+                    <tr>
                       <TH>Curso</TH>
                       {romanos.map((r) => <TH key={r} className="text-center">{r} Unidad</TH>)}
                       <TH className="text-center">Promedio</TH>
                       <TH className="text-center">Estado</TH>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-stone-100">
                     {boletin.cursos.map((c) => (
-                      <tr key={c.cursoSeccionId} className="hover:bg-stone-50 transition-colors">
+                      <tr key={c.cursoSeccionId} className="hover:bg-sand-50 transition-colors">
                         <TD>
-                          <span className="font-medium text-stone-900 block">{c.curso}</span>
-                          <span className="text-xs text-stone-500">{c.catedratico}</span>
-                          {c.seccionAnterior && <Badge variant="neutral" className="ml-2">Sección anterior: {c.seccionAnterior}</Badge>}
+                          <div className="flex items-center gap-3">
+                            <CursoMarca nombre={c.curso} size="sm" />
+                            <div className="min-w-0">
+                              <p className="font-bold text-stone-900">{c.curso}</p>
+                              <p className="text-[13px] text-stone-500">{c.catedratico}</p>
+                            </div>
+                            {c.seccionAnterior && <Badge variant="neutral">Sección anterior: {c.seccionAnterior}</Badge>}
+                          </div>
                         </TD>
                         {c.unidades.map((u) => (
                           <TD key={u.numero} className="text-center">
                             {u.nota !== null ? (
                               <span title={`Zona ${u.zona ?? 0} + Examen ${u.examen ?? 0}`}
-                                className={`font-mono-data font-semibold px-2 py-0.5 rounded-md text-sm
-                                  ${u.nota >= minimo ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}
+                                className={`inline-flex items-center justify-center min-w-11 h-9 px-2 font-display font-bold text-base tabular-nums rounded-xl
+                                  ${u.nota >= minimo ? "bg-sand-100 text-stone-900" : "bg-danger-50 text-danger-700"}`}
                                 aria-label={u.nota >= minimo ? `${u.nota}, aprobado` : `${u.nota}, reprobado`}>
                                 {Math.round(u.nota)}
                               </span>
@@ -730,7 +767,7 @@ function NotasHijo() {
                         ))}
                         <TD className="text-center">
                           {c.promedio !== null
-                            ? <span className={`font-mono-data font-bold text-base ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                            ? <span className={`font-display font-bold text-2xl tabular-nums ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
                             : "—"}
                         </TD>
                         <TD className="text-center">
@@ -863,7 +900,7 @@ function PagosView() {
 
       {cargando && !estadoCuenta ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
+          {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}
         </div>
       ) : estadoCuenta && (
         <>
@@ -889,28 +926,54 @@ function PagosView() {
             />
           </div>
 
+<<<<<<< HEAD
+=======
+          {siguiente && (
+            <div className={`relative overflow-hidden rounded-[20px] p-6 ${siguiente.ui === "vencido" ? "bg-danger-600 text-white" : "bg-subject-social text-stone-900"}`}>
+              <div className="absolute right-0 top-0 bottom-0 w-40 opacity-20 textile-pattern" aria-hidden="true" />
+              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                <div>
+                  <p className="text-sm font-semibold opacity-85 flex items-center gap-1.5">
+                    {siguiente.ui === "vencido" ? <AlertCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                    {siguiente.ui === "vencido" ? "Cuota vencida" : "Cuota del mes"}: {siguiente.nombreMes} {anio}
+                  </p>
+                  <p className="font-display font-bold text-5xl leading-none tabular-nums mt-3">{formatoQ(siguiente.montoAPagar)}</p>
+                </div>
+                <button
+                  onClick={() => pagar(siguiente.mes)}
+                  className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full font-bold text-[15px] transition-transform active:scale-[0.98] cursor-pointer
+                    ${siguiente.ui === "vencido" ? "bg-white text-danger-700 hover:bg-danger-50" : "bg-stone-900 text-white hover:bg-stone-800"}`}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Pagar ahora
+                </button>
+              </div>
+            </div>
+          )}
+
+>>>>>>> origin/main
           <Card className="overflow-hidden">
-            <div className="px-5 py-4 border-b border-stone-100">
-              <h3 className="font-semibold text-stone-800">Colegiaturas — Ciclo {anio}</h3>
+            <div className="px-6 pt-5 pb-1">
+              <h3 className="font-display font-bold text-lg text-stone-900">Colegiaturas del ciclo {anio}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-stone-50 border-b border-stone-100">
+                <thead>
                   <tr><TH>Mes</TH><TH className="text-right">Mensualidad</TH><TH className="text-right">Beca</TH><TH className="text-right">Total</TH><TH>Estado</TH><TH>Fecha de pago</TH><TH className="text-right">Acciones</TH></tr>
                 </thead>
-                <tbody className="divide-y divide-stone-50">
+                <tbody className="divide-y divide-stone-100">
                   {meses.map((m) => {
                     const total = m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar;
                     return (
-                      <tr key={m.mes} className="hover:bg-stone-50 transition-colors">
-                        <TD><span className="font-medium text-stone-900">{m.nombreMes}</span></TD>
+                      <tr key={m.mes} className="hover:bg-sand-50 transition-colors">
+                        <TD><span className="font-semibold text-stone-900">{m.nombreMes}</span></TD>
                         <TD className="text-right"><span className="font-mono-data text-stone-700">{formatoQ(m.montoBase)}</span></TD>
                         <TD className="text-right">
                           {m.montoBase - total > 0
                             ? <span className="font-mono-data text-success-700">−{formatoQ(m.montoBase - total)}</span>
                             : <span className="text-stone-400">—</span>}
                         </TD>
-                        <TD className="text-right"><span className="font-mono-data font-semibold text-stone-900">{formatoQ(total)}</span></TD>
+                        <TD className="text-right"><span className="font-display font-bold tabular-nums text-stone-900">{formatoQ(total)}</span></TD>
                         <TD>
                           {m.ui === "reembolsado" ? <Badge variant="info">Reembolsado</Badge>
                             : m.ui === "becado" ? <Badge variant="success">Cubierto por beca</Badge>
@@ -918,7 +981,7 @@ function PagosView() {
                             : <PagoBadge estado={m.ui} />}
                         </TD>
                         <TD>
-                          <span className="text-stone-500 text-xs font-mono-data">
+                          <span className="text-[13px] text-stone-500 tabular-nums">
                             {m.fechaPago ? new Date(m.fechaPago).toLocaleDateString("es-GT") : "—"}
                           </span>
                         </TD>
@@ -991,6 +1054,14 @@ function PerfilView({ user }: { user?: AppUser }) {
   const [nuevaHijo, setNuevaHijo] = useState({ nueva: "", confirmar: "" });
   const [errorHijo, setErrorHijo] = useState("");
   const [guardandoHijo, setGuardandoHijo] = useState(false);
+  const [saludHijo, setSaludHijoAbierto] = useState<HijoEncargadoDto | null>(null);
+
+  async function guardarSaludHijo(datos: DatosSaludDto) {
+    if (!saludHijo) return;
+    const res = await setSaludHijo(saludHijo.alumnoId, datos);
+    setHijos((prev) => prev?.map((h) => (h.alumnoId === saludHijo.alumnoId ? { ...h, ...datos } : h)) ?? prev);
+    setAviso({ tipo: "success", texto: `${saludHijo.nombre.split(" ")[0]}: ${res.message}` });
+  }
 
   function abrirPassHijo(h: HijoEncargadoDto) {
     setPassHijo(h);
@@ -1063,9 +1134,9 @@ function PerfilView({ user }: { user?: AppUser }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="p-6">
-          <h3 className="font-display font-semibold text-stone-900 mb-4">Datos personales</h3>
+          <h3 className="font-display font-bold text-stone-900 mb-4">Datos personales</h3>
           <div className="flex items-center gap-4 mb-5">
-            <div className="w-16 h-16 rounded-full bg-primary-700 flex items-center justify-center text-white font-bold text-xl">{user?.initials}</div>
+            <div className="w-16 h-16 rounded-[22px] rotate-[-3deg] bg-subject-social flex items-center justify-center text-stone-900 font-display font-extrabold text-2xl">{user?.initials}</div>
             <div>
               <p className="font-semibold text-stone-900">{user?.name}</p>
               <p className="text-sm text-stone-500">{user?.email}</p>
@@ -1075,7 +1146,7 @@ function PerfilView({ user }: { user?: AppUser }) {
           <dl className="space-y-3">
             {datos.filter(([, v]) => v).map(([k, v]) => (
               <div key={k}>
-                <dt className="text-xs font-medium text-stone-500">{k}</dt>
+                <dt className="text-[13px] font-semibold text-stone-500">{k}</dt>
                 <dd className="text-sm text-stone-900">{v}</dd>
               </div>
             ))}
@@ -1084,7 +1155,7 @@ function PerfilView({ user }: { user?: AppUser }) {
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-display font-semibold text-stone-900 mb-1 flex items-center gap-2"><KeyRound className="w-4 h-4 text-stone-400" />Cambiar contraseña</h3>
+          <h3 className="font-display font-bold text-lg text-stone-900 mb-1 flex items-center gap-2"><KeyRound className="w-[18px] h-[18px] text-action-500" />Cambiar contraseña</h3>
           <p className="text-sm text-stone-500 mb-4">Use al menos 8 caracteres.</p>
           <div className="space-y-3">
             <Input label="Contraseña actual" type="password" autoComplete="current-password" value={pass.actual}
@@ -1103,22 +1174,22 @@ function PerfilView({ user }: { user?: AppUser }) {
       </div>
 
       <Card className="p-6">
-        <h3 className="font-display font-semibold text-stone-900 mb-1 flex items-center gap-2"><Bell className="w-4 h-4 text-stone-400" />Alumnos a cargo y notificaciones</h3>
+        <h3 className="font-display font-bold text-lg text-stone-900 mb-1 flex items-center gap-2"><Bell className="w-[18px] h-[18px] text-action-500" />Alumnos a cargo y notificaciones</h3>
         <p className="text-sm text-stone-500 mb-4">
           Elija de qué alumnos desea recibir avisos por correo (notas, ausencias, conducta y comunicados). Los permisos de su vínculo los administra la sede.
         </p>
-        {!hijos ? <div className="h-24 rounded-xl bg-stone-100 animate-pulse" /> : hijos.length === 0 ? (
+        {!hijos ? <div className="h-24 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" /> : hijos.length === 0 ? (
           <p className="text-sm text-stone-500">Su cuenta no tiene alumnos a cargo.</p>
         ) : (
           <div className="divide-y divide-stone-100">
             {hijos.map((h) => (
               <div key={h.alumnoId} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
-                    <GraduationCap className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-2xl bg-subject-social text-stone-900 font-display font-extrabold text-lg flex items-center justify-center shrink-0">
+                    {h.nombre.charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium text-stone-900">{h.nombre}</p>
+                    <p className="font-bold text-[15px] text-stone-900">{h.nombre}</p>
                     <p className="text-xs text-stone-500">
                       {h.grado} sección {h.seccion} · {h.sede}{h.parentesco ? ` · ${h.parentesco}` : ""}
                       {h.vigenteHasta ? ` · Vínculo vigente hasta ${new Date(h.vigenteHasta + "T00:00:00").toLocaleDateString("es-GT")}` : ""}
@@ -1143,6 +1214,15 @@ function PerfilView({ user }: { user?: AppUser }) {
                         </button>
                       )}
                     </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-stone-600">
+                      <span className="flex items-center gap-1">
+                        <Heart className={`w-3.5 h-3.5 ${tieneSalud(h) ? "text-danger-600" : "text-stone-400"}`} />
+                        {tieneSalud(h) ? "Tiene información de salud registrada" : "Sin información de salud registrada"}
+                      </span>
+                      <button onClick={() => setSaludHijoAbierto(h)} className="text-primary-700 hover:underline font-medium cursor-pointer">
+                        {h.esPrincipal || h.responsableFinanciero ? (tieneSalud(h) ? "Ver o actualizar" : "Agregar") : "Ver"}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className={`shrink-0 ${guardandoId === h.alumnoId ? "opacity-50 pointer-events-none" : ""}`}>
@@ -1154,6 +1234,9 @@ function PerfilView({ user }: { user?: AppUser }) {
           </div>
         )}
       </Card>
+
+      <ModalSalud alumno={saludHijo?.nombre ?? null} salud={saludHijo ?? {}} onCerrar={() => setSaludHijoAbierto(null)}
+        onGuardar={saludHijo && (saludHijo.esPrincipal || saludHijo.responsableFinanciero) ? guardarSaludHijo : undefined} />
 
       <Modal open={!!passHijo} onClose={() => !guardandoHijo && setPassHijo(null)} title={`Contraseña de ${passHijo?.nombre.split(" ")[0] ?? ""}`}
         footer={<>

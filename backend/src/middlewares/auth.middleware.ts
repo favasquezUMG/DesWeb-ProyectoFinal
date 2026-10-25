@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express'; //Resolver este problema******
+import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 //El JWT trae usuarioId (ver auth.controller); authenticateToken lo copia tambien en id
@@ -13,7 +13,6 @@ export interface AuthenticatedRequest extends Request {
 }
 
 
-//Metodo que autentifica el token generado
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -25,7 +24,6 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     try{
         const secret = process.env.JWT_SECRET || 'secret';
         const decode = jwt.verify(token, secret) as NonNullable<AuthenticatedRequest['user']> & { usuarioId?: number };
-        // El JWT trae usuarioId; se expone tambien como id, que es lo que usan los controladores
         req.user = { ...decode, id: String(decode.usuarioId ?? decode.id) };
         next();
     } catch (error) {

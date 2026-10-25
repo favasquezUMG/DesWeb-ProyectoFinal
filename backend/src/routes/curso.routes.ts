@@ -18,11 +18,11 @@ router.use(authenticateToken)
 router.get('/', getCursos);
 router.get('/:id', getCursoById);
 
-router.post('/', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), createCurso);
-router.put('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), updateCurso);
-router.delete('/:id', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), deleteCursoById);
+router.post('/', verificarRol(ROL.ADMIN_GENERAL), createCurso);
+router.put('/:id', verificarRol(ROL.ADMIN_GENERAL), updateCurso);
+router.delete('/:id', verificarRol(ROL.ADMIN_GENERAL), deleteCursoById);
 
-router.post('/:id/grados', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), asignarCursoAGrado);
-router.delete('/:id/grados/:gradoId', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), quitarCursoDeGrado);
+router.post('/:id/grados', verificarRol(ROL.ADMIN_GENERAL), asignarCursoAGrado);
+router.delete('/:id/grados/:gradoId', verificarRol(ROL.ADMIN_GENERAL), quitarCursoDeGrado);
 
 export default router;

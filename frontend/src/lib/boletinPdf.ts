@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import type { BoletinHijoDto } from "./api";
 
-const PRIMARY = [26, 57, 41] as const; // primary-700
+const PRIMARY = [43, 58, 140] as const; // primary-700
 const SUCCESS = [21, 128, 61] as const;
 const DANGER = [185, 28, 28] as const;
 const TEXT = [30, 30, 30] as const;

@@ -42,7 +42,6 @@ export const getMatriculas = async (req: AuthenticatedRequest, res: Response) =>
     }
 };
 
-//Get by ID
 export const getMatriculaById = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 

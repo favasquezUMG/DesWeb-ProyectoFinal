@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, ChevronDown, X, BookOpen } from "lucide-react";
+import { Plus, ChevronDown, X, BookOpen } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Modal, Input, Select, AlertBanner, EmptyState } from "../../components/Ui";
 import {
   getGrados, getCursosCatalogo, crearCurso, asignarCursoAGrado, quitarCursoDeGrado,
@@ -84,7 +84,7 @@ export default function MallaCurricular() {
       {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
       {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
 
-      {loading ? <div className="space-y-3">{[0, 1].map((i) => <div key={i} className="h-16 rounded-xl bg-stone-100 animate-pulse" />)}</div>
+      {loading ? <div className="space-y-3">{[0, 1].map((i) => <div key={i} className="h-16 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}</div>
         : grados.length === 0 ? <EmptyState icon={<BookOpen className="w-10 h-10" />} title="Sin grados" description="No hay grados registrados." />
         : (
           <div className="space-y-3">
@@ -100,7 +100,7 @@ export default function MallaCurricular() {
                     <ChevronDown className={`w-4 h-4 text-stone-400 transition-transform ${abiertos.has(nivel) ? "rotate-180" : ""}`} />
                   </button>
                   {abiertos.has(nivel) && (
-                    <div className="border-t border-stone-100 divide-y divide-stone-50">
+                    <div className="border-t border-stone-100 divide-y divide-stone-100">
                       {delNivel.map((g) => (
                         <div key={g.gradoId} className="px-5 py-4">
                           <div className="flex items-center justify-between mb-3">

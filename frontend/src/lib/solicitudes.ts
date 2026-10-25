@@ -25,6 +25,9 @@ export interface DatosAlumnoSolicitud {
   anio?: string;
   grado?: string;
   sede: string;
+  necesidadesApoyo?: string | null;
+  alergias?: string | null;
+  medicamentos?: string | null;
 }
 
 export interface SolicitudGuardada {
@@ -107,30 +110,6 @@ export function resolverEstado(solicitud: SolicitudGuardada): EstadoResuelto {
   return { estado: estadoBase}
 }
 
-export async function actualizarEstadoSolicitud(
-  solicitudId: number,
-  nuevoEstado: EstadoSolicitud,
-  observaciones?: string,
-  token?: string
-): Promise<SolicitudGuardada | null> {
-  try{
-    const response = await axios.put(
-      `${API_URL}/api/solicitudes/${solicitudId}/estado`,
-      {
-        estado: nuevoEstado,
-        observaciones
-      },
-      {
-        headers: token ? {Authorization: `Bearer ${token}` } : {}
-      }
-    );
-
-    return response.data.data;
-  } catch(error) {
-    return null
-  }
-}
-
 export function generarNumeroSolicitud(): string {
   const anio = new Date().getFullYear();
   const numero = Math.floor(Math.random() * 99999) + 1;
@@ -176,6 +155,9 @@ function normalizarSolicitud(soliBD: any): SolicitudGuardada {
       anio: soliBD.alumnoAnio || undefined,
       grado: soliBD.alumnoGrado || undefined,
       sede: soliBD.sede?.nombre || "",
+      necesidadesApoyo: soliBD.alumnoNecesidadesApoyo ?? null,
+      alergias: soliBD.alumnoAlergias ?? null,
+      medicamentos: soliBD.alumnoMedicamentos ?? null,
     },
     documentos: soliBD.documentos || [],
     observaciones: soliBD.observaciones || undefined,

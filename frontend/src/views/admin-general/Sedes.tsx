@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, MapPin, Edit, Phone, School } from "lucide-react";
+import { Plus, MapPin, Edit, Phone, School } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Modal, Input, AlertBanner, EmptyState } from "../../components/Ui";
 import {
   getSedes, getSedesMetricas, getCatedraticosSede, createSede, updateSede,
@@ -64,7 +64,7 @@ export default function SedesView() {
       {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <div key={i} className="h-56 rounded-xl bg-stone-100 animate-pulse" />)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <div key={i} className="h-56 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}</div>
       ) : sedes.length === 0 ? (
         <EmptyState icon={<School className="w-10 h-10" />} title="Sin sedes" description="Agregue la primera sede del colegio." />
       ) : (
@@ -74,32 +74,32 @@ export default function SedesView() {
             return (
               <Card key={sede.sedeId} className="p-5 hover:shadow-sm transition-shadow">
                 <div className="mb-3">
-                  <h3 className="font-display font-semibold text-stone-900">{sede.nombre}</h3>
+                  <h3 className="font-display font-bold text-stone-900">{sede.nombre}</h3>
                   {sede.direccion && <p className="flex items-center gap-1 text-xs text-stone-500 mt-0.5"><MapPin className="w-3 h-3" />{sede.direccion}</p>}
                   {sede.telefono && <p className="flex items-center gap-1 text-xs text-stone-500 mt-0.5"><Phone className="w-3 h-3" />{sede.telefono}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-stone-50 rounded-lg p-3">
                     <p className="text-xs text-stone-500">Alumnos</p>
-                    <p className="font-mono-data font-semibold text-stone-900 text-xl">{m?.alumnos.toLocaleString() ?? "—"}</p>
+                    <p className="font-display font-bold tabular-nums text-stone-900 text-xl">{m?.alumnos.toLocaleString() ?? "—"}</p>
                   </div>
                   <div className="bg-stone-50 rounded-lg p-3">
                     <p className="text-xs text-stone-500">Catedráticos</p>
-                    <p className="font-mono-data font-semibold text-stone-900 text-xl">{catedraticosPorSede.get(sede.nombre) ?? 0}</p>
+                    <p className="font-display font-bold tabular-nums text-stone-900 text-xl">{catedraticosPorSede.get(sede.nombre) ?? 0}</p>
                   </div>
                 </div>
                 {m && (
                   <>
                     <div className="flex items-center justify-between text-xs text-stone-500 mb-1">
                       <span>Tasa de aprobación</span>
-                      <span className="font-mono-data font-semibold text-success-700">{m.aprobacion}%</span>
+                      <span className="font-display font-bold tabular-nums text-success-700">{m.aprobacion}%</span>
                     </div>
                     <div className="w-full bg-stone-100 rounded-full h-1.5 mb-2">
                       <div className="bg-success-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, m.aprobacion)}%` }} />
                     </div>
                     <div className="flex items-center justify-between text-xs text-stone-500 mb-4">
                       <span>Mora</span>
-                      <span className={`font-mono-data font-semibold ${m.mora > 15 ? "text-danger-700" : "text-stone-700"}`}>{m.mora}%</span>
+                      <span className={`font-display font-bold tabular-nums ${m.mora > 15 ? "text-danger-700" : "text-stone-700"}`}>{m.mora}%</span>
                     </div>
                   </>
                 )}

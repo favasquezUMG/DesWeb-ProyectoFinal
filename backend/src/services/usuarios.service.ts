@@ -46,7 +46,7 @@ export const correoEnUso = async (email: string, excluirUsuarioId?: number) =>
 // Que roles puede asignar quien hace la peticion
 // ---------------------------------------------------------------------------
 
-const ROLES_SOLO_GENERAL: string[] = [ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE];
+const ROLES_SOLO_GENERAL: string[] = [ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE];
 
 // El administrador general asigna cualquier rol. El resto del personal solo puede asignar
 // roles de comunidad (catedratico, alumno, encargado) o roles del colegio cuyos permisos ya

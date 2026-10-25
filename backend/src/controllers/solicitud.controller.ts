@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import type { Prisma, Solicitud } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { ReglaNegocioError } from "../lib/errores.js";
+import { leerSalud } from "../services/salud.service.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { puedeOperarSede, sedeDelAlcance } from "../middlewares/role.middleware.js";
 import { sendMail } from "../services/mail.service.js";
@@ -27,12 +28,16 @@ const enmascararCorreo = (correo: string) => {
     return dominio ? `${usuario.slice(0, 2)}${"*".repeat(Math.max(3, usuario.length - 2))}@${dominio}` : enmascarar(correo);
 };
 
-// La consulta pública solo con el número no debe exponer DPI, teléfono ni correo completos
+// La consulta pública solo con el número no debe exponer DPI, teléfono ni correo completos,
+// ni la información de salud del alumno
 const versionPublica = (s: Solicitud & { sede: { nombre: string } | null }) => ({
     ...s,
     encargadoDpi: enmascarar(s.encargadoDpi, 0).replace(/.{4}$/, s.encargadoDpi.slice(-4)),
     encargadoTelefono: enmascarar(s.encargadoTelefono, 0).replace(/.{2}$/, s.encargadoTelefono.slice(-2)),
     encargadoCorreo: enmascararCorreo(s.encargadoCorreo),
+    alumnoNecesidadesApoyo: undefined,
+    alumnoAlergias: undefined,
+    alumnoMedicamentos: undefined,
     alumnoId: undefined,
 });
 
@@ -63,6 +68,7 @@ export const crearSolicitud = async (req: Request, res: Response) => {
     }
 
     try {
+        const salud = leerSalud(alumno);
         let sedeId: number | null = null;
         if (alumno.sede) {
             const sedeDB = await prisma.sede.findFirst({ where: { nombre: alumno.sede, deletedAt: null } });
@@ -86,6 +92,9 @@ export const crearSolicitud = async (req: Request, res: Response) => {
                 alumnoCarrera: alumno.carrera || null,
                 alumnoAnio: alumno.anio || null,
                 alumnoGrado: alumno.grado || null,
+                alumnoNecesidadesApoyo: salud.necesidadesApoyo,
+                alumnoAlergias: salud.alergias,
+                alumnoMedicamentos: salud.medicamentos,
                 sedeId,
                 documentos: documentos || [],
                 observaciones: observaciones || null,
