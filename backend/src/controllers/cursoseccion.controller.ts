@@ -53,7 +53,6 @@ export const getCursosSeccion = async (req: AuthenticatedRequest, res: Response)
     }
 };
 
-//Get by ID
 export const getCursoSeccionById = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 

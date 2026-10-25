@@ -21,7 +21,7 @@ router.get('/modulos', permitir('usuarios'), getModulos);
 router.get('/:id', permitir('usuarios'), getRolById);
 
 // Crear, modificar y cambiar permisos: solo el Administrador General
-const soloGeneral = verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL);
+const soloGeneral = verificarRol(ROL.ADMIN_GENERAL);
 router.post('/', soloGeneral, createRol);
 router.put('/:id', soloGeneral, updateRol);
 router.put('/:id/permisos', soloGeneral, setPermisos);

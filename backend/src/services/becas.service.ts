@@ -1,6 +1,7 @@
 import type { ProgramaBeca } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { hoyUTC } from "../lib/fechas.js";
+import { ReglaNegocioError } from "../lib/errores.js";
 import { filtroVinculo } from "./vinculos.service.js";
 import { COLEGIATURA_MENSUAL } from "../config/stripe.config.js";
 import { encargadosDeAlumno, enviarADestinatarios, enviarEnSegundoPlano } from "./notificacion.service.js";
@@ -34,13 +35,6 @@ const TRANSICIONES: Record<EstadoBeca, EstadoBeca[]> = {
     Finalizada: [],
 };
 
-// Error de regla de negocio: el controlador lo convierte en una respuesta 4xx con su mensaje
-export class ReglaBecaError extends Error {
-    constructor(message: string, public status = 409) {
-        super(message);
-    }
-}
-
 const redondear = (n: number) => Number(n.toFixed(2));
 
 export const inicioDeCiclo = (anio: number) => new Date(Date.UTC(anio, 0, 1));
@@ -48,7 +42,7 @@ export const finDeCiclo = (anio: number) => new Date(Date.UTC(anio, 11, 31));
 
 export { hoyUTC };
 
-export const montoMensualDeBeca = (porcentaje: number) => redondear((COLEGIATURA_MENSUAL * porcentaje) / 100);
+const montoMensualDeBeca = (porcentaje: number) => redondear((COLEGIATURA_MENSUAL * porcentaje) / 100);
 
 // ---------------------------------------------------------------------------
 // Consultas de apoyo
@@ -101,7 +95,7 @@ export const presupuestoUsado = async (sedeId: number | null, anioLectivo: numbe
 // Promedio del alumno hasta la fecha (0-100). Por curso se divide lo obtenido entre los
 // puntos de las actividades ya calificadas, asi no se castiga a mitad de ciclo por las
 // unidades que aun no se han evaluado. null = todavia no tiene notas.
-export const promedioAlumno = async (alumnoId: number): Promise<number | null> => {
+const promedioAlumno = async (alumnoId: number): Promise<number | null> => {
     const alumno = await prisma.alumno.findUnique({ where: { alumnoId }, select: { seccionId: true } });
     if (!alumno) return null;
 
@@ -147,7 +141,7 @@ const tieneConductaGrave = async (alumnoId: number, desde: Date) =>
 export const validarPorcentaje = (valor: unknown): number => {
     const porcentaje = Number(valor);
     if (isNaN(porcentaje) || porcentaje <= 0 || porcentaje > 100) {
-        throw new ReglaBecaError("El porcentaje debe ser mayor que 0 y como máximo 100.", 400);
+        throw new ReglaNegocioError("El porcentaje debe ser mayor que 0 y como máximo 100.", 400);
     }
     return porcentaje;
 };
@@ -168,17 +162,17 @@ export const validarActivacion = async (datos: {
         include: { seccion: true, usuario: { select: { deletedAt: true } } },
     });
     if (!alumno || alumno.usuario.deletedAt) {
-        throw new ReglaBecaError(`Alumno con ID: ${alumnoId} no encontrado.`, 404);
+        throw new ReglaNegocioError(`Alumno con ID: ${alumnoId} no encontrado.`, 404);
     }
     const sedeId = alumno.seccion.sedeId;
 
     if (programa) {
-        if (!programa.activo) throw new ReglaBecaError(`El programa "${programa.nombre}" está cerrado.`);
+        if (!programa.activo) throw new ReglaNegocioError(`El programa "${programa.nombre}" está cerrado.`);
         if (programa.anioLectivo !== anioLectivo) {
-            throw new ReglaBecaError(`El programa "${programa.nombre}" es del ciclo ${programa.anioLectivo}.`);
+            throw new ReglaNegocioError(`El programa "${programa.nombre}" es del ciclo ${programa.anioLectivo}.`);
         }
         if (programa.sedeId !== sedeId) {
-            throw new ReglaBecaError("El programa pertenece a otra sede distinta a la del alumno.");
+            throw new ReglaNegocioError("El programa pertenece a otra sede distinta a la del alumno.");
         }
     }
 
@@ -192,7 +186,7 @@ export const validarActivacion = async (datos: {
         include: { programa: { select: { nombre: true } } },
     });
     if (otraVigente) {
-        throw new ReglaBecaError(
+        throw new ReglaNegocioError(
             `El alumno ya tiene una beca ${otraVigente.estado.toLowerCase()} en el ciclo ${anioLectivo}` +
                 (otraVigente.programa ? ` (${otraVigente.programa.nombre})` : "") +
                 ". Las becas no son acumulables: revoque la anterior primero.",
@@ -202,7 +196,7 @@ export const validarActivacion = async (datos: {
     if (programa?.cupos != null) {
         const usados = await cuposUsados(programa.programaId, excluirBecaId);
         if (usados >= programa.cupos) {
-            throw new ReglaBecaError(`El programa "${programa.nombre}" ya no tiene cupos (${usados}/${programa.cupos}).`);
+            throw new ReglaNegocioError(`El programa "${programa.nombre}" ya no tiene cupos (${usados}/${programa.cupos}).`);
         }
     }
 
@@ -210,12 +204,12 @@ export const validarActivacion = async (datos: {
         const minimo = Number(programa.promedioMinimo);
         const promedio = await promedioAlumno(alumnoId);
         if (promedio !== null && promedio < minimo) {
-            throw new ReglaBecaError(`El alumno tiene promedio ${promedio} y el programa exige al menos ${minimo}.`);
+            throw new ReglaNegocioError(`El alumno tiene promedio ${promedio} y el programa exige al menos ${minimo}.`);
         }
     }
 
     if (programa?.pierdePorConductaGrave && (await tieneConductaGrave(alumnoId, inicioDeCiclo(anioLectivo)))) {
-        throw new ReglaBecaError("El alumno tiene un reporte de conducta grave en este ciclo y el programa no lo permite.");
+        throw new ReglaNegocioError("El alumno tiene un reporte de conducta grave en este ciclo y el programa no lo permite.");
     }
 
     await validarPresupuesto(sedeId, anioLectivo, porcentaje, excluirBecaId);
@@ -229,7 +223,7 @@ export const validarPresupuesto = async (sedeId: number, anioLectivo: number, po
     const nuevo = montoMensualDeBeca(porcentaje);
     if (usado + nuevo > politica.presupuestoMensual) {
         const disponible = redondear(Math.max(politica.presupuestoMensual - usado, 0));
-        throw new ReglaBecaError(
+        throw new ReglaNegocioError(
             `La beca representa Q${nuevo.toFixed(2)} al mes y solo quedan Q${disponible.toFixed(2)} del presupuesto mensual de becas de la sede.`,
         );
     }
@@ -252,15 +246,15 @@ export const registrarHistorial = (
 
 export const cambiarEstado = async (becaId: number, nuevoEstado: string, motivo: string, usuarioId: number | null) => {
     const beca = await prisma.beca.findUnique({ where: { becaId }, include: { programa: true } });
-    if (!beca) throw new ReglaBecaError(`Beca con ID: ${becaId} no encontrada.`, 404);
+    if (!beca) throw new ReglaNegocioError(`Beca con ID: ${becaId} no encontrada.`, 404);
 
     if (!ESTADOS_BECA.includes(nuevoEstado as EstadoBeca)) {
-        throw new ReglaBecaError(`Estado no válido. Use uno de: ${ESTADOS_BECA.join(", ")}.`, 400);
+        throw new ReglaNegocioError(`Estado no válido. Use uno de: ${ESTADOS_BECA.join(", ")}.`, 400);
     }
 
     const permitidos = TRANSICIONES[beca.estado as EstadoBeca] ?? [];
     if (!permitidos.includes(nuevoEstado as EstadoBeca)) {
-        throw new ReglaBecaError(
+        throw new ReglaNegocioError(
             permitidos.length === 0
                 ? `La beca está ${beca.estado.toLowerCase()} y ya no se puede modificar.`
                 : `Una beca ${beca.estado.toLowerCase()} solo puede pasar a: ${permitidos.join(", ")}.`,
@@ -269,7 +263,7 @@ export const cambiarEstado = async (becaId: number, nuevoEstado: string, motivo:
 
     if (nuevoEstado === ESTADO_BECA.ACTIVA) {
         if (beca.fechaFin < hoyUTC()) {
-            throw new ReglaBecaError("La vigencia de esta beca ya terminó; renuévela para el nuevo ciclo.");
+            throw new ReglaNegocioError("La vigencia de esta beca ya terminó; renuévela para el nuevo ciclo.");
         }
         await validarActivacion({
             alumnoId: beca.alumnoId,

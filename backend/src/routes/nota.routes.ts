@@ -19,7 +19,7 @@ router.use(authenticateToken);
 router.get('/actividad/:activityId', permitir('notas', ROL.CATEDRATICO, ROL.ENCARGADO, ROL.ALUMNO), getNotasByActivity);
 router.get('/estudiante/:studentId', permitir('notas', ROL.CATEDRATICO, ROL.ENCARGADO, ROL.ALUMNO), getNotasByStudent);
 router.get('/curso-seccion/:cursoSeccionId', permitir('notas', ROL.CATEDRATICO), getLibretaCursoSeccion);
-router.get('/tendencia-notas', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getTendenciaNotas);
+router.get('/tendencia-notas', verificarRol(ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getTendenciaNotas);
 router.get('/', permitir('notas'), getNotas);
 router.post('/', permitir('notas', ROL.CATEDRATICO), upsertNota);
 router.post('/enviar-encargados', permitir('notas', ROL.CATEDRATICO), enviarNotasAEncargados);

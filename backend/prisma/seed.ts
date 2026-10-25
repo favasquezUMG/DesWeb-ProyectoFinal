@@ -13,35 +13,33 @@ const ROLES = [
 
 const SEDES: { nombre: string; direccion: string; telefono: string | null }[] = [
     { nombre: 'Sede Central', direccion: 'Zona 1, Ciudad de Guatemala', telefono: '52000983' },
-    { nombre: 'Sede Norte', direccion: 'Zona 18, Ciudad de Guatemala', telefono: null },
-    { nombre: 'Sede Sur', direccion: 'Villa Nueva, Guatemala', telefono: null },
-    { nombre: 'Sede Mixco', direccion: 'Zona 4 de Mixco, Guatemala', telefono: null },
     { nombre: 'Sede Antigua', direccion: 'Antigua Guatemala, Sacatepéquez', telefono: null },
-    { nombre: 'Sede Quetzaltenango', direccion: 'Zona 3, Quetzaltenango', telefono: null },
-    { nombre: 'Sede Escuintla', direccion: 'Zona 1, Escuintla', telefono: null },
-    { nombre: 'Sede Cobán', direccion: 'Cobán, Alta Verapaz', telefono: null },
-    { nombre: 'Sede Huehuetenango', direccion: 'Zona 1, Huehuetenango', telefono: null },
     { nombre: 'Sede Petén', direccion: 'Flores, Petén', telefono: null },
 ];
 
-// Solo las primeras sedes y grados reciben alumnos, cursos y notas, para que el
+// Solo la primera sede y algunos grados reciben alumnos, cursos y notas, para que el
 // volumen de datos académicos se mantenga manejable. El resto queda con secciones vacías.
-const SEDES_CON_ALUMNOS = 3;
+const SEDES_CON_ALUMNOS = 1;
 // Grados (índice en GRADOS) que reciben alumnos: mezcla de Primaria, Básico y Diversificado
 // para probar el acceso al portal (Primaria no entra por defecto; Básico y Diversificado sí)
 const GRADOS_CON_ALUMNOS = [0, 2, 4, 6, 7, 9];
 
 const GRADOS = [
-    { nombre: 'Primero Primaria', nivel: 'Primaria', orden: 1 },
-    { nombre: 'Segundo Primaria', nivel: 'Primaria', orden: 2 },
-    { nombre: 'Tercero Primaria', nivel: 'Primaria', orden: 3 },
-    { nombre: 'Cuarto Primaria', nivel: 'Primaria', orden: 4 },
-    { nombre: 'Quinto Primaria', nivel: 'Primaria', orden: 5 },
-    { nombre: 'Sexto Primaria', nivel: 'Primaria', orden: 6 },
-    { nombre: 'Primero Básico', nivel: 'Básico', orden: 7 },
-    { nombre: 'Segundo Básico', nivel: 'Básico', orden: 8 },
-    { nombre: 'Tercero Básico', nivel: 'Básico', orden: 9 },
-    { nombre: 'Cuarto Bachillerato', nivel: 'Diversificado', orden: 10 },
+    { nombre: 'Primero Primaria', nivel: 'Primaria', orden: 4 },
+    { nombre: 'Segundo Primaria', nivel: 'Primaria', orden: 5 },
+    { nombre: 'Tercero Primaria', nivel: 'Primaria', orden: 6 },
+    { nombre: 'Cuarto Primaria', nivel: 'Primaria', orden: 7 },
+    { nombre: 'Quinto Primaria', nivel: 'Primaria', orden: 8 },
+    { nombre: 'Sexto Primaria', nivel: 'Primaria', orden: 9 },
+    { nombre: 'Primero Básico', nivel: 'Básico', orden: 10 },
+    { nombre: 'Segundo Básico', nivel: 'Básico', orden: 11 },
+    { nombre: 'Tercero Básico', nivel: 'Básico', orden: 12 },
+    { nombre: 'Cuarto Bachillerato', nivel: 'Diversificado', orden: 13 },
+    // Preprimaria va al final de la lista (el orden lo da "orden") para no mover los índices
+    // que usan GRADOS_CON_ALUMNOS y la rotación de cursos de la malla
+    { nombre: 'Párvulos 1', nivel: 'Preprimaria', orden: 1 },
+    { nombre: 'Párvulos 2', nivel: 'Preprimaria', orden: 2 },
+    { nombre: 'Párvulos 3', nivel: 'Preprimaria', orden: 3 },
 ];
 
 const CURSOS = [
@@ -55,6 +53,15 @@ const CURSOS = [
     { nombre: 'Computación', descripcion: 'Tecnologías del aprendizaje y la comunicación' },
     { nombre: 'Productividad y Desarrollo', descripcion: 'Emprendimiento y proyectos' },
     { nombre: 'Idioma Maya', descripcion: 'Segundo idioma nacional' },
+];
+
+// Áreas del CNB de Preprimaria (las que no están en CURSOS se crean aparte)
+const CURSOS_PREPRIMARIA = [
+    { nombre: 'Destrezas de Aprendizaje', descripcion: 'Área del CNB de Preprimaria' },
+    { nombre: 'Comunicación y Lenguaje', descripcion: 'Curso base del CNB' },
+    { nombre: 'Medio Social y Natural', descripcion: 'Área del CNB de Preprimaria' },
+    { nombre: 'Expresión Artística', descripcion: 'Música, artes plásticas y teatro' },
+    { nombre: 'Educación Física', descripcion: 'Desarrollo motriz y deporte' },
 ];
 // Cada grado lleva los 3 cursos base + 3 cursos que rotan según el grado
 const CURSOS_POR_GRADO = 6;
@@ -96,7 +103,7 @@ async function findOrCreateGrado(data: typeof GRADOS[number]) {
     return prisma.grado.create({ data });
 }
 
-async function findOrCreateCurso(data: typeof CURSOS[number]) {
+async function findOrCreateCurso(data: { nombre: string; descripcion: string }) {
     const existente = await prisma.curso.findFirst({ where: { nombre: data.nombre } });
     if (existente) return existente;
     return prisma.curso.create({ data });
@@ -127,7 +134,6 @@ async function main() {
     const ROLES_PERSONAL = [
         { nombre: 'Administrador de Sede', permisos: MODULOS },
         { nombre: 'Secretaría', descripcion: 'Atención a padres: alumnos, encargados, matrículas y avisos.', permisos: ['alumnos', 'matriculas', 'comunicados', 'calendario', 'conducta'] },
-        { nombre: 'Contabilidad', descripcion: 'Cobros de colegiatura y becas.', permisos: ['pagos', 'becas', 'reportes'] },
     ];
     for (const r of ROLES_PERSONAL) {
         const rol = await prisma.rol.upsert({
@@ -162,7 +168,14 @@ async function main() {
     for (const data of CURSOS) {
         cursos.push(await findOrCreateCurso(data));
     }
+    const cursosPreprimaria = [];
+    for (const data of CURSOS_PREPRIMARIA) {
+        cursosPreprimaria.push(await findOrCreateCurso(data));
+    }
     const mallaData = grados.flatMap((grado, g) => {
+        if (grado.nivel === 'Preprimaria') {
+            return cursosPreprimaria.map((curso) => ({ gradoId: grado.gradoId, cursoId: curso.cursoId }));
+        }
         const base = cursos.slice(0, 3);
         const extras = Array.from({ length: CURSOS_POR_GRADO - 3 }, (_, k) => cursos[3 + ((g + k) % (cursos.length - 3))]);
         return [...base, ...extras].map((curso) => ({ gradoId: grado.gradoId, cursoId: curso.cursoId }));
@@ -596,10 +609,9 @@ async function main() {
     // 10b. Casos reales de roles y encargados para probar el sistema
     await sembrarCasosDeEncargados(roles, passwordHash);
 
-    // Personal con roles creados por el colegio (Secretaría y Contabilidad) en la primera sede
+    // Personal con roles creados por el colegio (Secretaría) en la primera sede
     for (const [nombreRol, email, nombres] of [
         ['Secretaría', 'secretaria1@dercas.edu.gt', 'Secretaria1'],
-        ['Contabilidad', 'contabilidad1@dercas.edu.gt', 'Contador1'],
     ] as const) {
         await prisma.usuario.upsert({
             where: { email },

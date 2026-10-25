@@ -42,7 +42,7 @@ export function errorMsg(err: unknown, fallback: string): string {
 }
 
 // Cada unidad vale 100 puntos: 60 de zona y 40 de examen. La nota final es el promedio de las unidades.
-export const PUNTEO_UNIDAD = 100;
+const PUNTEO_UNIDAD = 100;
 export const PUNTEO_POR_TIPO: Record<TipoActividad, number> = { Zona: 60, Examen: 40 };
 export const TIPO_LABEL: Record<TipoActividad, string> = { Zona: "Zona", Examen: "Examen" };
 

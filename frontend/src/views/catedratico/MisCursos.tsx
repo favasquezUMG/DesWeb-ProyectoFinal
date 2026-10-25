@@ -6,6 +6,7 @@ import {
   type ActividadDto, type LibretaDto, type ResumenAsistenciaDto, type TipoActividad,
 } from "../../lib/api";
 import ActividadModal, { type ActividadEnEdicion } from "./ActividadModal";
+import { IndicadorSalud, ModalSalud, tieneSalud } from "../../components/InfoSalud";
 import {
   Cargando, CursoSelect, EstadoNota, NOTA_APROBACION, PUNTEO_POR_TIPO, TIPO_LABEL, UNIDAD_LABEL,
   actividadesPorTipo, calcularTotales, errorMsg, estadoAcademico, formatFechaCorta, redondear, sumaPuntos, useMisCursos,
@@ -53,6 +54,7 @@ export default function MisCursos() {
   const [resumen, setResumen] = useState<ResumenAsistenciaDto | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
+  const [saludDe, setSaludDe] = useState<LibretaDto["alumnos"][number] | null>(null);
 
   async function recargarLibreta() {
     if (!seleccion) return;
@@ -119,6 +121,11 @@ export default function MisCursos() {
             libreta.alumnos.length === 0 ? (
               <EmptyState icon={<BookOpen className="w-10 h-10" />} title="Sin alumnos" description="La sección no tiene alumnos inscritos." />
             ) : (
+              <>
+              {libreta.alumnos.some(tieneSalud) && (
+                <AlertBanner type="info" title="Alumnos con información de salud"
+                  message={`${libreta.alumnos.filter(tieneSalud).length} alumno(s) tienen una condición de salud, alergia o necesidad de apoyo registrada. Toque la etiqueta "Salud" para ver el detalle.`} />
+              )}
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -131,7 +138,12 @@ export default function MisCursos() {
                         const asis = asistenciaPorAlumno.get(a.alumnoId);
                         return (
                           <tr key={a.alumnoId} className="hover:bg-sand-50">
-                            <TD><span className="font-semibold text-stone-900">{a.apellidos}, {a.nombres}</span></TD>
+                            <TD>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-stone-900">{a.apellidos}, {a.nombres}</span>
+                                <IndicadorSalud salud={a} onClick={() => setSaludDe(a)} />
+                              </div>
+                            </TD>
                             <TD className="text-center">
                               {t?.conNotas ? (
                                 <span className={`font-display font-bold tabular-nums ${t.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-700"}`}>{redondear(t.total)}</span>
@@ -150,6 +162,8 @@ export default function MisCursos() {
                   </table>
                 </div>
               </Card>
+              <ModalSalud alumno={saludDe ? `${saludDe.nombres} ${saludDe.apellidos}` : null} salud={saludDe ?? {}} onCerrar={() => setSaludDe(null)} />
+              </>
             )
           )}
 

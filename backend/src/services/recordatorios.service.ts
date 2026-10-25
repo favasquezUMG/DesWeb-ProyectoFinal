@@ -48,7 +48,7 @@ export const enviarRecordatorioEvento = (evento: Evento, destinatarios: Destinat
 };
 
 // Busca los eventos de mañana que aun no tienen recordatorio y los envia
-export const procesarRecordatoriosPendientes = async () => {
+const procesarRecordatoriosPendientes = async () => {
     const manana = new Date(hoyEnZonaColegio().getTime() + UN_DIA_MS);
     const pasadoManana = new Date(manana.getTime() + UN_DIA_MS);
 

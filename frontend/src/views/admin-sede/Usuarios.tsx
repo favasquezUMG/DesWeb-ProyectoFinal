@@ -36,7 +36,7 @@ const formVacio = (): FormUsuario => ({
   nombres: "", apellidos: "", email: "", rolId: "", adicionales: new Set(), sedeId: "", especialidad: "", password: "",
 });
 
-const ROLES_SOLO_GENERAL = ["Admin", "Administrador General", "Administrador de Sede"];
+const ROLES_SOLO_GENERAL = ["Administrador General", "Administrador de Sede"];
 
 export default function UsuariosView() {
   const sesion = getSession()?.user;

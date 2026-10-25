@@ -4,7 +4,6 @@ import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { puedeGestionarCursoSeccion } from '../services/acceso.service.js';
 
-//Get all
 export const getActivities = async (_req: Request, res: Response) => {
     try {
         const activities = await prisma.actividad.findMany({
@@ -21,7 +20,6 @@ export const getActivities = async (_req: Request, res: Response) => {
     }
 }
 
-//Get By ID
 export const getActivityById = async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -41,7 +39,6 @@ export const getActivityById = async (req: Request, res: Response) => {
     }
 }
 
-//Get By Unidad
 export const getActivitiesByUnidad = async (req: Request, res: Response) => {
   const { unidadId } = req.params;
 
@@ -59,7 +56,7 @@ export const getActivitiesByUnidad = async (req: Request, res: Response) => {
 
 // Cada unidad vale 100 puntos: 60 de zona (tareas, proyectos...) y 40 de examen.
 // La nota final del curso es el promedio de las 4 unidades.
-export const PUNTEO_POR_TIPO: Record<TipoActividad, number> = { Zona: 60, Examen: 40 };
+const PUNTEO_POR_TIPO: Record<TipoActividad, number> = { Zona: 60, Examen: 40 };
 const TIPOS = Object.keys(PUNTEO_POR_TIPO) as TipoActividad[];
 
 const leerTipo = (tipo: unknown): TipoActividad | null =>
@@ -92,7 +89,6 @@ const mensajeExcedePunteo = (tipo: TipoActividad, asignado: number) => {
         : `${nombre} de esta unidad vale ${maximo} puntos: solo quedan ${maximo - asignado} disponibles.`;
 };
 
-//Post create
 export const createActivity = async (req: AuthenticatedRequest, res: Response) => {
     const { unidadId, nombre, puntosMaximos, fecha } = req.body;
     const tipo = req.body.tipo === undefined ? 'Zona' : leerTipo(req.body.tipo);
@@ -148,7 +144,6 @@ export const createActivity = async (req: AuthenticatedRequest, res: Response) =
     }
 }
 
-//Put update
 export const updateActivity = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { nombre, puntosMaximos, fecha } = req.body;

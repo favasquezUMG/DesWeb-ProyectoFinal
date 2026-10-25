@@ -192,19 +192,6 @@ export function Badge({ variant = "neutral", children, className = "" }: { varia
   );
 }
 
-export function NotaBadge({ nota }: { nota: number | null }) {
-  if (nota === null) return <span className="text-stone-300 text-sm">—</span>;
-  const aprobado = nota >= 61;
-  return (
-    <span className={`inline-flex items-center justify-center min-w-9 h-7 px-2 text-sm font-display font-bold rounded-lg tabular-nums
-      ${aprobado ? "bg-success-50 text-success-800" : "bg-danger-50 text-danger-800"}`}
-      aria-label={aprobado ? `${nota}, aprobado` : `${nota}, reprobado`}
-    >
-      {nota}
-    </span>
-  );
-}
-
 export function EstadoBadge({ aprobado, label }: { aprobado: boolean; label?: string }) {
   return (
     <span className={`${PILL} ${aprobado ? "bg-success-50 text-success-800" : "bg-danger-50 text-danger-800"}`}

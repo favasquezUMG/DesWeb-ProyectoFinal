@@ -27,7 +27,6 @@ export const getCursos = async (req: Request, res: Response) => {
     }
 };
 
-//Get by ID
 export const getCursoById = async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -111,7 +110,6 @@ export const createCurso = async (req: Request, res: Response) => {
     }
 };
 
-//Put
 export const updateCurso = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { nombre, descripcion } = req.body;

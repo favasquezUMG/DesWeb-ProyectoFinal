@@ -8,7 +8,8 @@ import {
     quitarEncargado,
     getConteoAlumnos,
     getTasaAprobacion,
-    setAccesoPortal
+    setAccesoPortal,
+    setSaludAlumno
 } from '../controllers/alumno.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, ROL, verificarRol } from "../middlewares/role.middleware.js";
@@ -20,13 +21,14 @@ router.use(authenticateToken)
 router.get('/all', permitir('alumnos', ROL.CATEDRATICO), getAlumnos);
 
 // Encargados (padres, tutores...) de cada alumno
-router.get('/conteo-alumnos', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getConteoAlumnos);
-router.get('/tasa-aprobacion', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getTasaAprobacion);
+router.get('/conteo-alumnos', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getConteoAlumnos);
+router.get('/tasa-aprobacion', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getTasaAprobacion);
 router.get('/encargados/buscar', permitir('alumnos'), buscarEncargados);
 router.get('/:id/encargados', permitir('alumnos'), getEncargadosDeAlumno);
 router.post('/:id/encargados', permitir('alumnos'), agregarEncargado);
 router.put('/:id/encargados/:encargadoId', permitir('alumnos'), actualizarVinculo);
 router.delete('/:id/encargados/:encargadoId', permitir('alumnos'), quitarEncargado);
 router.patch('/:id/acceso-portal', permitir('alumnos'), setAccesoPortal);
+router.put('/:id/salud', permitir('alumnos'), setSaludAlumno);
 
 export default router;

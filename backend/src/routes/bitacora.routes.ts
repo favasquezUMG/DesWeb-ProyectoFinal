@@ -7,6 +7,6 @@ const router = Router();
 
 router.use(authenticateToken);
 
-router.get('/actividad-reciente', verificarRol(ROL.ADMIN,ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getActividadReciente);
+router.get('/actividad-reciente', verificarRol(ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getActividadReciente);
 
 export default router;

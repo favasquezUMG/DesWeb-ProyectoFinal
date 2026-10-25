@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { ReglaNegocioError } from '../lib/errores.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { ROL, esAlcanceGlobal, obtenerNombreRol, puedeOperarSede } from '../middlewares/role.middleware.js';
 import { esResponsableDe, hijosDe } from '../services/vinculos.service.js';
@@ -10,7 +11,6 @@ import {
     ESTADOS_BECA,
     ESTADOS_VIGENTES,
     TIPOS_PROGRAMA,
-    ReglaBecaError,
     cambiarEstado,
     cuposUsados,
     descuentoColegiatura,
@@ -38,7 +38,7 @@ const errorMessage = (error: unknown): string => {
 };
 
 const responderError = (res: Response, error: unknown, serverMessage: string) => {
-    if (error instanceof ReglaBecaError) {
+    if (error instanceof ReglaNegocioError) {
         return res.status(error.status).json({ status: 'error', message: error.message });
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -52,13 +52,13 @@ const anioDe = (valor: unknown) => Number(valor) || anioActual();
 
 const parseFecha = (valor: unknown, campo: string): Date => {
     const fecha = new Date(String(valor));
-    if (isNaN(fecha.getTime())) throw new ReglaBecaError(`La ${campo} no es válida.`, 400);
+    if (isNaN(fecha.getTime())) throw new ReglaNegocioError(`La ${campo} no es válida.`, 400);
     return fecha;
 };
 
 const validarMotivo = (motivo: unknown): string => {
     const texto = typeof motivo === 'string' ? motivo.trim() : '';
-    if (texto.length < 5) throw new ReglaBecaError('Indique el motivo del cambio (mínimo 5 caracteres).', 400);
+    if (texto.length < 5) throw new ReglaNegocioError('Indique el motivo del cambio (mínimo 5 caracteres).', 400);
     return texto;
 };
 
@@ -69,7 +69,7 @@ const nombreCompleto = (u: { nombres: string; apellidos: string }) => `${u.nombr
 const sedeDeTrabajo = async (req: AuthenticatedRequest): Promise<number | null> => {
     const rol = await obtenerNombreRol(req);
     if (!esAlcanceGlobal(rol)) {
-        if (!req.user?.sedeId) throw new ReglaBecaError('Su usuario no tiene una sede asignada.', 403);
+        if (!req.user?.sedeId) throw new ReglaNegocioError('Su usuario no tiene una sede asignada.', 403);
         return Number(req.user.sedeId);
     }
     const sedeId = req.body?.sedeId ?? req.query.sedeId;
@@ -78,7 +78,7 @@ const sedeDeTrabajo = async (req: AuthenticatedRequest): Promise<number | null> 
 
 const sedeObligatoria = async (req: AuthenticatedRequest): Promise<number> => {
     const sedeId = await sedeDeTrabajo(req);
-    if (!sedeId) throw new ReglaBecaError('Indique la sede (sedeId).', 400);
+    if (!sedeId) throw new ReglaNegocioError('Indique la sede (sedeId).', 400);
     return sedeId;
 };
 
@@ -87,16 +87,16 @@ const verificarSedeDeBeca = async (req: AuthenticatedRequest, becaId: number) =>
         where: { becaId },
         include: { alumno: { include: { seccion: true } }, programa: true },
     });
-    if (!beca) throw new ReglaBecaError(`Beca con ID: ${becaId} no encontrada.`, 404);
+    if (!beca) throw new ReglaNegocioError(`Beca con ID: ${becaId} no encontrada.`, 404);
     if (!(await puedeOperarSede(req, beca.alumno.seccion.sedeId))) {
-        throw new ReglaBecaError('No puede administrar becas de alumnos de otra sede.', 403);
+        throw new ReglaNegocioError('No puede administrar becas de alumnos de otra sede.', 403);
     }
     return beca;
 };
 
 const leerId = (req: AuthenticatedRequest): number => {
     const becaId = parseId(req.params.id);
-    if (becaId === null) throw new ReglaBecaError(`El ID: ${req.params.id} no es un número válido`, 400);
+    if (becaId === null) throw new ReglaNegocioError(`El ID: ${req.params.id} no es un número válido`, 400);
     return becaId;
 };
 
@@ -271,9 +271,9 @@ export const createBeca = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 const validarVigencia = (inicio: Date, fin: Date, anio: number) => {
-    if (fin <= inicio) throw new ReglaBecaError('La fecha de fin debe ser posterior a la fecha de inicio.', 400);
+    if (fin <= inicio) throw new ReglaNegocioError('La fecha de fin debe ser posterior a la fecha de inicio.', 400);
     if (inicio < inicioDeCiclo(anio) || fin > finDeCiclo(anio)) {
-        throw new ReglaBecaError(`Las fechas deben estar dentro del ciclo lectivo ${anio}. Para el siguiente ciclo use "Renovar".`, 400);
+        throw new ReglaNegocioError(`Las fechas deben estar dentro del ciclo lectivo ${anio}. Para el siguiente ciclo use "Renovar".`, 400);
     }
 };
 
@@ -497,12 +497,12 @@ const leerDatosPrograma = (body: any, parcial: boolean): DatosPrograma => {
 
     if (body.nombre !== undefined || !parcial) {
         const nombre = typeof body.nombre === 'string' ? body.nombre.trim() : '';
-        if (!nombre) throw new ReglaBecaError('El nombre del programa es obligatorio.', 400);
+        if (!nombre) throw new ReglaNegocioError('El nombre del programa es obligatorio.', 400);
         datos.nombre = nombre.slice(0, 100);
     }
     if (body.tipo !== undefined || !parcial) {
         if (!TIPOS_PROGRAMA.includes(body.tipo)) {
-            throw new ReglaBecaError(`El tipo debe ser uno de: ${TIPOS_PROGRAMA.join(', ')}.`, 400);
+            throw new ReglaNegocioError(`El tipo debe ser uno de: ${TIPOS_PROGRAMA.join(', ')}.`, 400);
         }
         datos.tipo = body.tipo;
     }
@@ -511,7 +511,7 @@ const leerDatosPrograma = (body: any, parcial: boolean): DatosPrograma => {
         if (body.cupos === null || body.cupos === '') datos.cupos = null;
         else {
             const cupos = Number(body.cupos);
-            if (!Number.isInteger(cupos) || cupos < 1) throw new ReglaBecaError('Los cupos deben ser un número entero mayor que 0.', 400);
+            if (!Number.isInteger(cupos) || cupos < 1) throw new ReglaNegocioError('Los cupos deben ser un número entero mayor que 0.', 400);
             datos.cupos = cupos;
         }
     }
@@ -519,7 +519,7 @@ const leerDatosPrograma = (body: any, parcial: boolean): DatosPrograma => {
         if (body.promedioMinimo === null || body.promedioMinimo === '') datos.promedioMinimo = null;
         else {
             const minimo = Number(body.promedioMinimo);
-            if (isNaN(minimo) || minimo < 0 || minimo > 100) throw new ReglaBecaError('El promedio mínimo debe estar entre 0 y 100.', 400);
+            if (isNaN(minimo) || minimo < 0 || minimo > 100) throw new ReglaNegocioError('El promedio mínimo debe estar entre 0 y 100.', 400);
             datos.promedioMinimo = minimo;
         }
     }
@@ -664,7 +664,7 @@ export const upsertPolitica = async (req: AuthenticatedRequest, res: Response) =
         const porcentaje = (valor: unknown, nombre: string, porDefecto: number) => {
             if (valor === undefined || valor === null || valor === '') return porDefecto;
             const n = Number(valor);
-            if (isNaN(n) || n < 0 || n > 100) throw new ReglaBecaError(`El ${nombre} debe estar entre 0 y 100.`, 400);
+            if (isNaN(n) || n < 0 || n > 100) throw new ReglaNegocioError(`El ${nombre} debe estar entre 0 y 100.`, 400);
             return n;
         };
         const hermanos = porcentaje(descuentoHermanos, 'descuento por hermanos', 0);
