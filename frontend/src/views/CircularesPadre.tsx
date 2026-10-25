@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Check, Clock, CreditCard, FileSignature, Users, X } from "lucide-react";
+import { CalendarDays, Check, Clock, CreditCard, FileSignature, Users, X } from "../components/Iconos";
 import { AlertBanner, Badge, Btn, Card, EmptyState, SectionHeader } from "../components/Ui";
 import { formatoQ } from "../components/PagoColegiatura";
 import { getCirculares, responderCircular, type CircularDto, type EstadoAutorizacion } from "../lib/api";
