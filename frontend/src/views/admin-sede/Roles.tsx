@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Lock, Trash2, Edit, ShieldCheck, Users, GraduationCap, UserRound, Info } from "lucide-react";
+import { Plus, Lock, Trash2, Edit, ShieldCheck, Users, GraduationCap, UserRound, Info } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Input, Textarea } from "../../components/Ui";
 import {
   getRoles,
@@ -163,11 +163,11 @@ export default function RolesView() {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-stone-50 border-b border-stone-100">
+            <thead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider">Módulo</th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-stone-500">Módulo</th>
                 {columnas.map((r) => (
-                  <th key={r.rolId} className="px-4 py-3 text-center text-xs font-semibold text-stone-500 uppercase tracking-wider min-w-28">
+                  <th key={r.rolId} className="px-4 py-3 text-center text-[13px] font-semibold text-stone-500 min-w-28">
                     <span className="inline-flex items-center gap-1">
                       {r.tipo === "global" && <Lock className="w-3 h-3" />}
                       {etiquetaRol(r.nombre)}
@@ -176,9 +176,9 @@ export default function RolesView() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {modulos.map((m) => (
-                <tr key={m.modulo} className="hover:bg-stone-50">
+                <tr key={m.modulo} className="hover:bg-sand-50">
                   <td className="px-4 py-3 font-medium text-stone-800">{m.nombre}</td>
                   {columnas.map((r) => {
                     const editable = esGeneral && r.permisosEditables;
@@ -224,7 +224,7 @@ export default function RolesView() {
               <li key={r.rolId} className="py-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="font-medium text-stone-900 text-sm">{etiquetaRol(r.nombre)}</p>
+                    <p className="font-semibold text-stone-900 text-[15px]">{etiquetaRol(r.nombre)}</p>
                     {r.esSistema ? <Badge variant="neutral">Sistema</Badge> : <Badge variant="primary">Del colegio</Badge>}
                     <span className="text-xs text-stone-400">{r.usuarios} usuario(s)</span>
                   </div>

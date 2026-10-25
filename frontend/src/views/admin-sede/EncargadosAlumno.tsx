@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   AlertOctagon, Star, Wallet, Home, Car, CarFront, BookOpen, CreditCard, Bell, BellOff, Edit, UserMinus, Plus, Search, Clock, KeyRound,
-} from "lucide-react";
+} from "../../components/Iconos";
 import { Btn, Badge, AlertBanner, Input, Select, Textarea, Toggle } from "../../components/Ui";
 import {
   getEncargadosDeAlumno,
@@ -259,7 +259,7 @@ export default function EncargadosAlumno({ alumnoId, onCambio }: { alumnoId: num
           <li key={v.encargadoId} className={`rounded-xl border p-4 ${v.restringido ? "border-danger-600/40 bg-danger-50/40" : "border-stone-200"}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-medium text-stone-900 text-sm">{nombreDe(v.encargado.usuario)}</p>
+                <p className="font-semibold text-stone-900 text-[15px]">{nombreDe(v.encargado.usuario)}</p>
                 <p className="text-xs text-stone-500 truncate">{v.encargado.usuario.email}{v.parentesco ? ` · ${v.parentesco}` : ""}</p>
               </div>
               {editando !== v.encargadoId && (
@@ -313,7 +313,7 @@ export default function EncargadosAlumno({ alumnoId, onCambio }: { alumnoId: num
           <div className="flex gap-1 p-1 rounded-lg bg-stone-100">
             {[{ id: false, label: "Ya tiene cuenta" }, { id: true, label: "Crear cuenta nueva" }].map((o) => (
               <button key={String(o.id)} type="button" onClick={() => { setModoNuevo(o.id); setElegido(null); }}
-                className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium cursor-pointer ${modoNuevo === o.id ? "bg-white text-primary-700 shadow-sm" : "text-stone-500"}`}>
+                className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${modoNuevo === o.id ? "bg-white text-primary-700 shadow-sm" : "text-stone-500"}`}>
                 {o.label}
               </button>
             ))}

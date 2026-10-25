@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Wallet, Users2, Gauge } from "lucide-react";
+import { Wallet, Users2, Gauge } from "../../../components/Iconos";
 import { Card, Btn, AlertBanner, Input } from "../../../components/Ui";
 import { guardarPoliticaBecas, type ResumenBecasDto } from "../../../lib/api";
 import { formatQ } from "../../../lib/becas";
@@ -46,7 +46,7 @@ export default function PoliticaBecas({ resumen, onCambio }: {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <Card className="p-5 lg:col-span-2">
-        <h3 className="font-semibold text-stone-800">Política de becas — ciclo {resumen.anioLectivo}</h3>
+        <h3 className="font-display font-bold text-lg text-stone-900">Política de becas — ciclo {resumen.anioLectivo}</h3>
         <p className="text-sm text-stone-500 mt-1 mb-5">Reglas generales que se aplican a todas las becas de la sede.</p>
 
         {error && <div className="mb-4"><AlertBanner type="error" message={error} onClose={() => setError("")} /></div>}
@@ -96,7 +96,7 @@ export default function PoliticaBecas({ resumen, onCambio }: {
       </Card>
 
       <Card className="p-5 h-fit textile-pattern-light bg-sand-50">
-        <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">Ejemplo</p>
+        <p className="text-[13px] font-semibold text-stone-500">Ejemplo</p>
         <p className="text-sm text-stone-700 mt-2">
           Un segundo hijo con beca del {ejemploBeca}% pagaría:
         </p>

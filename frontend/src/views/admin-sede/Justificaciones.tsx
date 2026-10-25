@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, FileCheck2, XCircle } from "lucide-react";
+import { CheckCircle2, FileCheck2, XCircle } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, Textarea, EmptyState } from "../../components/Ui";
 import { getJustificaciones, revisarJustificacion, type EstadoJustificacion, type JustificacionAdminDto } from "../../lib/api";
 

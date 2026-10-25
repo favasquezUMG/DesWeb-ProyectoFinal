@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card, SectionHeader, AlertBanner, EmptyState } from "./Ui";
+import { CalendarDays, ChevronLeft, ChevronRight } from "./Iconos";
+import { Card, SectionHeader, AlertBanner, EmptyState, FechaBloque } from "./Ui";
 import { getEventos, type EventoDto } from "../lib/api";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const TIPO_CFG: Record<string, { label: string; dot: string; badge: string }> = {
-  Festivo:   { label: "Festivo / Asueto", dot: "bg-success-600", badge: "bg-success-50 text-success-800 border-success-100" },
-  Academico: { label: "Académico",        dot: "bg-primary-600", badge: "bg-primary-50 text-primary-800 border-primary-200" },
-  Deportivo: { label: "Deportivo",        dot: "bg-action-500",  badge: "bg-action-50 text-action-800 border-action-200" },
-  Reunion:   { label: "Reunión",          dot: "bg-info-600",    badge: "bg-info-50 text-info-800 border-info-100" },
+  Festivo:   { label: "Festivo o asueto", dot: "bg-subject-science",  badge: "bg-[#e3f1ec] text-[#0b6650]" },
+  Academico: { label: "Académico",        dot: "bg-primary-600",     badge: "bg-primary-50 text-primary-800" },
+  Deportivo: { label: "Deportivo",        dot: "bg-action-500",      badge: "bg-action-50 text-action-800" },
+  Reunion:   { label: "Reunión",          dot: "bg-subject-english", badge: "bg-[#efe5f2] text-[#5a2468]" },
 };
-const OTRO = { label: "Otro", dot: "bg-stone-400", badge: "bg-stone-50 text-stone-700 border-stone-200" };
+const OTRO = { label: "Otro", dot: "bg-stone-400", badge: "bg-stone-100 text-stone-700" };
 const cfg = (tipo: string) => TIPO_CFG[tipo] ?? { ...OTRO, label: tipo };
 
 // La fecha viene como @db.Date (medianoche UTC): se usa solo la parte YYYY-MM-DD
@@ -75,7 +75,7 @@ export default function CalendarioEventos({ subtitle }: { subtitle?: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-        <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
+        <span className="w-5 h-5 border-[2.5px] border-primary-700 border-t-transparent rounded-full animate-spin" />
         Cargando calendario…
       </div>
     );
@@ -88,25 +88,27 @@ export default function CalendarioEventos({ subtitle }: { subtitle?: string }) {
 
       <div className="flex flex-wrap gap-2">
         {Object.values(TIPO_CFG).map((t) => (
-          <span key={t.label} className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-medium ${t.badge}`}>
-            <span className={`w-2 h-2 rounded-full ${t.dot}`} />{t.label}
+          <span key={t.label} className="flex items-center gap-2 text-[13px] font-semibold text-stone-600 mr-3">
+            <span className={`w-3 h-3 rounded-full ${t.dot}`} />{t.label}
           </span>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <button onClick={() => moverMes(-1)} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-100 cursor-pointer" aria-label="Mes anterior">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <h3 className="font-display font-semibold text-stone-800">{MESES[mes.m]} {mes.y}</h3>
-            <button onClick={() => moverMes(1)} className="p-1.5 rounded-md text-stone-500 hover:bg-stone-100 cursor-pointer" aria-label="Mes siguiente">
-              <ChevronRight className="w-4 h-4" />
-            </button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card className="p-5 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-bold text-stone-900 text-2xl">{MESES[mes.m]} <span className="text-stone-400">{mes.y}</span></h3>
+            <div className="flex gap-1.5">
+              <button onClick={() => moverMes(-1)} className="w-9 h-9 rounded-full border-[1.5px] border-stone-200 flex items-center justify-center text-stone-600 hover:border-stone-900 hover:text-stone-900 cursor-pointer" aria-label="Mes anterior">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => moverMes(1)} className="w-9 h-9 rounded-full border-[1.5px] border-stone-200 flex items-center justify-center text-stone-600 hover:border-stone-900 hover:text-stone-900 cursor-pointer" aria-label="Mes siguiente">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-7 gap-1 mb-1">
-            {DIAS.map((d) => <div key={d} className="text-center text-[11px] font-semibold text-stone-400 py-1">{d}</div>)}
+            {DIAS.map((d) => <div key={d} className="text-left pl-2 text-xs font-bold text-stone-400 py-1">{d}</div>)}
           </div>
           <div className="grid grid-cols-7 gap-1">
             {celdas.map((dia, i) => {
@@ -117,42 +119,42 @@ export default function CalendarioEventos({ subtitle }: { subtitle?: string }) {
               const sel = iso === diaSel;
               return (
                 <button key={i} onClick={() => setDiaSel(sel ? null : iso)}
-                  className={`min-h-14 p-1 rounded-lg border text-left flex flex-col transition-colors cursor-pointer
-                    ${sel ? "border-primary-600 bg-primary-50" : evts.length > 0 ? "border-stone-200 hover:bg-stone-50" : "border-transparent hover:bg-stone-50"}`}
+                  className={`min-h-[68px] p-1.5 rounded-xl text-left flex flex-col transition-colors cursor-pointer
+                    ${sel ? "bg-primary-800 text-white" : evts.length > 0 ? "bg-sand-100 hover:bg-stone-200/70" : "hover:bg-sand-100"}`}
                   aria-label={`${dia} de ${MESES[mes.m]}${evts.length ? `, ${evts.length} evento(s)` : ""}`}>
-                  <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full ${esHoy ? "bg-primary-700 text-white font-bold" : "text-stone-700"}`}>{dia}</span>
+                  <span className={`text-sm w-7 h-7 flex items-center justify-center rounded-full font-semibold tabular-nums ${esHoy ? "bg-action-500 text-white font-bold" : sel ? "text-white" : "text-stone-700"}`}>{dia}</span>
                   <div className="flex flex-wrap gap-0.5 mt-auto">
-                    {evts.map((e) => <span key={e.eventoId} className={`w-1.5 h-1.5 rounded-full ${cfg(e.tipoEvento).dot}`} />)}
+                    {evts.map((e) => <span key={e.eventoId} className={`w-2 h-2 rounded-full ${cfg(e.tipoEvento).dot}`} />)}
                   </div>
-                  {evts[0] && <span className="hidden md:block text-[10px] leading-tight text-stone-600 truncate w-full">{evts[0].nombre}</span>}
+                  {evts[0] && <span className={`hidden md:block text-[11px] font-semibold leading-tight truncate w-full mt-1 ${sel ? "text-white/85" : "text-stone-600"}`}>{evts[0].nombre}</span>}
                 </button>
               );
             })}
           </div>
         </Card>
 
-        <Card className="p-4">
-          <h3 className="font-display font-semibold text-stone-800 text-sm mb-3">Próximos eventos</h3>
+        <Card className="p-5">
+          <h3 className="font-display font-bold text-stone-900 text-lg mb-4">Próximos eventos</h3>
           {proximos.length === 0 ? (
             <p className="text-sm text-stone-400">No hay eventos próximos.</p>
           ) : (
-            <div className="space-y-2.5">
-              {proximos.map((e) => (
-                <div key={e.eventoId} className="flex items-start gap-2.5">
-                  <span className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${cfg(e.tipoEvento).dot}`} />
+            <ul className="space-y-3.5">
+              {proximos.map((e, i) => (
+                <li key={e.eventoId} className="flex items-center gap-3">
+                  <FechaBloque iso={e.fecha} tono={i === 0 ? "action" : "neutral"} />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-stone-900">{e.nombre}</p>
-                    <p className="text-xs text-stone-500 capitalize">{formatLargo(diaISO(e.fecha))}</p>
+                    <p className="text-[15px] font-semibold text-stone-900 leading-snug">{e.nombre}</p>
+                    <p className="text-[13px] text-stone-500 flex items-center gap-1.5 mt-0.5"><span className={`w-2 h-2 rounded-full ${cfg(e.tipoEvento).dot}`} />{cfg(e.tipoEvento).label}</p>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </Card>
       </div>
 
       <div>
-        <h3 className="font-display font-semibold text-stone-800 text-sm mb-2">
+        <h3 className="font-display font-bold text-stone-900 text-xl mb-3">
           {diaSel ? <span className="capitalize">{formatLargo(diaSel)}</span> : `Eventos de ${MESES[mes.m].toLowerCase()}`}
         </h3>
         {listado.length === 0 ? (
@@ -162,13 +164,16 @@ export default function CalendarioEventos({ subtitle }: { subtitle?: string }) {
             {listado.map((e) => {
               const c = cfg(e.tipoEvento);
               return (
-                <div key={e.eventoId} className={`flex items-start justify-between gap-3 px-4 py-3 rounded-xl border ${c.badge}`}>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm">{e.nombre}</p>
-                    {e.descripcion && <p className="text-xs opacity-80 mt-0.5">{e.descripcion}</p>}
-                    <p className="text-[11px] opacity-70 mt-1">{c.label} · {e.sede ? e.sede.nombre : "Todas las sedes"}</p>
+                <div key={e.eventoId} className="flex items-start gap-4 px-4 py-4 rounded-[20px] bg-white border border-stone-200/80">
+                  <FechaBloque iso={e.fecha} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-[15px] text-stone-900">{e.nombre}</p>
+                    {e.descripcion && <p className="text-sm text-stone-600 mt-0.5">{e.descripcion}</p>}
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.badge}`}>{c.label}</span>
+                      <span className="text-xs font-medium text-stone-500">{e.sede ? e.sede.nombre : "Todas las sedes"}</span>
+                    </div>
                   </div>
-                  <span className="font-mono-data text-xs shrink-0">{diaISO(e.fecha).split("-").reverse().join("/")}</span>
                 </div>
               );
             })}

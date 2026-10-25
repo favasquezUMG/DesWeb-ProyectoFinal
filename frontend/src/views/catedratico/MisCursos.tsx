@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Download, Pencil, Plus, Trash2 } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, EmptyState, Modal, Tabs, TH, TD } from "../../components/Ui";
 import {
   deleteActividad, getLibreta, getResumenAsistencia,
@@ -122,19 +122,19 @@ export default function MisCursos() {
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-stone-50 border-b border-stone-100">
+                    <thead>
                       <tr><TH>Alumno</TH><TH className="text-center">Nota final (promedio)</TH><TH className="text-center">Asistencia</TH><TH className="text-center">Estado académico</TH></tr>
                     </thead>
-                    <tbody className="divide-y divide-stone-50">
+                    <tbody className="divide-y divide-stone-100">
                       {libreta.alumnos.map((a) => {
                         const t = totales.get(a.alumnoId);
                         const asis = asistenciaPorAlumno.get(a.alumnoId);
                         return (
-                          <tr key={a.alumnoId} className="hover:bg-stone-50">
-                            <TD><span className="font-medium text-stone-900">{a.apellidos}, {a.nombres}</span></TD>
+                          <tr key={a.alumnoId} className="hover:bg-sand-50">
+                            <TD><span className="font-semibold text-stone-900">{a.apellidos}, {a.nombres}</span></TD>
                             <TD className="text-center">
                               {t?.conNotas ? (
-                                <span className={`font-mono-data font-semibold ${t.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-700"}`}>{redondear(t.total)}</span>
+                                <span className={`font-display font-bold tabular-nums ${t.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-700"}`}>{redondear(t.total)}</span>
                               ) : <span className="text-stone-300">—</span>}
                             </TD>
                             <TD className="text-center">
@@ -157,40 +157,40 @@ export default function MisCursos() {
             <Card className="overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-stone-50 border-b border-stone-100">
+                  <thead>
                     <tr>
                       <TH>Alumno</TH>
                       {libreta.unidades.map((u) => (
                         <TH key={u.unidadId} className="text-center">
                           {UNIDAD_LABEL[u.numero] ?? `Unidad ${u.numero}`}
-                          <span className="block text-[10px] font-normal normal-case text-stone-400">zona + examen</span>
+                          <span className="block text-[11px] font-normal normal-case text-stone-400">zona + examen</span>
                         </TH>
                       ))}
                       <TH className="text-center">Nota final</TH>
                       <TH className="text-center">Estado</TH>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-stone-100">
                     {libreta.alumnos.map((a) => {
                       const t = totales.get(a.alumnoId);
                       return (
-                        <tr key={a.alumnoId} className="hover:bg-stone-50">
-                          <TD><span className="font-medium text-stone-900 whitespace-nowrap">{a.apellidos}, {a.nombres}</span></TD>
+                        <tr key={a.alumnoId} className="hover:bg-sand-50">
+                          <TD><span className="font-semibold text-stone-900 whitespace-nowrap">{a.apellidos}, {a.nombres}</span></TD>
                           {libreta.unidades.map((u, i) => {
                             const nu = t?.unidades[i];
                             return (
                               <TD key={u.unidadId} className="text-center">
                                 {t?.conNotas && nu ? (
                                   <div className="flex flex-col items-center">
-                                    <span className={`font-mono-data font-semibold ${nu.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-800"}`}>{redondear(nu.total)}</span>
-                                    <span className="text-[10px] text-stone-400 font-mono-data">{redondear(nu.zona)} + {redondear(nu.examen)}</span>
+                                    <span className={`font-display font-bold tabular-nums ${nu.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-800"}`}>{redondear(nu.total)}</span>
+                                    <span className="text-[11px] text-stone-400 font-mono-data">{redondear(nu.zona)} + {redondear(nu.examen)}</span>
                                   </div>
                                 ) : "—"}
                               </TD>
                             );
                           })}
                           <TD className="text-center">
-                            {t?.conNotas ? <span className={`font-mono-data font-bold ${t.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-800"}`}>{redondear(t.total)}</span> : "—"}
+                            {t?.conNotas ? <span className={`font-display font-bold tabular-nums ${t.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-800"}`}>{redondear(t.total)}</span> : "—"}
                           </TD>
                           <TD className="text-center"><EstadoNota totales={t} /></TD>
                         </tr>
@@ -212,16 +212,16 @@ export default function MisCursos() {
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-stone-50 border-b border-stone-100">
+                    <thead>
                       <tr>
                         <TH>Alumno</TH><TH className="text-center">Presentes</TH><TH className="text-center">Tardes</TH>
                         <TH className="text-center">Ausentes</TH><TH className="text-center">Justificados</TH><TH className="text-center">% asistencia</TH>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-stone-50">
+                    <tbody className="divide-y divide-stone-100">
                       {resumen.alumnos.map((a) => (
-                        <tr key={a.alumnoId} className="hover:bg-stone-50">
-                          <TD><span className="font-medium text-stone-900">{a.apellidos}, {a.nombres}</span></TD>
+                        <tr key={a.alumnoId} className="hover:bg-sand-50">
+                          <TD><span className="font-semibold text-stone-900">{a.apellidos}, {a.nombres}</span></TD>
                           <TD className="text-center font-mono-data">{a.presentes}</TD>
                           <TD className="text-center font-mono-data">{a.tardes}</TD>
                           <TD className="text-center font-mono-data">{a.ausentes}</TD>
@@ -275,7 +275,7 @@ function ActividadesPanel({ libreta, onCambio }: { libreta: LibretaDto; onCambio
     return (
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+          <p className="text-[13px] font-semibold text-stone-500">
             {TIPO_LABEL[tipo]} · <span className={asignado > maximo ? "text-danger-700" : asignado === maximo ? "text-success-700" : ""}>{asignado} de {maximo} pts</span>
           </p>
           <Btn variant="ghost" size="sm" icon={<Plus className="w-4 h-4" />} disabled={asignado >= maximo}
@@ -288,7 +288,7 @@ function ActividadesPanel({ libreta, onCambio }: { libreta: LibretaDto; onCambio
         ) : (
           <div className="space-y-2">
             {lista.map((a) => (
-              <div key={a.actividadId} className="flex items-center justify-between gap-3 p-3 bg-stone-50 border border-stone-100 rounded-xl">
+              <div key={a.actividadId} className="flex items-center justify-between gap-3 p-3 bg-sand-100 rounded-2xl">
                 <div className="min-w-0">
                   <p className="font-medium text-stone-900 text-sm truncate">{a.nombre}</p>
                   <p className="text-xs text-stone-500">
@@ -323,7 +323,7 @@ function ActividadesPanel({ libreta, onCambio }: { libreta: LibretaDto; onCambio
       {libreta.unidades.map((u) => (
         <Card key={u.unidadId} className="p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-stone-800 text-base">{UNIDAD_LABEL[u.numero] ?? `Unidad ${u.numero}`}</h3>
+            <h3 className="font-display font-bold text-stone-900 text-lg">{UNIDAD_LABEL[u.numero] ?? `Unidad ${u.numero}`}</h3>
             <Badge variant={sumaPuntos(u.actividades) === 100 ? "success" : "neutral"}>{sumaPuntos(u.actividades)} / 100 pts</Badge>
           </div>
           <div className="space-y-4">
