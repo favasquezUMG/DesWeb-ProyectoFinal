@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound } from "./Iconos";
 import type { AppUser } from "../types";
 import { Modal, Btn, Input, AlertBanner } from "./Ui";
 import { cambiarPassword } from "../lib/api";
@@ -78,11 +78,11 @@ export default function MiCuentaModal({ open, onClose, user, rol }: {
     >
       <div className="space-y-5">
         <div>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2.5 text-sm bg-sand-100 rounded-2xl p-4">
             {datos.filter(([, v]) => v).map(([k, v]) => (
               <div key={k} className="contents">
                 <dt className="text-stone-500">{k}</dt>
-                <dd className="text-stone-900 font-medium break-all">{v}</dd>
+                <dd className="text-stone-900 font-semibold break-all">{v}</dd>
               </div>
             ))}
           </dl>
@@ -92,7 +92,7 @@ export default function MiCuentaModal({ open, onClose, user, rol }: {
         </div>
 
         <div className="border-t border-stone-100 pt-4 space-y-3">
-          <h3 className="font-semibold text-stone-800 text-sm">Cambiar contraseña</h3>
+          <h3 className="font-display font-bold text-stone-900 text-lg">Cambiar contraseña</h3>
           {error && <AlertBanner type="error" message={error} />}
           {exito && <AlertBanner type="success" message={exito} />}
           <Input label="Contraseña actual" type="password" autoComplete="current-password" value={form.actual}

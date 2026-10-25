@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, Select, AlertBanner } from "../../components/Ui";
 import {
   getSedes, getSeccionesAdmin, getCatedraticosSede, getDashboardSede, abrirReportePdf,

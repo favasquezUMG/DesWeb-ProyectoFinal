@@ -1,19 +1,20 @@
-import { CalendarCheck, CalendarOff } from "lucide-react";
+import { CalendarCheck, CalendarOff } from "./Iconos";
 import type { ClaseAlumnoDto, EventoDto } from "../lib/api";
-import { Card, Badge, EmptyState } from "./Ui";
+import { Card, Badge, EmptyState, colorDeCurso } from "./Ui";
 
 export const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
-// Colores estables por curso
-const PALETA = [
-  "bg-primary-50 text-primary-900 border-primary-200",
-  "bg-info-50 text-info-800 border-info-200",
-  "bg-success-50 text-success-800 border-success-200",
-  "bg-warning-50 text-warning-800 border-warning-200",
-  "bg-action-50 text-action-800 border-action-200",
-  "bg-stone-100 text-stone-800 border-stone-200",
-];
-const colorCurso = (cursoSeccionId: number) => PALETA[cursoSeccionId % PALETA.length];
+// Cada bloque toma el color de su curso (el mismo en toda la app)
+function BloqueClase({ curso, catedratico, hora }: { curso: string; catedratico: string; hora?: string }) {
+  const c = colorDeCurso(curso);
+  return (
+    <div className={`relative h-full px-3 py-2.5 rounded-xl ${c.solid} ${c.fg} textile-pattern overflow-hidden`}>
+      {hora && <p className="text-xs font-bold tabular-nums opacity-85">{hora}</p>}
+      <p className="font-display font-bold text-[14px] leading-snug">{curso}</p>
+      <p className="text-xs opacity-80 mt-0.5 truncate">{catedratico}</p>
+    </div>
+  );
+}
 
 export const diaSemanaHoy = () => (new Date().getDay() === 0 ? 7 : new Date().getDay());
 
@@ -71,7 +72,7 @@ export default function HorarioSemanal({ clases, asuetos = new Map(), mostrarJor
       {asuetos.size > 0 && (
         <div className="flex flex-wrap gap-2">
           {[...asuetos.entries()].map(([dia, motivo]) => (
-            <span key={dia} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning-50 border border-warning-200 text-warning-800 text-xs font-medium">
+            <span key={dia} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-warning-50 text-warning-800 text-[13px] font-semibold">
               <CalendarOff className="w-3.5 h-3.5" /> Sin clases el {DIAS[dia].toLowerCase()}: {motivo}
             </span>
           ))}
@@ -87,21 +88,15 @@ export default function HorarioSemanal({ clases, asuetos = new Map(), mostrarJor
           return (
             <Card key={dia} className={`p-4 ${asuetos.has(dia) ? "opacity-60" : ""}`}>
               <div className="flex items-center justify-between gap-2 mb-3">
-                <h3 className="font-semibold text-stone-800 flex items-center gap-2">
+                <h3 className="font-display font-bold text-lg text-stone-900 flex items-center gap-2">
                   {DIAS[dia]} {dia === hoy && <Badge variant="primary">Hoy</Badge>}
                   {asuetos.has(dia) && <Badge variant="warning">Sin clases</Badge>}
                 </h3>
-                {mostrarJornada && j && <span className="text-xs text-stone-500 font-mono-data">{j.entrada} – {j.salida}</span>}
+                {mostrarJornada && j && <span className="text-[13px] font-semibold text-stone-500 tabular-nums">{j.entrada} – {j.salida}</span>}
               </div>
               <div className="space-y-2">
                 {delDia.map((c) => (
-                  <div key={c.horarioId} className={`flex items-center gap-3 p-2 rounded-lg border ${colorCurso(c.cursoSeccionId)}`}>
-                    <span className="font-mono-data text-xs font-semibold whitespace-nowrap">{c.horaInicio}–{c.horaFin}</span>
-                    <div>
-                      <p className="font-semibold text-xs">{c.curso}</p>
-                      <p className="text-[10px] opacity-70">{c.catedratico}</p>
-                    </div>
-                  </div>
+                  <BloqueClase key={c.horarioId} curso={c.curso} catedratico={c.catedratico} hora={`${c.horaInicio} – ${c.horaFin}`} />
                 ))}
               </div>
             </Card>
@@ -110,36 +105,37 @@ export default function HorarioSemanal({ clases, asuetos = new Map(), mostrarJor
       </div>
 
       {/* Desktop: cuadrícula */}
-      <Card className="hidden md:block overflow-hidden">
+      <Card className="hidden md:block overflow-hidden pb-3">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs border-separate border-spacing-0">
             <thead>
-              <tr className="bg-primary-700 text-white">
-                <th className="px-4 py-3 text-left font-medium w-28">Hora</th>
+              <tr>
+                <th className="px-4 pt-5 pb-3 text-left w-28" />
                 {dias.map((d) => (
-                  <th key={d} className={`px-4 py-3 text-left font-medium ${d === hoy ? "bg-primary-800" : ""}`}>
-                    {DIAS[d]}
-                    {asuetos.has(d) && <span className="block text-[10px] font-normal text-warning-200">Sin clases</span>}
+                  <th key={d} className="px-1.5 pt-5 pb-3 text-left">
+                    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full font-display text-[15px] font-bold
+                      ${d === hoy ? "bg-primary-800 text-white" : "text-stone-800"}`}>
+                      {DIAS[d]}
+                    </span>
+                    {asuetos.has(d) && <span className="block mt-1 px-3 text-xs font-semibold text-warning-700">Sin clases</span>}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody>
               {bloques.map((bloque, i) => {
                 const [inicio, fin] = bloque.split("–");
                 return (
-                  <tr key={bloque} className={i % 2 === 0 ? "bg-white" : "bg-stone-50/50"}>
-                    <td className="px-4 py-3 font-mono-data text-stone-500 font-medium whitespace-nowrap">{bloque}</td>
+                  <tr key={bloque}>
+                    <td className="px-4 py-1.5 align-top whitespace-nowrap">
+                      <span className="block font-display font-bold text-[15px] text-stone-900 tabular-nums">{inicio}</span>
+                      <span className="block text-xs text-stone-400 tabular-nums">{fin}</span>
+                    </td>
                     {dias.map((d) => {
                       const c = clases.find((x) => x.diaSemana === d && x.horaInicio === inicio && x.horaFin === fin);
                       return (
-                        <td key={d} className={`px-2 py-2 ${asuetos.has(d) ? "opacity-40" : ""}`}>
-                          {c && (
-                            <div className={`p-2 rounded-lg border ${colorCurso(c.cursoSeccionId)}`}>
-                              <p className="font-semibold">{c.curso}</p>
-                              <p className="text-[10px] opacity-70 mt-0.5">{c.catedratico}</p>
-                            </div>
-                          )}
+                        <td key={d} className={`px-1.5 py-1.5 align-top ${d === hoy ? "bg-primary-50/50" : ""} ${asuetos.has(d) ? "opacity-40" : ""}`}>
+                          {c && <BloqueClase curso={c.curso} catedratico={c.catedratico} />}
                         </td>
                       );
                     })}
@@ -147,12 +143,12 @@ export default function HorarioSemanal({ clases, asuetos = new Map(), mostrarJor
                 );
               })}
               {mostrarJornada && (
-                <tr className="bg-stone-50 border-t-2 border-stone-200">
-                  <td className="px-4 py-3 font-medium text-stone-600">Entrada / salida</td>
+                <tr>
+                  <td className="px-4 py-4 font-semibold text-stone-600 border-t-[1.5px] border-stone-200">Entrada y salida</td>
                   {dias.map((d) => {
                     const j = jornada.get(d);
                     return (
-                      <td key={d} className="px-4 py-3 font-mono-data text-stone-700">
+                      <td key={d} className="px-4 py-4 font-bold text-stone-800 tabular-nums border-t-[1.5px] border-stone-200">
                         {j && !asuetos.has(d) ? `${j.entrada} – ${j.salida}` : "—"}
                       </td>
                     );

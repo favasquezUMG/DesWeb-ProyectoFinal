@@ -9,8 +9,8 @@ import type {
 } from "./api";
 
 // Paleta de colores ejecutiva
-const PRIMARY = [26, 57, 41] as const;       // #1a3929 - Verde institucional
-const ACCENT = [196, 86, 10] as const;       // #c4560a - Terracota / Acento
+const PRIMARY = [43, 58, 140] as const;     // #2b3a8c - Teal institucional
+const ACCENT = [242, 100, 59] as const;      // #b3202a - Coral / Acento
 const TEXT_MAIN = [30, 41, 59] as const;     // Slate 800
 const TEXT_MUTED = [100, 116, 139] as const; // Slate 500
 const BG_CARD = [248, 250, 252] as const;    // Slate 50

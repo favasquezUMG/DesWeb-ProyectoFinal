@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Edit, Trash2, CopyPlus, Grid3X3 } from "lucide-react";
+import { Plus, Edit, Trash2, CopyPlus, Grid3X3 } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Modal, Input, AlertBanner, Select, EmptyState, Badge } from "../../components/Ui";
 import {
   getGrados, getSeccionesAdmin, crearSeccion, renombrarSeccion, eliminarSeccion, copiarSecciones,
@@ -93,19 +93,19 @@ export default function GradosView() {
       {!editable && <AlertBanner type="info" message={`El ciclo ${ciclo} ya terminó: sus secciones se muestran solo como historial.`} />}
 
       {loading ? (
-        <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-xl bg-stone-100 animate-pulse" />)}</div>
+        <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}</div>
       ) : grados.length === 0 ? (
         <EmptyState icon={<Grid3X3 className="w-10 h-10" />} title="Sin grados" description="No hay grados registrados en el sistema." />
       ) : niveles.map((nivel) => (
         <div key={nivel} className="space-y-3">
-          <h2 className="text-xs font-semibold text-stone-500 uppercase tracking-wider">{nivel}</h2>
+          <h2 className="font-display text-2xl font-bold text-stone-900 pt-2">{nivel}</h2>
           {grados.filter((g) => g.nivel === nivel).map((g) => {
             const propias = secciones.filter((s) => s.grado.gradoId === g.gradoId);
             return (
-              <Card key={g.gradoId} className="p-5">
+              <Card key={g.gradoId} className="p-6">
                 <div className="flex items-center justify-between mb-3 gap-3">
                   <div>
-                    <h3 className="font-display font-semibold text-stone-900">{g.nombre}</h3>
+                    <h3 className="font-display font-bold text-lg text-stone-900">{g.nombre}</h3>
                     <p className="text-xs text-stone-500">{g.cursos.length} cursos en la malla · {propias.reduce((a, s) => a + s.alumnos, 0)} alumnos</p>
                   </div>
                   {editable && <Btn variant="ghost" size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => abrir({ tipo: "crear", grado: g })}>Agregar sección</Btn>}
@@ -115,10 +115,11 @@ export default function GradosView() {
                 ) : (
                   <div className="flex gap-3 flex-wrap">
                     {propias.map((s) => (
-                      <div key={s.seccionId} className="flex-1 min-w-40 max-w-xs bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-stone-800">Sección {s.nombre}</p>
-                          <p className="text-sm text-stone-500 font-mono-data">{s.alumnos} alumnos</p>
+                      <div key={s.seccionId} className="flex-1 min-w-48 max-w-xs bg-sand-100 rounded-2xl p-4 flex items-center gap-4">
+                        <span className="w-14 h-14 rounded-2xl bg-white font-display font-extrabold text-2xl text-primary-700 flex items-center justify-center shrink-0">{s.nombre.slice(0, 3)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-stone-900">Sección {s.nombre}</p>
+                          <p className="text-sm text-stone-600 tabular-nums">{s.alumnos} alumnos</p>
                           {s.cursos < g.cursos.length && <Badge variant="warning" className="mt-1">{s.cursos}/{g.cursos.length} cursos asignados</Badge>}
                         </div>
                         {editable && (

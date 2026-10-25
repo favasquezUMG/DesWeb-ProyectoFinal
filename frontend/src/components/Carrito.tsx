@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from "react";
-import { CalendarDays, CreditCard, GraduationCap, ShoppingCart, Trash2 } from "lucide-react";
+import { CalendarDays, CreditCard, GraduationCap, ShoppingCart, Trash2 } from "./Iconos";
 import { Btn, Drawer, EmptyState } from "./Ui";
 import { PagoStripeModal, formatoQ } from "./PagoColegiatura";
 import { crearIntentCarrito, verificarCarrito, type IntentCarritoDto, type ItemCarritoInput } from "../lib/api";
@@ -118,7 +118,7 @@ function CarritoDrawer({ abierto, onClose, onPagado }: { abierto: boolean; onClo
           <div className="w-full space-y-3">
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-stone-600">Total estimado</span>
-              <span className="font-mono-data font-bold text-xl text-primary-700">{formatoQ(total)}</span>
+              <span className="font-display font-bold tabular-nums text-xl text-primary-700">{formatoQ(total)}</span>
             </div>
             <div className="flex gap-2">
               <Btn variant="ghost" size="sm" onClick={vaciar}>Vaciar</Btn>
@@ -139,11 +139,11 @@ function CarritoDrawer({ abierto, onClose, onPagado }: { abierto: boolean; onClo
           <div className="space-y-5">
             {[...porAlumno.entries()].map(([alumnoId, grupo]) => (
               <div key={alumnoId}>
-                <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">{grupo.alumno}</p>
+                <p className="text-[13px] font-semibold text-stone-500 mb-2">{grupo.alumno}</p>
                 <ul className="divide-y divide-stone-100 rounded-lg border border-stone-200">
                   {grupo.items.map((item) => (
                     <li key={item.clave} className="flex items-center gap-3 px-3 py-2.5">
-                      <span className={`p-1.5 rounded-md ${item.tipo === "evento" ? "bg-info-50 text-info-700" : "bg-primary-50 text-primary-700"}`}>
+                      <span className={`p-1.5 rounded-lg ${item.tipo === "evento" ? "bg-info-50 text-info-700" : "bg-primary-50 text-primary-700"}`}>
                         {item.tipo === "evento" ? <CalendarDays className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -212,7 +212,7 @@ function ResumenCarrito({ intent }: { intent: IntentCarritoDto }) {
       ))}
       <div className="flex justify-between items-baseline pt-2 border-t border-sand-200">
         <span className="font-semibold text-stone-900">Total a pagar</span>
-        <span className="font-mono-data font-bold text-lg text-primary-700">{formatoQ(intent.total)}</span>
+        <span className="font-display font-bold tabular-nums text-lg text-primary-700">{formatoQ(intent.total)}</span>
       </div>
     </div>
   );

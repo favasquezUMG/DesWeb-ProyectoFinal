@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import type { SolicitudGuardada } from "./solicitudes";
 import { formatearFecha } from "./solicitudes";
 
-const PRIMARY = [26, 57, 41] as const; // primary-700
+const PRIMARY = [43, 58, 140] as const; // primary-700
 const WARNING = [146, 64, 14] as const; // warning-800
 const TEXT = [30, 30, 30] as const;
 const MUTED = [110, 110, 110] as const;

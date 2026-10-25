@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Ticket, Trash2, Users } from "lucide-react";
+import { Pencil, Plus, Ticket, Trash2, Users } from "../../components/Iconos";
 import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Input, Modal, Select, TD, TH, Textarea } from "../../components/Ui";
 import { formatoQ } from "../../components/PagoColegiatura";
 import {
@@ -138,7 +138,7 @@ export default function EventosCobro() {
     <Card className="overflow-hidden">
       <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-display font-semibold text-stone-900 flex items-center gap-2"><Ticket className="w-4 h-4 text-primary-700" />Eventos con cobro</h3>
+          <h3 className="font-display font-bold text-stone-900 flex items-center gap-2"><Ticket className="w-4 h-4 text-primary-700" />Eventos con cobro</h3>
           <p className="text-xs text-stone-500 mt-0.5">Los padres los ven en su sección Eventos y los pagan desde el carrito. La beca no aplica a eventos.</p>
         </div>
         <Btn variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => abrir("nuevo")}>Nuevo evento</Btn>
@@ -158,18 +158,18 @@ export default function EventosCobro() {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-stone-50 border-b border-stone-100">
+            <thead>
               <tr><TH>Evento</TH><TH>Fecha</TH><TH>Sede</TH><TH className="text-right">Costo</TH><TH>Cupo</TH><TH>Inscripción hasta</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {eventos.map((e) => (
-                <tr key={e.eventoId} className="hover:bg-stone-50">
-                  <TD><span className="font-medium text-stone-900">{e.nombre}</span></TD>
-                  <TD><span className="text-xs font-mono-data">{formatoFecha(e.fecha)}</span></TD>
+                <tr key={e.eventoId} className="hover:bg-sand-50">
+                  <TD><span className="font-semibold text-stone-900">{e.nombre}</span></TD>
+                  <TD><span className="text-[13px] text-stone-500 tabular-nums">{formatoFecha(e.fecha)}</span></TD>
                   <TD>{e.sede?.nombre ?? <Badge>Todas</Badge>}</TD>
                   <TD className="text-right"><span className="font-mono-data">{formatoQ(Number(e.costo ?? 0))}</span></TD>
                   <TD>{e.cupoMaximo ?? <span className="text-stone-400">Sin límite</span>}</TD>
-                  <TD><span className="text-xs font-mono-data">{e.fechaLimiteInscripcion ? formatoFecha(e.fechaLimiteInscripcion) : "Día anterior"}</span></TD>
+                  <TD><span className="text-[13px] text-stone-500 tabular-nums">{e.fechaLimiteInscripcion ? formatoFecha(e.fechaLimiteInscripcion) : "Día anterior"}</span></TD>
                   <TD className="text-right">
                     <div className="flex justify-end gap-1">
                       <Btn variant="ghost" size="sm" icon={<Users className="w-4 h-4" />} onClick={() => verInscritos(e)}>Inscritos</Btn>
@@ -240,14 +240,14 @@ export default function EventosCobro() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-stone-200 p-3">
-                <p className="text-xs text-stone-500 uppercase tracking-wider">Inscritos</p>
-                <p className="text-2xl font-display font-semibold text-primary-700">
+                <p className="text-xs text-stone-500">Inscritos</p>
+                <p className="text-2xl font-display font-bold text-primary-700">
                   {inscritos.inscritos}{inscritos.cupoMaximo !== null && <span className="text-sm text-stone-400"> / {inscritos.cupoMaximo}</span>}
                 </p>
               </div>
               <div className="rounded-lg border border-stone-200 p-3">
-                <p className="text-xs text-stone-500 uppercase tracking-wider">Recaudado</p>
-                <p className="text-2xl font-display font-semibold text-success-700">{formatoQ(inscritos.recaudado)}</p>
+                <p className="text-xs text-stone-500">Recaudado</p>
+                <p className="text-2xl font-display font-bold text-success-700">{formatoQ(inscritos.recaudado)}</p>
               </div>
             </div>
             {inscritos.detalle.length === 0 ? (
