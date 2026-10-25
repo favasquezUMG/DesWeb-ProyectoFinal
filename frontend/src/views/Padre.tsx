@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-<<<<<<< HEAD
   CreditCard, CheckCircle2, Download, ChevronRight, User, Bell, BookOpen,
-  ClipboardList, GraduationCap, KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock,
-} from "lucide-react";
-=======
-  CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, User, Bell, BookOpen,
-  KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock, Heart,
+  ClipboardList, GraduationCap, KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock, Heart,
 } from "../components/Iconos";
->>>>>>> origin/main
 import type { AppUser, View } from "../types";
 import {
   getEstadoCuenta, getMisHijos, getHijosEncargado, getBoletinHijo, getOpcionesMatricula, crearMatricula,
@@ -926,32 +920,6 @@ function PagosView() {
             />
           </div>
 
-<<<<<<< HEAD
-=======
-          {siguiente && (
-            <div className={`relative overflow-hidden rounded-[20px] p-6 ${siguiente.ui === "vencido" ? "bg-danger-600 text-white" : "bg-subject-social text-stone-900"}`}>
-              <div className="absolute right-0 top-0 bottom-0 w-40 opacity-20 textile-pattern" aria-hidden="true" />
-              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-                <div>
-                  <p className="text-sm font-semibold opacity-85 flex items-center gap-1.5">
-                    {siguiente.ui === "vencido" ? <AlertCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                    {siguiente.ui === "vencido" ? "Cuota vencida" : "Cuota del mes"}: {siguiente.nombreMes} {anio}
-                  </p>
-                  <p className="font-display font-bold text-5xl leading-none tabular-nums mt-3">{formatoQ(siguiente.montoAPagar)}</p>
-                </div>
-                <button
-                  onClick={() => pagar(siguiente.mes)}
-                  className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full font-bold text-[15px] transition-transform active:scale-[0.98] cursor-pointer
-                    ${siguiente.ui === "vencido" ? "bg-white text-danger-700 hover:bg-danger-50" : "bg-stone-900 text-white hover:bg-stone-800"}`}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Pagar ahora
-                </button>
-              </div>
-            </div>
-          )}
-
->>>>>>> origin/main
           <Card className="overflow-hidden">
             <div className="px-6 pt-5 pb-1">
               <h3 className="font-display font-bold text-lg text-stone-900">Colegiaturas del ciclo {anio}</h3>

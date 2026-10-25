@@ -8,13 +8,8 @@ import {
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
   ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard, FileText,
   User, ChevronLeft, ChevronRight, Menu, X, ChevronDown,
-<<<<<<< HEAD
   LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, FileSignature
-} from "lucide-react";
-=======
-  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, Ticket
 } from "./Iconos";
->>>>>>> origin/main
 
 // modulo: permiso que necesita el personal de sede para ver la opción del menú
 type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard; modulo?: string };

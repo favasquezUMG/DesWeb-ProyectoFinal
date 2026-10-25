@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, CheckCircle2, CreditCard, GraduationCap } from "lucide-react";
+import { CalendarDays, CheckCircle2, CreditCard, GraduationCap } from "./Iconos";
 import { AlertBanner, Badge, Btn, Card } from "./Ui";
 import { PagoStripeModal, formatoQ } from "./PagoColegiatura";
 import { crearIntentOrden, getCargosPendientes, verificarOrden, type CargoPendienteDto, type IntentOrdenDto } from "../lib/api";
