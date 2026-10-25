@@ -31,6 +31,7 @@ const VALORES = [
 
 // Textos descriptivos por nivel; los niveles y grados vienen de la base de datos
 const DESCRIPCION_NIVEL: Record<string, string> = {
+  Preprimaria: "Aprendizaje a través del juego: lenguaje, motricidad, convivencia y hábitos para empezar la escuela con confianza.",
   Primaria: "Bases sólidas en lectura, matemática y ciencias, con grupos reducidos y acompañamiento personalizado.",
   "Básico": "Desarrollo del pensamiento crítico, trabajo en equipo y orientación vocacional temprana.",
   Diversificado: "Preparación universitaria, proyectos de investigación y prácticas con enfoque profesional.",

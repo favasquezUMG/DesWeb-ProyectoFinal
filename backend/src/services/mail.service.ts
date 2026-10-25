@@ -33,7 +33,7 @@ export const sendMail = async ({ to, subject, html, usuarioId, mensaje, tipo }: 
 
     try {
         await transporter.sendMail({
-            from: process.env.MAIL_FROM || process.env.MAIL_USER,
+            from: process.env.MAIL_FROM || `"${process.env.COLEGIO_NOMBRE || 'Colegio Vanguardia'}" <${process.env.MAIL_USER}>`,
             to,
             subject,
             html,

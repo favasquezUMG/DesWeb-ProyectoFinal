@@ -135,6 +135,11 @@ model Alumno {
   seccionId       Int
   accesoPortal    Boolean? // null = segun el nivel (Primaria sin acceso); true/false = excepcion de la sede
 
+  // Salud: lo ven la sede, sus catedráticos y sus encargados (para atenderlo en una emergencia)
+  necesidadesApoyo String? @db.VarChar(500)
+  alergias         String? @db.VarChar(500)
+  medicamentos     String? @db.VarChar(500)
+
   usuario Usuario @relation(fields: [alumnoId], references: [usuarioId])
   seccion Seccion @relation(fields: [seccionId], references: [seccionId])
 
@@ -554,6 +559,9 @@ model Solicitud {
   alumnoCarrera         String?
   alumnoAnio            String?
   alumnoGrado           String?
+  alumnoNecesidadesApoyo String? @db.VarChar(500)
+  alumnoAlergias         String? @db.VarChar(500)
+  alumnoMedicamentos     String? @db.VarChar(500)
 
   // Sede
   sedeId Int?

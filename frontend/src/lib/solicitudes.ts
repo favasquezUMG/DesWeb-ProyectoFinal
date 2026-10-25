@@ -25,6 +25,9 @@ export interface DatosAlumnoSolicitud {
   anio?: string;
   grado?: string;
   sede: string;
+  necesidadesApoyo?: string | null;
+  alergias?: string | null;
+  medicamentos?: string | null;
 }
 
 export interface SolicitudGuardada {
@@ -152,6 +155,9 @@ function normalizarSolicitud(soliBD: any): SolicitudGuardada {
       anio: soliBD.alumnoAnio || undefined,
       grado: soliBD.alumnoGrado || undefined,
       sede: soliBD.sede?.nombre || "",
+      necesidadesApoyo: soliBD.alumnoNecesidadesApoyo ?? null,
+      alergias: soliBD.alumnoAlergias ?? null,
+      medicamentos: soliBD.alumnoMedicamentos ?? null,
     },
     documentos: soliBD.documentos || [],
     observaciones: soliBD.observaciones || undefined,

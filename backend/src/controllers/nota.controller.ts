@@ -264,7 +264,7 @@ export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Res
 
     const alumnos = await prisma.alumno.findMany({
       where: { seccionId: cursoSeccion.seccionId, usuario: { deletedAt: null } },
-      select: { alumnoId: true, usuario: { select: { nombres: true, apellidos: true } } },
+      select: { alumnoId: true, usuario: { select: { nombres: true, apellidos: true } }, necesidadesApoyo: true, alergias: true, medicamentos: true },
       orderBy: [{ usuario: { apellidos: 'asc' } }, { usuario: { nombres: 'asc' } }],
     });
 
@@ -291,7 +291,7 @@ export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Res
             fecha: a.fecha ? a.fecha.toISOString().slice(0, 10) : null,
           })),
         })),
-        alumnos: alumnos.map((a) => ({ alumnoId: a.alumnoId, nombres: a.usuario.nombres, apellidos: a.usuario.apellidos })),
+        alumnos: alumnos.map(({ usuario, ...a }) => ({ ...a, nombres: usuario.nombres, apellidos: usuario.apellidos })),
         notas: notas.map((n) => ({ actividadId: n.actividadId, alumnoId: n.alumnoId, valor: Number(n.valor) })),
       },
     });
