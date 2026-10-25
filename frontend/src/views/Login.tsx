@@ -260,8 +260,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Panel izquierdo: marca */}
-      <div className="hidden md:flex md:w-2/5 lg:w-[46%] bg-primary-800 textile-pattern text-white flex-col p-10 lg:p-14 relative overflow-hidden">
-        <div className="franja-tejido absolute left-0 right-0 bottom-0 h-3" aria-hidden="true" />
+      <div className="hidden md:flex md:w-2/5 lg:w-[46%] bg-anil-800 textile-pattern text-white flex-col p-10 lg:p-14 relative overflow-hidden">
         <button type="button" onClick={onBack} className="flex items-center gap-3 self-start cursor-pointer group">
           <span className="w-11 h-11 rounded-[14px] bg-action-500 text-white flex items-center justify-center font-display font-extrabold text-xl rotate-[-4deg]">V</span>
           <span className="font-display font-bold text-lg group-hover:text-subject-social transition-colors">Colegio Vanguardia</span>
@@ -318,7 +317,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                   {PORTALES.map(({ id, label, Icon }) => (
                     <button key={id} type="button" role="tab" aria-selected={portal === id} onClick={() => cambiarPortal(id)}
                       className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-bold transition-colors cursor-pointer
-                        ${portal === id ? "bg-primary-800 text-white" : "text-stone-500 hover:text-stone-800"}`}>
+                        ${portal === id ? "bg-anil-800 text-white" : "text-stone-500 hover:text-stone-800"}`}>
                       <Icon className="w-4 h-4 shrink-0" />
                       <span className="leading-tight">{label}</span>
                     </button>

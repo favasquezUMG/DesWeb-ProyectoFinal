@@ -10,6 +10,19 @@
   --font-sans: 'Figtree', system-ui, sans-serif;
   --font-mono: 'Figtree', system-ui, sans-serif;
 
+  /* Añil suavizado: bloques de color en inicio, login y barra lateral */
+  --color-anil-50: #f4f5fb;
+  --color-anil-100: #e8eaf6;
+  --color-anil-200: #cfd4ec;
+  --color-anil-300: #aab3dd;
+  --color-anil-400: #8190cb;
+  --color-anil-500: #6070ba;
+  --color-anil-600: #4d5eb0;
+  --color-anil-700: #4253a8;
+  --color-anil-800: #34449a;
+  --color-anil-900: #28367f;
+  --color-anil-math: #4253a8;
+
   /* Paleta de tejido guatemalteco: añil, granate, maíz y quetzal */
   /* primary */
   --color-primary-50: #f7f7fa;
@@ -149,12 +162,6 @@ h1, h2, h3 { text-wrap: balance; }
   background-size: 48px 48px;
 }
 
-/* Franja tejida multicolor (borde decorativo) */
-.franja-tejido {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='12' viewBox='0 0 60 12'%3E%3Crect width='60' height='12' fill='%23b3202a'/%3E%3Cpath d='M0 12 6 0 12 12Z' fill='%23f2b705'/%3E%3Cpath d='M12 12 18 0 24 12Z' fill='%232b3a8c'/%3E%3Cpath d='M24 12 30 0 36 12Z' fill='%230f7b5f'/%3E%3Cpath d='M36 12 42 0 48 12Z' fill='%23d63a7a'/%3E%3Cpath d='M48 12 54 0 60 12Z' fill='%23f7f1e5'/%3E%3C/svg%3E");
-  background-size: 60px 100%;
-  background-repeat: repeat-x;
-}
 
 /* Menú lateral tipo archivador: la opción activa es una pestaña
    que se funde con el fondo de la página */

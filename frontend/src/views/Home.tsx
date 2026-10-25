@@ -70,7 +70,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
     <div className="min-h-screen bg-sand-100 text-stone-900">
       {/* Barra superior */}
       <header className="sticky top-0 z-30 bg-sand-100/95 backdrop-blur">
-        <div className="franja-tejido h-2" aria-hidden="true" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-4">
           <a href="#inicio" className="flex items-center gap-3 min-w-0">
             <span className="w-10 h-10 rounded-[14px] bg-action-500 text-white flex items-center justify-center font-display font-extrabold text-xl rotate-[-4deg] shrink-0">V</span>
@@ -85,7 +84,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <button type="button" onClick={() => onLogin("estudiante")} className="px-5 py-2.5 rounded-full bg-stone-900 text-white text-sm font-bold hover:bg-primary-800 transition-colors cursor-pointer">
+            <button type="button" onClick={() => onLogin("estudiante")} className="px-5 py-2.5 rounded-full bg-stone-900 text-white text-sm font-bold hover:bg-anil-800 transition-colors cursor-pointer">
               Iniciar sesión
             </button>
           </div>
@@ -129,7 +128,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
             <div className="relative mx-auto max-w-md">
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  ["Matemática", "bg-subject-math", "rotate-[-3deg]"], ["Lenguaje", "bg-subject-language", "rotate-[2deg] translate-y-4"], ["Ciencias", "bg-subject-science", "rotate-[-1deg]"],
+                  ["Matemática", "bg-anil-math", "rotate-[-3deg]"], ["Lenguaje", "bg-subject-language", "rotate-[2deg] translate-y-4"], ["Ciencias", "bg-subject-science", "rotate-[-1deg]"],
                   ["Sociales", "bg-subject-social", "rotate-[2deg]"], ["Inglés", "bg-subject-english", "rotate-[-2deg] translate-y-4"], ["Arte", "bg-subject-arts", "rotate-[3deg]"],
                 ].map(([n, bg, t]) => (
                   <div key={n} className={`aspect-square rounded-[26px] ${bg} ${t} p-4 flex flex-col justify-between textile-pattern ${n === "Sociales" ? "text-stone-900" : "text-white"}`}>
@@ -138,7 +137,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                   </div>
                 ))}
               </div>
-              <div className="relative mt-9 mx-4 rounded-[22px] bg-primary-800 text-white px-5 py-4 flex items-center gap-4 rotate-[-1.5deg]">
+              <div className="relative mt-9 mx-4 rounded-[22px] bg-anil-800 text-white px-5 py-4 flex items-center gap-4 rotate-[-1.5deg]">
                 <GraduationCap className="w-7 h-7 text-subject-social shrink-0" />
                 <p className="text-sm font-semibold leading-snug">Notas, horario, asistencia y pagos en un solo lugar para toda la familia.</p>
               </div>
@@ -168,7 +167,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 
       {/* Nosotros */}
       <section id="nosotros" className="scroll-mt-20 bg-white relative">
-        <div className="franja-tejido h-3" aria-hidden="true" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
           <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-end">
             <div className="lg:col-span-7">
@@ -193,7 +191,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           </div>
 
           <div className="grid md:grid-cols-2 gap-5 mt-12">
-            <article className="relative overflow-hidden rounded-[28px] bg-primary-800 textile-pattern text-white p-8 sm:p-10 min-h-[280px] flex flex-col">
+            <article className="relative overflow-hidden rounded-[28px] bg-anil-800 textile-pattern text-white p-8 sm:p-10 min-h-[280px] flex flex-col">
               <span className="icono-color w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center [&>svg]:w-8 [&>svg]:h-8"><Target /></span>
               <h3 className="font-display text-3xl font-bold mt-6">Misión</h3>
               <p className="text-[17px] text-white/80 leading-relaxed mt-3 max-w-md">
@@ -281,7 +279,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                     )}
                     <div className="flex flex-wrap gap-2 mt-auto pt-5">
                       <a href={mapa} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-800 text-white text-sm font-bold hover:bg-primary-900 transition-colors">
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-anil-800 text-white text-sm font-bold hover:bg-anil-900 transition-colors">
                         <Navigation className="w-4 h-4" />Cómo llegar
                       </a>
                       {s.telefono && (
@@ -301,7 +299,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 
       {/* Admisiones */}
       <section id="admisiones" className="scroll-mt-20 px-4 sm:px-6 py-20">
-        <div className="max-w-6xl mx-auto rounded-[32px] bg-primary-800 textile-pattern text-white p-8 sm:p-12 grid md:grid-cols-2 gap-10 items-center">
+        <div className="max-w-6xl mx-auto rounded-[32px] bg-anil-800 textile-pattern text-white p-8 sm:p-12 grid md:grid-cols-2 gap-10 items-center">
           <div>
             <h2 className="font-display text-4xl sm:text-5xl font-bold leading-[1.05]">Inscripciones abiertas</h2>
             <p className="text-white/75 mt-5 text-[17px] leading-relaxed">
@@ -360,10 +358,10 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 }
 
 const TONOS_SEDE = [
-  { fondo: "bg-primary-800", trazo: "rgba(255,255,255,0.18)", pin: "bg-subject-social text-stone-900" },
+  { fondo: "bg-anil-800", trazo: "rgba(255,255,255,0.18)", pin: "bg-subject-social text-stone-900" },
   { fondo: "bg-action-600", trazo: "rgba(255,255,255,0.2)", pin: "bg-white text-action-700" },
   { fondo: "bg-success-600", trazo: "rgba(255,255,255,0.2)", pin: "bg-subject-social text-stone-900" },
-  { fondo: "bg-subject-social", trazo: "rgba(31,42,107,0.18)", pin: "bg-primary-800 text-white" },
+  { fondo: "bg-subject-social", trazo: "rgba(52,68,154,0.18)", pin: "bg-anil-800 text-white" },
 ];
 
 /** Plano de calles ilustrativo (no es un mapa real) */
@@ -402,7 +400,7 @@ function PortalButton({ Icon, titulo, texto, onClick, destacado = false }: { Ico
   return (
     <button type="button" onClick={onClick}
       className={`w-full flex items-center gap-4 p-5 sm:p-6 rounded-[24px] text-left transition-colors cursor-pointer
-        ${destacado ? "bg-primary-800 text-white hover:bg-primary-900" : "bg-white border-[1.5px] border-stone-200 hover:border-stone-900"}`}>
+        ${destacado ? "bg-anil-800 text-white hover:bg-anil-900" : "bg-white border-[1.5px] border-stone-200 hover:border-stone-900"}`}>
       <span className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${destacado ? "bg-subject-social text-stone-900" : "bg-sand-100 text-primary-700"}`}><Icon className="w-6 h-6" /></span>
       <span className="flex-1 min-w-0">
         <span className="block font-display text-xl font-bold">{titulo}</span>

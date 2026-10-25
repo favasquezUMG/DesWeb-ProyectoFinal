@@ -126,7 +126,7 @@ function NavBoton({ label, Icon, active, collapsed, onClick }: {
       className={`w-full flex items-center gap-3 py-2.5 text-[14.5px] transition-colors duration-150 mb-1 cursor-pointer text-left
         ${collapsed ? "justify-center px-0" : "pl-3.5 pr-3"}
         ${active
-          ? "nav-tab-active bg-sand-100 text-primary-800 font-bold rounded-l-2xl"
+          ? "nav-tab-active bg-sand-100 text-anil-800 font-bold rounded-l-2xl"
           : "text-white/75 font-medium rounded-2xl mr-3 hover:bg-white/10 hover:text-white"}`}
       aria-current={active ? "page" : undefined}
     >
@@ -146,8 +146,7 @@ function Sidebar({ user, currentView, onNavigate, collapsed, onToggle }: {
   const navItems = navDe(user);
 
   return (
-    <aside className={`hidden md:flex flex-col h-screen bg-primary-800 textile-pattern text-white shrink-0 sidebar-transition sticky top-0 relative ${collapsed ? "w-[76px]" : "w-[264px]"}`}>
-      <div className="franja-tejido h-2.5 shrink-0" aria-hidden="true" />
+    <aside className={`hidden md:flex flex-col h-screen bg-anil-800 textile-pattern text-white shrink-0 sidebar-transition sticky top-0 relative ${collapsed ? "w-[76px]" : "w-[264px]"}`}>
       <div className={`flex items-center h-[76px] shrink-0 ${collapsed ? "justify-center" : "justify-between pl-5 pr-3"}`}>
         <Logo compact={collapsed} />
         {!collapsed && (
@@ -206,7 +205,7 @@ function Topbar({ user, currentView, navItems, sede, onNavigate, onLogout, onMen
     <header className="sticky top-0 z-30 h-[76px] bg-sand-100 flex items-center gap-2 sm:gap-3 px-4 md:px-8 shrink-0">
       <button
         onClick={onMenuOpen}
-        className="md:hidden w-10 h-10 rounded-full bg-primary-800 text-white flex items-center justify-center"
+        className="md:hidden w-10 h-10 rounded-full bg-anil-800 text-white flex items-center justify-center"
         aria-label="Abrir menú"
       >
         <Menu className="w-5 h-5" />
@@ -288,8 +287,8 @@ function MobileSidebar({ user, currentView, onNavigate, open, onClose }: {
   const navItems = navDe(user);
   return (
     <>
-      <div className={`fixed inset-0 z-40 bg-primary-900/40 md:hidden transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={onClose} />
-      <aside className={`fixed left-0 top-0 h-full z-50 w-[280px] bg-primary-800 textile-pattern text-white rounded-r-[28px] md:hidden transition-transform duration-300 flex flex-col overflow-hidden ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className={`fixed inset-0 z-40 bg-anil-900/40 md:hidden transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={onClose} />
+      <aside className={`fixed left-0 top-0 h-full z-50 w-[280px] bg-anil-800 textile-pattern text-white rounded-r-[28px] md:hidden transition-transform duration-300 flex flex-col overflow-hidden ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between pl-5 pr-3 h-[76px] shrink-0">
           <Logo />
           <button onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10" aria-label="Cerrar menú"><X className="w-5 h-5" /></button>
@@ -325,7 +324,7 @@ export function Layout({ user, currentView, onNavigate, onLogout, onCambiarRol, 
   const navItems = navDe(user);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-primary-800">
+    <div className="flex h-screen overflow-hidden bg-anil-800">
       <Sidebar user={user} currentView={currentView} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
       <MobileSidebar user={user} currentView={currentView} onNavigate={onNavigate} open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
