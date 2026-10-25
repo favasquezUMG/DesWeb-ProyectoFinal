@@ -30,7 +30,7 @@ router.get('/carrito/inscripciones', verificarRol(ROL.ENCARGADO), getMisInscripc
 router.get('/carrito/verificar/:paymentIntentId', verificarRol(ROL.ENCARGADO), verificarCarrito);
 router.post('/carrito/intent', verificarRol(ROL.ENCARGADO), crearIntentCarrito);
 
-router.get('/metrica-mora', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getMoraPagosMetrica);
+router.get('/metrica-mora', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getMoraPagosMetrica);
 router.get('/estado-cuenta/:alumnoId', getEstadoCuenta);
 router.get('/cotizar/:alumnoId', cotizarColegiatura);
 router.get('/verificar/:paymentIntentId', verificarPago);

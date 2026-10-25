@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, Download, Printer } from "./Iconos";
 import { Stepper, Input, Select, Textarea, Btn, AlertBanner } from "./Ui";
-import { MALLA_CNB } from "../data";
+import { MALLA_CNB } from "../lib/mallaCnb";
 import {
   type SolicitudGuardada,
   guardarSolicitud,
@@ -153,7 +153,7 @@ function validarAlumno(d: DatosAlumno): Partial<Record<keyof DatosAlumno, string
   return errores;
 }
 
-export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
+function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
   return (
     <div id="constancia-imprimible" className="p-10 text-stone-900 text-sm">
       <div className="flex items-start justify-between border-b-2 border-primary-700 pb-3 mb-4">
@@ -271,7 +271,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   async function irSiguiente() {
     if (step === 0) {
 
-      //Validacion de campos vacios, formato correo, DPI
       const errores = validarEncargado(encargado);
       setErroresEncargado(errores);
       if (Object.values(errores).some(Boolean)) return;

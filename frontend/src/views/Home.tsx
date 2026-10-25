@@ -290,12 +290,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-anil-800 text-white text-sm font-bold hover:bg-anil-900 transition-colors">
                         <Navigation className="w-4 h-4" />Cómo llegar
                       </a>
-                      {s.telefono && (
-                        <a href={`tel:${s.telefono.replace(/\D/g, "")}`}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-[1.5px] border-stone-300 text-sm font-bold text-stone-800 hover:border-stone-900 transition-colors">
-                          <Phone className="w-4 h-4" />Llamar
-                        </a>
-                      )}
                     </div>
                   </div>
                 </li>

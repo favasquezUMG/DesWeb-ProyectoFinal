@@ -107,30 +107,6 @@ export function resolverEstado(solicitud: SolicitudGuardada): EstadoResuelto {
   return { estado: estadoBase}
 }
 
-export async function actualizarEstadoSolicitud(
-  solicitudId: number,
-  nuevoEstado: EstadoSolicitud,
-  observaciones?: string,
-  token?: string
-): Promise<SolicitudGuardada | null> {
-  try{
-    const response = await axios.put(
-      `${API_URL}/api/solicitudes/${solicitudId}/estado`,
-      {
-        estado: nuevoEstado,
-        observaciones
-      },
-      {
-        headers: token ? {Authorization: `Bearer ${token}` } : {}
-      }
-    );
-
-    return response.data.data;
-  } catch(error) {
-    return null
-  }
-}
-
 export function generarNumeroSolicitud(): string {
   const anio = new Date().getFullYear();
   const numero = Math.floor(Math.random() * 99999) + 1;

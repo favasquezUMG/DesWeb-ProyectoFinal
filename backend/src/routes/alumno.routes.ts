@@ -20,8 +20,8 @@ router.use(authenticateToken)
 router.get('/all', permitir('alumnos', ROL.CATEDRATICO), getAlumnos);
 
 // Encargados (padres, tutores...) de cada alumno
-router.get('/conteo-alumnos', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getConteoAlumnos);
-router.get('/tasa-aprobacion', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getTasaAprobacion);
+router.get('/conteo-alumnos', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getConteoAlumnos);
+router.get('/tasa-aprobacion', verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getTasaAprobacion);
 router.get('/encargados/buscar', permitir('alumnos'), buscarEncargados);
 router.get('/:id/encargados', permitir('alumnos'), getEncargadosDeAlumno);
 router.post('/:id/encargados', permitir('alumnos'), agregarEncargado);

@@ -94,7 +94,7 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
         }
         // Las cuentas de administradores solo las ve el administrador general
         if (alcance !== null) {
-            filtros.push({ rol: { nombre: { notIn: [ROL.ADMIN, ROL.ADMIN_GENERAL] } } });
+            filtros.push({ rol: { nombre: { notIn: [ROL.ADMIN_GENERAL] } } });
         }
 
         const users = await prisma.usuario.findMany({

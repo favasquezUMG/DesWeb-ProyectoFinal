@@ -30,7 +30,7 @@ const soloAdmin = permitir('becas');
 // Portal de encargados y alumnos
 router.get('/mias', verificarRol(ROL.ENCARGADO, ROL.ALUMNO), getMisBecas);
 router.post('/solicitar', verificarRol(ROL.ENCARGADO), solicitarBeca);
-router.get("/becas-activas", verificarRol(ROL.ADMIN,ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getBecasActivas);
+router.get("/becas-activas", verificarRol(ROL.ADMIN_GENERAL,ROL.ADMIN_SEDE), getBecasActivas);
 
 // Programas y politica de la sede
 router.get('/programas', soloAdmin, getProgramas);

@@ -27,7 +27,6 @@ const puedeEditarEvento = async (req: AuthenticatedRequest, eventoId: number) =>
 };
 import { hijosDe } from "../services/vinculos.service.js";
 
-//Get all
 // Sin ?sedeId, quien no es administrador general ve los eventos generales y los de su sede
 export const getEvents = async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -72,7 +71,6 @@ export const getEvents = async (req: AuthenticatedRequest, res: Response) => {
     }
 }
 
-//Get By ID
 export const getEventById = async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -135,7 +133,6 @@ const leerCobro = (body: any): { data: Record<string, unknown> } | { error: stri
     return { data };
 };
 
-//Post create
 export const createEvent = async (req: AuthenticatedRequest, res: Response) => {
     const { sedeId, nombre, descripcion, fecha, tipoEvento, enviarRecordatorio } = req.body;
 
@@ -180,7 +177,6 @@ export const createEvent = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-//Put
 export const updateEvent = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { sedeId, nombre, descripcion, fecha, tipoEvento, enviarRecordatorio } = req.body;
@@ -250,7 +246,6 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-//Delete
 export const deleteEvent = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 

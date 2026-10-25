@@ -127,7 +127,6 @@ async function main() {
     const ROLES_PERSONAL = [
         { nombre: 'Administrador de Sede', permisos: MODULOS },
         { nombre: 'Secretaría', descripcion: 'Atención a padres: alumnos, encargados, matrículas y avisos.', permisos: ['alumnos', 'matriculas', 'comunicados', 'calendario', 'conducta'] },
-        { nombre: 'Contabilidad', descripcion: 'Cobros de colegiatura y becas.', permisos: ['pagos', 'becas', 'reportes'] },
     ];
     for (const r of ROLES_PERSONAL) {
         const rol = await prisma.rol.upsert({
@@ -596,10 +595,9 @@ async function main() {
     // 10b. Casos reales de roles y encargados para probar el sistema
     await sembrarCasosDeEncargados(roles, passwordHash);
 
-    // Personal con roles creados por el colegio (Secretaría y Contabilidad) en la primera sede
+    // Personal con roles creados por el colegio (Secretaría) en la primera sede
     for (const [nombreRol, email, nombres] of [
         ['Secretaría', 'secretaria1@dercas.edu.gt', 'Secretaria1'],
-        ['Contabilidad', 'contabilidad1@dercas.edu.gt', 'Contador1'],
     ] as const) {
         await prisma.usuario.upsert({
             where: { email },

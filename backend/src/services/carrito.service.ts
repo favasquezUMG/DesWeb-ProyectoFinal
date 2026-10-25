@@ -7,7 +7,7 @@ import { enviarComprobanteEnSegundoPlano, enviarComprobanteOrden } from './compr
 // Reglas del carrito de pagos: eventos con cobro + colegiaturas en un solo cobro de Stripe.
 // Las usan carrito.controller, el webhook de Stripe y el pago de un solo mes.
 
-export const ESTADO_ORDEN = { PENDIENTE: 'Pendiente', PAGADA: 'Pagada', CANCELADA: 'Cancelada', REEMBOLSADA: 'Reembolsada' } as const;
+const ESTADO_ORDEN = { PENDIENTE: 'Pendiente', PAGADA: 'Pagada', CANCELADA: 'Cancelada', REEMBOLSADA: 'Reembolsada' } as const;
 export const ESTADO_INSCRIPCION = { PENDIENTE: 'Pendiente', CONFIRMADA: 'Confirmada', CANCELADA: 'Cancelada', REEMBOLSADA: 'Reembolsada' } as const;
 
 // Una inscripcion pendiente aparta el cupo mientras el padre paga; pasado este tiempo se libera

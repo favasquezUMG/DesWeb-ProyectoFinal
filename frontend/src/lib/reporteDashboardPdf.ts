@@ -9,8 +9,8 @@ import type {
 } from "./api";
 
 // Paleta de colores ejecutiva
-const PRIMARY = [43, 58, 140] as const;     // #2b3a8c - Teal institucional
-const ACCENT = [242, 100, 59] as const;      // #b3202a - Coral / Acento
+const PRIMARY = [43, 58, 140] as const;
+const ACCENT = [242, 100, 59] as const;
 const TEXT_MAIN = [30, 41, 59] as const;     // Slate 800
 const TEXT_MUTED = [100, 116, 139] as const; // Slate 500
 const BG_CARD = [248, 250, 252] as const;    // Slate 50
@@ -39,7 +39,7 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
 
   // --- 1. ENCABEZADO INSTITUCIONAL ---
   doc.setFillColor(...PRIMARY);
-  doc.rect(0, 0, anchoPagina, 6, "F"); // Barra superior de acento
+  doc.rect(0, 0, anchoPagina, 6, "F");
 
   y += 6;
   doc.setFont("helvetica", "bold");
@@ -105,24 +105,20 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
     const posX = margenX + col * (anchoCard + 6);
     const posY = y + row * (altoCard + 4);
 
-    // Fondo y borde de la tarjeta
     doc.setFillColor(...BG_CARD);
     doc.setDrawColor(...BORDER_CARD);
     doc.roundedRect(posX, posY, anchoCard, altoCard, 2, 2, "FD");
 
-    // Label
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MUTED);
     doc.text(kpi.label, posX + 4, posY + 5);
 
-    // Valor principal
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.setTextColor(...PRIMARY);
     doc.text(kpi.val, posX + 4, posY + 11);
 
-    // Subtexto
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_MAIN);
@@ -140,7 +136,6 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
   y += 5;
   const anchoCol = anchoUtil / 12; // 15mm por mes
 
-  // Encabezados de meses
   doc.setFillColor(...PRIMARY);
   doc.rect(margenX, y, anchoUtil, 6, "F");
 
@@ -153,7 +148,6 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
     doc.text(m, margenX + idx * anchoCol + anchoCol / 2, y + 4.2, { align: "center" });
   });
 
-  // Fila de Valores
   y += 6;
   doc.setFillColor(...BG_CARD);
   doc.setDrawColor(...BORDER_CARD);
@@ -198,11 +192,9 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
       const detalleLimpio = limpiarTexto(act.detalle);
       const usuarioLimpio = limpiarTexto(act.usuario);
 
-      // Calcular número de líneas para el detalle comprimido
       const lineasDetalle = doc.splitTextToSize(detalleLimpio, 110);
       const altoFila = Math.max(7, lineasDetalle.length * 4 + 2);
 
-      // Alternar color de fondo en filas
       if (idx % 2 === 0) {
         doc.setFillColor(...BG_CARD);
         doc.rect(margenX, y, anchoUtil, altoFila, "F");
@@ -214,13 +206,10 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
       doc.setFontSize(7.5);
       doc.setTextColor(...TEXT_MAIN);
 
-      // Columna Fecha
       doc.text(fechaFmt, margenX + 3, y + 4.5);
 
-      // Columna Detalle
       doc.text(lineasDetalle, margenX + 28, y + 4.5);
 
-      // Columna Usuario
       doc.setFont("helvetica", "bold");
       doc.text(usuarioLimpio, anchoPagina - margenX - 3, y + 4.5, { align: "right" });
 
@@ -240,7 +229,6 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
   doc.setDrawColor(...BORDER_CARD);
   doc.setLineWidth(0.4);
 
-  // Firma 1
   doc.line(margenX + 10, yFirma, margenX + 70, yFirma);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
@@ -251,7 +239,6 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
   doc.setTextColor(...TEXT_MUTED);
   doc.text("Colegio Vanguardia", margenX + 40, yFirma + 7.5, { align: "center" });
 
-  // Firma 2
   doc.line(anchoPagina - margenX - 70, yFirma, anchoPagina - margenX - 10, yFirma);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);

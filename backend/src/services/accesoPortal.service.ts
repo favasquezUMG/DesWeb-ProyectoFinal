@@ -5,7 +5,7 @@ import { prisma } from "../lib/prisma.js";
 // su información la consulta el encargado. Por defecto Primaria (y Preprimaria) no entra y
 // Básico / Diversificado sí; la sede puede hacer una excepción por alumno (Alumno.accesoPortal).
 
-export const NIVELES_SIN_ACCESO = ["Preprimaria", "Primaria"];
+const NIVELES_SIN_ACCESO = ["Preprimaria", "Primaria"];
 
 export const accesoPorNivel = (nivel: string) => !NIVELES_SIN_ACCESO.includes(nivel);
 
