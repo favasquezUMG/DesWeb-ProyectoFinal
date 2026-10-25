@@ -1,111 +1,215 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
+/* ─────────────────────────────────────────────────────────────
+   Tokens de diseño (ver DESIGN.md en la raíz del repo)
+   Solo cambia la piel: los nombres de clases siguen siendo los mismos.
+   ───────────────────────────────────────────────────────────── */
 @theme {
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-sans: 'Outfit', system-ui, sans-serif;
-  --font-mono: 'DM Mono', 'Courier New', monospace;
+  --font-display: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif;
+  --font-sans: 'Figtree', system-ui, sans-serif;
+  --font-mono: 'Figtree', system-ui, sans-serif;
 
-  --color-primary-50: #eef6f1;
-  --color-primary-100: #d4eadb;
-  --color-primary-200: #a9d5b7;
-  --color-primary-300: #74b88a;
-  --color-primary-400: #4a9966;
-  --color-primary-500: #2d7a4b;
-  --color-primary-600: #1f5c38;
-  --color-primary-700: #1a3929;
-  --color-primary-800: #12271c;
-  --color-primary-900: #0b1811;
+  /* Paleta de tejido guatemalteco: añil, granate, maíz y quetzal */
+  /* primary */
+  --color-primary-50: #f7f7fa;
+  --color-primary-100: #f0f1f7;
+  --color-primary-200: #e1e3ef;
+  --color-primary-300: #c4c8df;
+  --color-primary-400: #a0a6cb;
+  --color-primary-500: #7781b5;
+  --color-primary-600: #515da1;
+  --color-primary-700: #2b3a8c;
+  --color-primary-800: #1f2a6b;
+  --color-primary-900: #151c4a;
 
-  --color-action-50: #fef7ee;
-  --color-action-100: #fdecd4;
-  --color-action-200: #fad5a3;
-  --color-action-300: #f6b56a;
-  --color-action-400: #f19030;
-  --color-action-500: #e8710f;
-  --color-action-600: #c4560a;
-  --color-action-700: #9c4010;
-  --color-action-800: #7d3312;
+  /* action */
+  --color-action-50: #f7e1e3;
+  --color-action-100: #eec4c6;
+  --color-action-200: #e4a0a4;
+  --color-action-300: #d9777d;
+  --color-action-400: #cf5159;
+  --color-action-500: #c42b34;
+  --color-action-600: #b3202a;
+  --color-action-700: #8e1820;
+  --color-action-800: #76141b;
+  --color-action-900: #5e1015;
 
-  --color-sand-50: #faf8f4;
-  --color-sand-100: #f4f0e8;
-  --color-sand-200: #e8e0d0;
-  --color-sand-300: #d4cab4;
-  --color-sand-400: #b8a98c;
-  --color-sand-500: #9c8c6c;
-  --color-sand-600: #7a6c50;
-  --color-sand-700: #5c5040;
-  --color-sand-800: #3e362c;
-  --color-sand-900: #201c14;
+  /* success */
+  --color-success-50: #eef6f4;
+  --color-success-100: #ddede9;
+  --color-success-200: #bcdad2;
+  --color-success-300: #93c4b7;
+  --color-success-400: #65ab99;
+  --color-success-500: #3a937c;
+  --color-success-600: #0f7b5f;
+  --color-success-700: #0b6650;
+  --color-success-800: #084e3d;
+  --color-success-900: #074133;
 
-  --color-stone-50: #fafaf9;
-  --color-stone-100: #f5f5f4;
-  --color-stone-200: #e7e5e4;
-  --color-stone-300: #d6d3d1;
-  --color-stone-400: #a8a29e;
-  --color-stone-500: #78716c;
-  --color-stone-600: #57534e;
-  --color-stone-700: #44403c;
-  --color-stone-800: #292524;
-  --color-stone-900: #1c1917;
+  /* danger */
+  --color-danger-50: #fbeff0;
+  --color-danger-100: #f7e0e2;
+  --color-danger-200: #f0c1c5;
+  --color-danger-300: #e69ba1;
+  --color-danger-400: #dc707a;
+  --color-danger-500: #d24854;
+  --color-danger-600: #c8202f;
+  --color-danger-700: #a31a26;
+  --color-danger-800: #871620;
+  --color-danger-900: #6c1119;
 
-  --color-success-50: #f0fdf4;
-  --color-success-100: #dcfce7;
-  --color-success-600: #16a34a;
-  --color-success-700: #15803d;
-  --color-success-800: #166534;
-  --color-success-900: #14532d;
+  /* warning */
+  --color-warning-50: #fdf5dc;
+  --color-warning-100: #fbebb9;
+  --color-warning-200: #f9df8e;
+  --color-warning-300: #f7d15f;
+  --color-warning-400: #f4c432;
+  --color-warning-500: #f2b705;
+  --color-warning-600: #d99e00;
+  --color-warning-700: #9c6f00;
+  --color-warning-800: #7a5600;
+  --color-warning-900: #654700;
 
-  --color-danger-50: #fff1f2;
-  --color-danger-100: #fee2e2;
-  --color-danger-600: #dc2626;
-  --color-danger-700: #b91c1c;
-  --color-danger-800: #991b1b;
+  /* info */
+  --color-info-50: #f1f4fb;
+  --color-info-100: #e4e9f7;
+  --color-info-200: #c9d2ee;
+  --color-info-300: #a8b7e4;
+  --color-info-400: #8399d9;
+  --color-info-500: #607ccf;
+  --color-info-600: #3d5fc4;
+  --color-info-700: #2f4ba3;
+  --color-info-800: #273e87;
+  --color-info-900: #1f326c;
 
-  --color-warning-50: #fffbeb;
-  --color-warning-100: #fef3c7;
-  --color-warning-600: #d97706;
-  --color-warning-700: #b45309;
-  --color-warning-800: #92400e;
+  /* Fondo crema */
+  --color-sand-50: #fffcf6;
+  --color-sand-100: #f7f1e5;
+  --color-sand-200: #ede3cf;
+  --color-sand-300: #ddcfb2;
+  --color-sand-400: #bfae8d;
+  --color-sand-500: #9a8a6b;
+  --color-sand-600: #74674f;
+  --color-sand-700: #554b3a;
+  --color-sand-800: #3a3328;
+  --color-sand-900: #221e18;
 
-  --color-info-50: #eff6ff;
-  --color-info-100: #dbeafe;
-  --color-info-600: #2563eb;
-  --color-info-700: #1d4ed8;
-  --color-info-800: #1e40af;
+  /* Neutros cálidos con tinta añil */
+  --color-stone-50: #fbf9f5;
+  --color-stone-100: #f3efe7;
+  --color-stone-200: #e6dfd2;
+  --color-stone-300: #d2c8b7;
+  --color-stone-400: #a59b8b;
+  --color-stone-500: #786f63;
+  --color-stone-600: #5a5249;
+  --color-stone-700: #403a36;
+  --color-stone-800: #2b2733;
+  --color-stone-900: #1c1a2e;
+
+  /* Colores por materia, tomados del tejido típico */
+  --color-subject-math: #2b3a8c;      /* añil */
+  --color-subject-language: #b3202a;  /* granate */
+  --color-subject-science: #0f7b5f;   /* verde quetzal */
+  --color-subject-social: #f2b705;    /* amarillo maíz */
+  --color-subject-english: #6b2d7b;   /* morado */
+  --color-subject-arts: #d63a7a;      /* fucsia */
+
+  /* Sombras suaves tipo tarjeta */
+  --shadow-xs: 0 1px 2px rgba(28, 26, 46, 0.04), 0 2px 8px rgba(28, 26, 46, 0.05);
+  --shadow-sm: 0 2px 4px rgba(28, 26, 46, 0.05), 0 4px 14px rgba(28, 26, 46, 0.06);
+  --shadow-md: 0 4px 10px rgba(28, 26, 46, 0.06), 0 10px 24px rgba(28, 26, 46, 0.08);
+  --shadow-lg: 0 8px 20px rgba(28, 26, 46, 0.08), 0 18px 40px rgba(28, 26, 46, 0.10);
+  --shadow-xl: 0 12px 28px rgba(28, 26, 46, 0.10), 0 24px 56px rgba(28, 26, 46, 0.14);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
   font-family: var(--font-sans);
-  background-color: #f4f0e8;
-  color: #1c1917;
+  background-color: #f7f1e5;
+  color: #1c1a2e;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.font-display { font-family: var(--font-display); }
-.font-mono-data { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.font-display { font-family: var(--font-display); letter-spacing: -0.015em; font-optical-sizing: auto; }
+h1, h2, h3 { text-wrap: balance; }
+::selection { background: #f2b705; color: #1c1a2e; }
+.font-mono-data { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
+/* Patrón de tejido: rombos y zigzag como en un huipil */
 .textile-pattern {
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0px, transparent 11px, rgba(255,255,255,0.07) 11px, rgba(255,255,255,0.07) 12px),
-    repeating-linear-gradient(0deg, transparent 0px, transparent 7px, rgba(255,255,255,0.04) 7px, rgba(255,255,255,0.04) 8px);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.09' stroke-width='2'%3E%3Cpath d='M24 4 44 24 24 44 4 24Z'/%3E%3Cpath d='M24 14 34 24 24 34 14 24Z'/%3E%3C/g%3E%3Crect x='22' y='22' width='4' height='4' fill='%23ffffff' fill-opacity='0.12'/%3E%3C/svg%3E");
+  background-size: 48px 48px;
 }
 
 .textile-pattern-light {
-  background-image:
-    repeating-linear-gradient(90deg, transparent 0px, transparent 11px, rgba(26,57,41,0.04) 11px, rgba(26,57,41,0.04) 12px),
-    repeating-linear-gradient(0deg, transparent 0px, transparent 7px, rgba(26,57,41,0.025) 7px, rgba(26,57,41,0.025) 8px);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cg fill='none' stroke='%232b3a8c' stroke-opacity='0.07' stroke-width='2'%3E%3Cpath d='M24 4 44 24 24 44 4 24Z'/%3E%3Cpath d='M24 14 34 24 24 34 14 24Z'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 48px 48px;
 }
+
+/* Franja tejida multicolor (borde decorativo) */
+.franja-tejido {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='12' viewBox='0 0 60 12'%3E%3Crect width='60' height='12' fill='%23b3202a'/%3E%3Cpath d='M0 12 6 0 12 12Z' fill='%23f2b705'/%3E%3Cpath d='M12 12 18 0 24 12Z' fill='%232b3a8c'/%3E%3Cpath d='M24 12 30 0 36 12Z' fill='%230f7b5f'/%3E%3Cpath d='M36 12 42 0 48 12Z' fill='%23d63a7a'/%3E%3Cpath d='M48 12 54 0 60 12Z' fill='%23f7f1e5'/%3E%3C/svg%3E");
+  background-size: 60px 100%;
+  background-repeat: repeat-x;
+}
+
+/* Menú lateral tipo archivador: la opción activa es una pestaña
+   que se funde con el fondo de la página */
+.nav-tab-active { position: relative; }
+.nav-tab-active::before,
+.nav-tab-active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+.nav-tab-active::before {
+  top: -16px;
+  background: radial-gradient(circle at 0 0, transparent 15.5px, #f7f1e5 16px);
+}
+.nav-tab-active::after {
+  bottom: -16px;
+  background: radial-gradient(circle at 0 100%, transparent 15.5px, #f7f1e5 16px);
+}
+
+/* Líneas de cuaderno para estados vacíos y paneles de apoyo */
+.ruled {
+  background-image: repeating-linear-gradient(180deg, transparent 0 27px, rgba(43,58,140,0.08) 27px 28px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+
+/* Selects sin estilo nativo, con flecha propia */
+@layer base {
+  select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23786f63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 2.25rem !important;
+  }
+  input[type="checkbox"], input[type="radio"] { accent-color: #2b3a8c; }
+}
+
+/* Íconos "a color": el segundo tono del duotono se pinta en amarillo maíz */
+.icono-color svg path[opacity] { fill: #f2b705; opacity: 1; }
+.icono-color-granate svg path[opacity] { fill: #b3202a; opacity: 1; }
 
 /* Scrollbar hiding */
 .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 
 /* Focus ring */
-:focus-visible { outline: 2px solid #1a3929; outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid #2b3a8c; outline-offset: 2px; border-radius: 6px; }
 
 /* Smooth sidebar transition */
 .sidebar-transition { transition: width 220ms cubic-bezier(0.4, 0, 0.2, 1); }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Award, Send, Users2, GraduationCap, ShieldAlert, History } from "lucide-react";
+import { Award, Send, Users2, GraduationCap, ShieldAlert, History } from "../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, Select, Textarea, EmptyState, Drawer } from "../components/Ui";
 import HistorialBeca from "../components/HistorialBeca";
 import { getMisBecas, solicitarBeca, type HijoBecasDto, type MisBecasDto } from "../lib/api";
@@ -95,7 +95,7 @@ export default function BecasPadre() {
           <Card key={hijo.alumnoId} className="overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-stone-100 textile-pattern-light">
               <div>
-                <p className="font-display text-lg font-semibold text-stone-900">{hijo.nombre}</p>
+                <p className="font-display text-lg font-bold text-stone-900">{hijo.nombre}</p>
                 <p className="text-sm text-stone-500">{hijo.grado}</p>
               </div>
               {datos.puedeSolicitar && hijo.programasDisponibles.length > 0 && !tieneVigenteOSolicitud && (
@@ -105,9 +105,9 @@ export default function BecasPadre() {
 
             <div className="p-5 grid grid-cols-1 lg:grid-cols-3 gap-5">
               {/* Descuento vigente sobre la colegiatura */}
-              <div className="rounded-xl border border-stone-200 p-4 bg-sand-50">
-                <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">Colegiatura este mes</p>
-                <p className="font-display text-3xl font-semibold text-primary-700 mt-1">{formatQ(colegiatura * (1 - d.total / 100))}</p>
+              <div className="rounded-2xl border border-stone-200/70 p-4 bg-sand-50">
+                <p className="text-[13px] font-semibold text-stone-500">Colegiatura este mes</p>
+                <p className="font-display text-3xl font-bold text-primary-700 mt-1">{formatQ(colegiatura * (1 - d.total / 100))}</p>
                 <dl className="mt-3 space-y-1 text-sm">
                   <div className="flex justify-between"><dt className="text-stone-500">Colegiatura base</dt><dd className="font-mono-data">{formatQ(colegiatura)}</dd></div>
                   {d.beca > 0 && <div className="flex justify-between"><dt className="text-stone-500">Beca {d.programa ? `(${d.programa})` : ""}</dt><dd className="font-mono-data text-success-700">−{d.beca}%</dd></div>}
@@ -131,7 +131,7 @@ export default function BecasPadre() {
                         <li key={b.becaId} className="px-4 py-3 flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium text-stone-900 text-sm">{b.programa?.nombre ?? b.descripcion ?? "Beca"}</p>
+                              <p className="font-semibold text-stone-900 text-[15px]">{b.programa?.nombre ?? b.descripcion ?? "Beca"}</p>
                               <Badge variant={ESTADO_BECA_BADGE[b.estado]}>{b.estado}</Badge>
                             </div>
                             <p className="text-xs text-stone-500 mt-0.5">

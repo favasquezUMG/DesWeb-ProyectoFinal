@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, BookOpen, CheckCircle2, ChevronRight, Clock } from "lucide-react";
+import { AlertCircle, BookOpen, CheckCircle2, ChevronRight, Clock } from "../../components/Iconos";
 import type { View } from "../../types";
-import { Card, MetricCard, SectionHeader, Badge, AlertBanner, EmptyState } from "../../components/Ui";
+import { Card, SectionHeader, AlertBanner, EmptyState, CursoMarca, colorDeCurso } from "../../components/Ui";
 import { getSession } from "../../lib/auth";
 import { getLibreta, getListaAsistencia, type CursoSeccionDto, type LibretaDto } from "../../lib/api";
 import { clasesDe, type ClaseHorario } from "./Horario";
@@ -117,33 +117,52 @@ export default function Dashboard({ onNavigate }: { onNavigate: (v: View) => voi
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Mi Panel" subtitle={`Bienvenido, ${nombre} · ${hoyTexto}`} />
+      <SectionHeader title={`Hola, ${nombre.split(" ")[0]}`} subtitle={`Su resumen del ${hoyTexto}`} />
       {error && <AlertBanner type="error" message={error} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <MetricCard label="Mis cursos" value={cursos.length} sub={cursos[0]?.seccion.anioLectivo ? `Ciclo ${cursos[0].seccion.anioLectivo}` : undefined} icon={<BookOpen className="w-5 h-5" />} />
-        <MetricCard
-          label="Próxima clase"
-          value={proxima ? proxima.clase.horaInicio : "—"}
-          sub={proxima ? `${proxima.esHoy ? "Hoy" : DIAS_SEMANA[proxima.clase.diaSemana]} · ${proxima.clase.curso} ${proxima.clase.grupo}` : "Sin horario asignado"}
-          icon={<Clock className="w-5 h-5" />}
-        />
-        <MetricCard
-          label="Pendientes"
-          value={totalPendientes ?? "…"}
-          sub={totalPendientes === undefined ? "Calculando..." : totalPendientes === 0 ? "Todo al día" : "Notas y asistencia por registrar"}
-          icon={<AlertCircle className="w-5 h-5" />}
-          variant={totalPendientes ? "warning" : "success"}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {(() => {
+          const col = proxima ? colorDeCurso(proxima.clase.curso) : null;
+          return (
+            <div className={`md:col-span-2 rounded-[20px] p-6 relative overflow-hidden textile-pattern ${col ? `${col.solid} ${col.fg}` : "bg-stone-400 text-white"}`}>
+              <span className="absolute -right-4 -bottom-10 font-display font-extrabold text-[10rem] leading-none opacity-[0.14] select-none" aria-hidden="true">
+                {proxima ? proxima.clase.curso.charAt(0) : ""}
+              </span>
+              <div className="relative flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-8">
+                <div>
+                  <p className="text-sm font-semibold opacity-80 flex items-center gap-1.5"><Clock className="w-4 h-4" />
+                    {proxima ? (proxima.esHoy ? "Su próxima clase, hoy" : `Su próxima clase, el ${DIAS_SEMANA[proxima.clase.diaSemana].toLowerCase()}`) : "Próxima clase"}
+                  </p>
+                  <p className="font-display font-bold text-6xl leading-none mt-3 tabular-nums">{proxima ? proxima.clase.horaInicio : "—"}</p>
+                </div>
+                <div className="pb-1">
+                  <p className="font-display font-bold text-2xl leading-tight">{proxima ? proxima.clase.curso : "Sin horario asignado"}</p>
+                  {proxima && <p className="opacity-85 text-sm mt-0.5">{proxima.clase.grupo}</p>}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        <Card className="p-6 flex flex-col justify-between gap-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-stone-600">Pendientes</p>
+            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${totalPendientes ? "bg-warning-600" : "bg-success-600"} text-white`}><AlertCircle className="w-4 h-4" /></span>
+          </div>
+          <div>
+            <p className={`font-display font-bold text-5xl leading-none tabular-nums ${totalPendientes ? "text-warning-700" : "text-stone-900"}`}>{totalPendientes ?? "…"}</p>
+            <p className="text-[13px] text-stone-500 mt-2">{totalPendientes === undefined ? "Calculando..." : totalPendientes === 0 ? "Todo al día" : "Notas y asistencia por registrar"}</p>
+          </div>
+          <p className="text-[13px] text-stone-500 border-t border-stone-100 pt-3"><span className="font-bold text-stone-900">{cursos.length}</span> cursos{cursos[0]?.seccion.anioLectivo ? ` en el ciclo ${cursos[0].seccion.anioLectivo}` : ""}</p>
+        </Card>
       </div>
 
       {cursos.length === 0 ? (
         <EmptyState icon={<BookOpen className="w-10 h-10" />} title="Sin cursos asignados" description="Cuando la sede le asigne cursos aparecerán aquí." />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="p-5">
-            <h3 className="font-display font-semibold text-stone-800 text-base mb-4">Mis cursos</h3>
-            <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          <Card className="p-6 lg:col-span-3">
+            <h3 className="font-display font-bold text-stone-900 text-lg mb-4">Mis cursos</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {cursos.map((c) => {
                 const lib = libretas[c.cursoSeccionId];
                 const totales = lib ? [...calcularTotales(lib).values()] : [];
@@ -151,23 +170,23 @@ export default function Dashboard({ onNavigate }: { onNavigate: (v: View) => voi
                 const aprobados = totales.filter((t) => t.conNotas && estadoAcademico(t) === "aprobado").length;
                 const enRiesgo = totales.filter((t) => t.conNotas && estadoAcademico(t) === "reprobado").length;
                 return (
-                  <div key={c.cursoSeccionId} className="p-4 bg-stone-50 border border-stone-100 rounded-xl">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-semibold text-stone-900">{c.curso.nombre}</p>
-                        <p className="text-xs text-stone-500">{c.seccion.grado.nombre} {c.seccion.nombre}</p>
+                  <div key={c.cursoSeccionId} className="p-4 rounded-2xl bg-sand-100">
+                    <div className="flex items-start gap-3 mb-3">
+                      <CursoMarca nombre={c.curso.nombre} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-[15px] text-stone-900 leading-tight">{c.curso.nombre}</p>
+                        <p className="text-[13px] text-stone-600">{c.seccion.grado.nombre} {c.seccion.nombre}{lib ? `, ${alumnos} alumnos` : ""}</p>
                       </div>
-                      {lib && <Badge variant="primary">{alumnos} alumnos</Badge>}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-stone-500">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
                       <Clock className="w-3.5 h-3.5" />{resumenHorario(c)}
                     </div>
                     {lib && alumnos > 0 && (
                       <>
-                        <div className="w-full bg-stone-200 rounded-full h-1.5 mt-3">
-                          <div className="bg-success-600 h-1.5 rounded-full" style={{ width: `${Math.round(aprobados / alumnos * 100)}%` }} />
+                        <div className="w-full bg-white/80 rounded-full h-2 mt-3">
+                          <div className={`${colorDeCurso(c.curso.nombre).solid} h-2 rounded-full`} style={{ width: `${Math.round(aprobados / alumnos * 100)}%` }} />
                         </div>
-                        <p className="text-[10px] text-stone-400 mt-1">
+                        <p className="text-xs text-stone-600 mt-1.5">
                           {aprobados} de {alumnos} ya aprobados ({Math.round(aprobados / alumnos * 100)}%)
                           {enRiesgo > 0 && <span className="text-danger-700"> · {enRiesgo} sin posibilidad de aprobar</span>}
                         </p>
@@ -179,22 +198,22 @@ export default function Dashboard({ onNavigate }: { onNavigate: (v: View) => voi
             </div>
           </Card>
 
-          <Card className="p-5">
-            <h3 className="font-display font-semibold text-stone-800 text-base mb-4">Pendientes</h3>
+          <Card className="p-6 lg:col-span-2">
+            <h3 className="font-display font-bold text-stone-900 text-lg mb-4">Por hacer</h3>
             {pendientes === null ? <Cargando /> : pendientes.length === 0 ? (
-              <div className="flex items-center gap-2 p-3 rounded-lg border bg-success-50 border-success-200 text-success-800 text-xs">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />No tiene notas ni asistencias pendientes.
+              <div className="flex flex-col items-center text-center gap-2 py-8 text-stone-600 text-sm">
+                <CheckCircle2 className="w-9 h-9 text-success-600" />No tiene notas ni asistencias pendientes.
               </div>
             ) : (
               <div className="space-y-2.5 max-h-96 overflow-y-auto">
                 {pendientes.map((p, i) => {
-                  const cls = p.tipo === "warning" ? "bg-warning-50 border-warning-200 text-warning-800" : "bg-info-50 border-info-200 text-info-800";
+                  const cls = p.tipo === "warning" ? "bg-warning-600" : "bg-info-600";
                   return (
                     <button key={i} onClick={() => { setSeleccion(p.cursoSeccionId); onNavigate(p.view); }}
-                      className={`w-full flex items-start gap-2 p-3 rounded-lg border text-xs text-left cursor-pointer hover:brightness-95 transition ${cls}`}>
-                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                      <span className="flex-1">{p.msg}</span>
-                      <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-60" />
+                      className="w-full flex items-start gap-3 px-3 py-3 rounded-2xl text-sm text-left text-stone-800 cursor-pointer hover:bg-sand-100 transition-colors">
+                      <span className={`w-2.5 h-2.5 mt-1.5 rounded-full shrink-0 ${cls}`} aria-hidden="true" />
+                      <span className="flex-1 leading-snug">{p.msg}</span>
+                      <ChevronRight className="w-4 h-4 mt-0.5 shrink-0 text-stone-400" />
                     </button>
                   );
                 })}

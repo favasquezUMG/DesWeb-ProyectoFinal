@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Clock, Download, Printer } from "lucide-react";
+import { CheckCircle2, Clock, Download, Printer } from "./Iconos";
 import { Stepper, Input, Select, Textarea, Btn, AlertBanner } from "./Ui";
 import { MALLA_CNB } from "../data";
 import {
@@ -163,14 +163,14 @@ export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuarda
         </div>
         <div className="text-right">
           <p className="text-xs text-stone-500">Número de solicitud</p>
-          <p className="font-mono-data font-semibold text-primary-700">{solicitud.numero}</p>
+          <p className="font-display font-bold tabular-nums text-primary-700">{solicitud.numero}</p>
         </div>
       </div>
 
       <p className="text-xs text-stone-500 mb-4">Fecha de emisión: {formatearFecha(solicitud.fechaSolicitud)}</p>
 
       <section className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-700 border-b border-stone-200 pb-1 mb-2">Datos del encargado</h3>
+        <h3 className="font-display text-lg font-bold text-stone-900 pb-2 mb-3 border-b-[1.5px] border-stone-200">Datos del encargado</h3>
         <p>Nombre: {solicitud.encargado.nombres} {solicitud.encargado.apellidos}</p>
         <p>DPI: {solicitud.encargado.dpi}</p>
         <p>Teléfono: {solicitud.encargado.telefono}</p>
@@ -179,7 +179,7 @@ export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuarda
       </section>
 
       <section className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-700 border-b border-stone-200 pb-1 mb-2">Datos del alumno</h3>
+        <h3 className="font-display text-lg font-bold text-stone-900 pb-2 mb-3 border-b-[1.5px] border-stone-200">Datos del alumno</h3>
         <p>Nombre: {solicitud.alumno.nombres} {solicitud.alumno.apellidos}</p>
         <p>Fecha de nacimiento: {formatearFecha(solicitud.alumno.fechaNacimiento)}</p>
         <p>Nivel: {solicitud.alumno.nivel}</p>
@@ -189,7 +189,7 @@ export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuarda
       </section>
 
       <section className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-700 border-b border-stone-200 pb-1 mb-2">Documentos a presentar en la sede</h3>
+        <h3 className="font-display text-lg font-bold text-stone-900 pb-2 mb-3 border-b-[1.5px] border-stone-200">Documentos a presentar en la sede</h3>
         <ul className="list-disc list-inside space-y-0.5">
           {solicitud.documentos.map((d) => <li key={d}>{d}</li>)}
         </ul>
@@ -372,7 +372,7 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Solicitud de inscripción</h2>
+        <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Solicitud de inscripción</h2>
         <p className="text-stone-500 text-sm">
           {modo === "publico"
             ? "Complete los siguientes pasos para solicitar el cupo de su hijo. La documentación se entrega físicamente en la sede."
@@ -506,7 +506,7 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
 
           <div>
             <p className="text-sm text-stone-500">Número de solicitud</p>
-            <p className="font-display text-2xl font-semibold text-primary-700 font-mono-data">{solicitudGuardada.numero}</p>
+            <p className="font-display text-2xl font-bold text-primary-700 font-mono-data">{solicitudGuardada.numero}</p>
           </div>
 
           <div className="px-4 py-3 bg-warning-50 border border-warning-200 rounded-lg text-left">

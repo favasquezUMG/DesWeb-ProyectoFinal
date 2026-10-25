@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Edit, Users, GraduationCap, ShieldAlert, Inbox } from "lucide-react";
+import { Plus, Edit, Users, GraduationCap, ShieldAlert, Inbox } from "../../../components/Iconos";
 import { Card, Btn, Badge, AlertBanner, Input, Select, Textarea, Toggle, EmptyState } from "../../../components/Ui";
 import {
   createProgramaBeca,
@@ -167,7 +167,7 @@ export default function ProgramasBeca({ programas, anioLectivo, colegiatura, onC
                   </button>
                 </div>
 
-                <p className="font-display text-3xl font-semibold text-primary-700 mt-3">{porcentaje}%</p>
+                <p className="font-display text-3xl font-bold text-primary-700 mt-3">{porcentaje}%</p>
                 <p className="text-xs text-stone-500">{formatQ(colegiatura * porcentaje / 100)} de descuento al mes</p>
 
                 <div className="mt-4">
