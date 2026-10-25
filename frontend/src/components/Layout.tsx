@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import type { Role, View } from "../types";
 import type { AppUser } from "../types";
 import NotificacionesMenu from "./NotificacionesMenu";
-import BuscadorSecciones from "./BuscadorSecciones";
 import MiCuentaModal from "./MiCuentaModal";
 import {
   LayoutDashboard, School, BookOpen, FileBarChart, Users, ShieldCheck,
@@ -224,8 +223,6 @@ function Topbar({ user, currentView, navItems, sede, onNavigate, onLogout, onMen
           {sede}
         </div>
       )}
-
-      <BuscadorSecciones secciones={navItems} onNavigate={onNavigate} />
 
       <NotificacionesMenu />
 

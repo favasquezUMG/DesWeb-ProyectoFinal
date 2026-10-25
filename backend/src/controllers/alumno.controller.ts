@@ -10,6 +10,7 @@ import { registrarBitacora, obtenerBitacora } from '../services/bitacora.service
 import { MAX_ENCARGADOS_ACTIVOS, PARENTESCOS, filtroVinculo, validarVinculos } from '../services/vinculos.service.js';
 import { asegurarRegistrosDeRol, correoEnUso, generarPasswordTemporal, normalizarEmail } from '../services/usuarios.service.js';
 import { accesoPorNivel, tieneAccesoPortal } from '../services/accesoPortal.service.js';
+import { actualizarSalud, leerSalud } from '../services/salud.service.js';
 
 const responderError = (res: Response, error: unknown, mensaje: string) => {
     if (error instanceof ReglaNegocioError) {
@@ -59,6 +60,9 @@ export const getAlumnos = async (req: AuthenticatedRequest, res: Response) => {
                 fechaNacimiento: true,
                 usuario: { select: { nombres: true, apellidos: true, email: true } },
                 accesoPortal: true,
+                necesidadesApoyo: true,
+                alergias: true,
+                medicamentos: true,
                 seccion: { select: { seccionId: true, nombre: true, sedeId: true, grado: { select: { nombre: true, nivel: true } } } },
                 encargados: {
                     where: { activo: true },
@@ -489,7 +493,7 @@ export const getConteoAlumnos = async (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    const anioActual = new Date().getFullYear(); // 2026
+    const anioActual = new Date().getFullYear();
     const inicioAnioActual = new Date(`${anioActual}-01-01T00:00:00.000Z`);
 
     // 1. Total de alumnos activos en el sistema hoy
@@ -555,7 +559,6 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
       });
     }
 
-    // 1
     const alumnosActivos = await prisma.usuario.findMany({
       where: {
         rolId: rolAlumno.rolId,
@@ -636,14 +639,13 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
     let alumnosAprobados = 0;
     let sumaPromediosGenerales = 0;
 
-    // 3
     Object.values(promediosAlumnos).forEach((totalesUnidad) => {
       const promedioAlumno =
         totalesUnidad.reduce((acc, curr) => acc + curr, 0) / totalesUnidad.length;
 
       sumaPromediosGenerales += promedioAlumno;
 
-      // Criterio de aprobación: Nota Final >= 61 (o 60 según colegio)
+      // Criterio de aprobación: Nota Final >= 61
       if (promedioAlumno >= 61) {
         alumnosAprobados++;
       }
@@ -716,5 +718,18 @@ export const setAccesoPortal = async (req: AuthenticatedRequest, res: Response) 
         });
     } catch (error) {
         return responderError(res, error, 'Error al cambiar el acceso al portal.');
+    }
+};
+
+// PUT /api/alumnos/:id/salud  { necesidadesApoyo, alergias, medicamentos }  (texto o null)
+export const setSaludAlumno = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const alumnoId = leerId(req.params.id);
+        const datos = leerSalud(req.body);
+        const alumno = await verificarAlumnoDeMiSede(req, alumnoId);
+        const data = await actualizarSalud(alumnoId, datos, Number(req.user?.id), 'La sede');
+        return res.json({ status: 'success', message: `Información de salud de ${nombreDe(alumno.usuario)} actualizada.`, data });
+    } catch (error) {
+        return responderError(res, error, 'Error al guardar la información de salud.');
     }
 };

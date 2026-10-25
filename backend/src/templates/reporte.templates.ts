@@ -1,4 +1,4 @@
-const NOMBRE_COLEGIO = process.env.COLEGIO_NOMBRE || "DERCAS - Sistema Escolar";
+const NOMBRE_COLEGIO = process.env.COLEGIO_NOMBRE || "Colegio Vanguardia";
 
 const documentoBase = (tituloReporte: string, contenidoHtml: string): string => `
 <!DOCTYPE html>

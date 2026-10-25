@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, AlertOctagon, UserX } from "../../components/Iconos";
+import { Search, Users, AlertOctagon, UserX, Heart } from "../../components/Iconos";
 import { Card, SectionHeader, Badge, Drawer, AlertBanner, TH, TD } from "../../components/Ui";
-import { getAlumnos, setAccesoPortalAlumno, type AlumnoDto } from "../../lib/api";
+import { getAlumnos, setAccesoPortalAlumno, setSaludAlumno, type AlumnoDto, type DatosSaludDto } from "../../lib/api";
+import { IndicadorSalud, ModalSalud } from "../../components/InfoSalud";
 import { nombreDe } from "../../lib/becas";
 import EncargadosAlumno from "./EncargadosAlumno";
 
@@ -19,6 +20,14 @@ export default function AlumnosView() {
   const [abierto, setAbierto] = useState<AlumnoDto | null>(null);
   const [aviso, setAviso] = useState("");
   const [guardandoAcceso, setGuardandoAcceso] = useState<number | null>(null);
+  const [saludDe, setSaludDe] = useState<AlumnoDto | null>(null);
+
+  async function guardarSalud(datos: DatosSaludDto) {
+    if (!saludDe) return;
+    const res = await setSaludAlumno(saludDe.alumnoId, datos);
+    setAlumnos((prev) => prev.map((x) => (x.alumnoId === saludDe.alumnoId ? { ...x, ...res.data } : x)));
+    setAviso(res.message);
+  }
 
   // "nivel" = regla por defecto (Primaria sin acceso); "si"/"no" = excepción de la sede
   async function cambiarAcceso(a: AlumnoDto, opcion: string) {
@@ -106,6 +115,7 @@ export default function AlumnosView() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-stone-900 text-[15px]">{nombreDe(a.usuario)}</p>
                       {a.tieneRestriccion && <span title="Tiene una restricción judicial registrada"><AlertOctagon className="w-4 h-4 text-danger-700" /></span>}
+                      <IndicadorSalud salud={a} onClick={() => setSaludDe(a)} />
                     </div>
                     <p className="text-xs text-stone-400">{a.usuario.email}</p>
                   </TD>
@@ -127,7 +137,10 @@ export default function AlumnosView() {
                       </select>
                     </div>
                   </TD>
-                  <TD className="text-right">
+                  <TD className="text-right whitespace-nowrap">
+                    <button onClick={() => setSaludDe(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
+                      <Heart className="w-3.5 h-3.5" />Salud
+                    </button>
                     <button onClick={() => setAbierto(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
                       <Users className="w-3.5 h-3.5" />Encargados
                     </button>
@@ -141,6 +154,8 @@ export default function AlumnosView() {
           </table>
         </div>
       </Card>
+
+      <ModalSalud alumno={saludDe ? nombreDe(saludDe.usuario) : null} salud={saludDe ?? {}} onCerrar={() => setSaludDe(null)} onGuardar={guardarSalud} />
 
       <Drawer open={!!abierto} onClose={() => setAbierto(null)} title="Encargados del alumno">
         {abierto && <EncargadosAlumno alumnoId={abierto.alumnoId} onCambio={() => { cargar().catch(() => {}); }} />}

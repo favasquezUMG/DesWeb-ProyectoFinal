@@ -7,7 +7,6 @@ import { encargadosDeAlumno, enviarADestinatarios, enviarEnSegundoPlano } from "
 import { plantillaBoletaNotas } from "../templates/mail.templates.js";
 import { puedeGestionarCursoSeccion, puedeVerAlumno } from "../services/acceso.service.js";
 
-//Get All
 export const getNotas = async (_req: Request, res: Response) => {
   try {
     const grades = await prisma.nota.findMany({
@@ -31,7 +30,6 @@ export const getNotas = async (_req: Request, res: Response) => {
   }
 }
 
-//Get By ActivityId
 export const getNotasByActivity = async (req: Request, res: Response) => {
     const { activityId } = req.params;
 
@@ -78,7 +76,6 @@ export const getNotasByActivity = async (req: Request, res: Response) => {
     }
 }
 
-//Get By StudentId
 export const getNotasByStudent = async (req: AuthenticatedRequest, res: Response) => {
     const { studentId } = req.params;
 
@@ -267,7 +264,7 @@ export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Res
 
     const alumnos = await prisma.alumno.findMany({
       where: { seccionId: cursoSeccion.seccionId, usuario: { deletedAt: null } },
-      select: { alumnoId: true, usuario: { select: { nombres: true, apellidos: true } } },
+      select: { alumnoId: true, usuario: { select: { nombres: true, apellidos: true } }, necesidadesApoyo: true, alergias: true, medicamentos: true },
       orderBy: [{ usuario: { apellidos: 'asc' } }, { usuario: { nombres: 'asc' } }],
     });
 
@@ -294,7 +291,7 @@ export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Res
             fecha: a.fecha ? a.fecha.toISOString().slice(0, 10) : null,
           })),
         })),
-        alumnos: alumnos.map((a) => ({ alumnoId: a.alumnoId, nombres: a.usuario.nombres, apellidos: a.usuario.apellidos })),
+        alumnos: alumnos.map(({ usuario, ...a }) => ({ ...a, nombres: usuario.nombres, apellidos: usuario.apellidos })),
         notas: notas.map((n) => ({ actividadId: n.actividadId, alumnoId: n.alumnoId, valor: Number(n.valor) })),
       },
     });
@@ -415,9 +412,8 @@ export const enviarNotasAEncargados = async (req: AuthenticatedRequest, res: Res
 
 export const getTendenciaNotas = async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const anioActual = new Date().getFullYear(); // 2026
+    const anioActual = new Date().getFullYear();
 
-    // Consultamos las notas registradas durante el año lectivo en curso
     const notas = await prisma.nota.findMany({
       where: {
         fechaRegistro: {

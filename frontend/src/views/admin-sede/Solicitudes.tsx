@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Search, FileText, CheckCircle2, XCircle, Clock, AlertTriangle, UserCheck, Copy, Printer } from "../../components/Iconos";
+import { Search, FileText, CheckCircle2, XCircle, Clock, AlertTriangle, UserCheck, Copy, Printer, Heart } from "../../components/Iconos";
+import { DetalleSalud, tieneSalud } from "../../components/InfoSalud";
 import { Card, SectionHeader, Badge, Btn, Drawer, Modal, AlertBanner, Select, Textarea, TH, TD, EmptyState } from "../../components/Ui";
 import {
   getSolicitudesAdmin, getOpcionesAprobacion, marcarSolicitud, aprobarSolicitud, rechazarSolicitud,
@@ -153,6 +154,12 @@ export default function SolicitudesView() {
   );
 }
 
+const saludDe = (s: SolicitudDto) => ({
+  necesidadesApoyo: s.alumnoNecesidadesApoyo,
+  alergias: s.alumnoAlergias,
+  medicamentos: s.alumnoMedicamentos,
+});
+
 function Dato({ k, v }: { k: string; v: string | null | undefined }) {
   return (
     <div>
@@ -259,6 +266,15 @@ function DetalleSolicitud({ solicitud: s, onResuelta, onCambio }: {
           <Dato k="Grado solicitado" v={gradoPedido(s)} />
           <Dato k="Sede" v={s.sede?.nombre} />
         </dl>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold text-stone-800 mb-2 flex items-center gap-2">
+          Salud y necesidades de apoyo
+          {tieneSalud(saludDe(s)) && <Badge variant="danger"><Heart className="w-3 h-3" />Requiere atención</Badge>}
+        </h3>
+        {tieneSalud(saludDe(s)) ? <DetalleSalud salud={saludDe(s)} /> : <p className="text-sm text-stone-400">El encargado no indicó información de salud.</p>}
+        <p className="text-xs text-stone-400 mt-2">Al aprobar la solicitud, esta información pasa a la ficha del alumno.</p>
       </section>
 
       <section>

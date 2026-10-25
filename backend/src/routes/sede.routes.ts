@@ -15,9 +15,9 @@ router.get("/", get);
 
 router.use(authenticateToken);
 
-router.post("/", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), crearSede);
-router.put("/:id", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), actualizarSede);
-router.get("/metricas", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL), getSedesMetricas);
-router.get("/dashboard", verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getDashboardSede);
+router.post("/", verificarRol(ROL.ADMIN_GENERAL), crearSede);
+router.put("/:id", verificarRol(ROL.ADMIN_GENERAL), actualizarSede);
+router.get("/metricas", verificarRol(ROL.ADMIN_GENERAL), getSedesMetricas);
+router.get("/dashboard", verificarRol(ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getDashboardSede);
 
 export default router;

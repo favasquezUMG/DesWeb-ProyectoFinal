@@ -3,13 +3,11 @@ import type { AuthenticatedRequest } from './auth.middleware.js';
 import { prisma } from '../lib/prisma.js';
 
 export const ROL = {
-    ADMIN: 'Admin',
     ADMIN_GENERAL: 'Administrador General',
     ADMIN_SEDE: 'Administrador de Sede',
     CATEDRATICO: 'Catedratico',
     ALUMNO: 'Alumno',
     ENCARGADO: 'Encargado',
-    COORDINADOR: 'Coordinador',
 } as const;
 
 export type NombreRol = (typeof ROL)[keyof typeof ROL];
@@ -71,14 +69,11 @@ export const obtenerNombreRol = async (req: AuthenticatedRequest): Promise<strin
 
 // Administrador General: ve y opera todas las sedes y tiene todos los permisos
 export const esAlcanceGlobal = (nombreRol: string | undefined): boolean =>
-    nombreRol === ROL.ADMIN_GENERAL || nombreRol === ROL.ADMIN;
+    nombreRol === ROL.ADMIN_GENERAL;
 
 // Personal administrativo: los administradores y los roles creados por el colegio
 export const esPersonalAdministrativo = (nombreRol: string | undefined): boolean =>
     !!nombreRol && !ROLES_DE_COMUNIDAD.includes(nombreRol);
-
-export const esAdministrador = (nombreRol: string | undefined): boolean =>
-    nombreRol === ROL.ADMIN || nombreRol === ROL.ADMIN_GENERAL || nombreRol === ROL.ADMIN_SEDE;
 
 export const permisosDeRol = async (rolId: number): Promise<string[]> => {
     const rol = (await cargarRoles()).get(rolId);

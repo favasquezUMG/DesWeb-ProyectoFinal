@@ -75,7 +75,6 @@ export const getHorarios = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-//Get by ID
 export const getHorarioById = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
@@ -131,7 +130,6 @@ export const verificarChoque = async (req: AuthenticatedRequest, res: Response) 
     }
 };
 
-//Post create
 export const createHorario = async (req: AuthenticatedRequest, res: Response) => {
     const { cursoSeccionId } = req.body;
 
@@ -187,7 +185,6 @@ export const createHorario = async (req: AuthenticatedRequest, res: Response) =>
     }
 };
 
-//Put
 export const updateHorario = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
@@ -235,7 +232,6 @@ export const updateHorario = async (req: AuthenticatedRequest, res: Response) =>
     }
 };
 
-//Delete
 export const deleteHorarioById = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 

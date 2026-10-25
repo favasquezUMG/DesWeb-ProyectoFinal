@@ -141,7 +141,6 @@ function DashboardConsolidado() {
     cargarActividades();
   }, []);
 
-  // Mapeamos las sedes obtenidas del backend al formato que consume BarChart
   const sedeData = metricasSede.map((s) => ({
     sede: s.nombre.replace("Sede ", ""), // Nombre limpio para el eje X
     alumnos: s.alumnos,
@@ -149,13 +148,13 @@ function DashboardConsolidado() {
     mora: s.mora,
   }));
 
-  const anioActual = new Date().getFullYear(); // 2026
+  const anioActual = new Date().getFullYear();
   const colores = [
-    "bg-success-600", // Verde
-    "bg-info-600",    // Azul
-    "bg-warning-600", // Naranja / Amarillo
-    "bg-primary-600", // Púrpura / Primario
-    "bg-stone-400"    // Gris
+    "bg-success-600",
+    "bg-info-600",
+    "bg-warning-600",
+    "bg-primary-600",
+    "bg-stone-400"
   ];
 
   return (
@@ -170,7 +169,7 @@ function DashboardConsolidado() {
         }
       />
 
-      {/* Metrics */}
+      {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard label="Total alumnos"
           value={alumnosMetric ? alumnosMetric.total.toLocaleString() : "..."}
@@ -197,14 +196,13 @@ function DashboardConsolidado() {
         />
       </div>
 
-      {/* Charts */}
+      {/* Gráficas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-        {/* Rendimiento Académico (Toma 2 columnas y ocupa el 100% de la altura) */}
+        {/* Rendimiento Académico */}
         <Card className="lg:col-span-2 p-5 flex flex-col h-full">
           <h3 className="font-display font-bold text-stone-900 text-lg mb-4">
             Rendimiento Académico Promedio
           </h3>
-          {/* flex-1 y min-h-[280px] fuerzan al gráfico a estirarse al alto de la Card vecina */}
           <div className="flex-1 min-h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={tendenciaNotasMetric}>
@@ -224,7 +222,7 @@ function DashboardConsolidado() {
           </div>
         </Card>
 
-        {/* Actividad Reciente (Toma 1 columna, altura delimitada y scroll elegante) */}
+        {/* Actividad Reciente */}
         <Card className="p-5 flex flex-col h-full">
           <h3 className="font-display font-bold text-stone-900 text-lg mb-4">
             Actividad reciente
@@ -237,7 +235,6 @@ function DashboardConsolidado() {
                 <div key={act.id} className="flex items-start gap-2.5 text-sm pb-1 border-b border-stone-50 last:border-0">
                   <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${color}`} />
                   <div className="flex-1 min-w-0">
-                    {/* line-clamp-2 recorta a máximo 2 líneas para evitar tarjetas gigantes */}
                     <p className="font-medium text-stone-800 text-xs leading-snug line-clamp-2">
                       {act.detalle}
                     </p>
@@ -256,7 +253,7 @@ function DashboardConsolidado() {
         </Card>
       </div>
 
-      {/* Sedes comparison */}
+      {/* Comparación de sedes */}
       <Card className="p-5">
         <h3 className="font-display font-bold text-stone-900 text-lg mb-4">Comparativa por sede</h3>
         <ResponsiveContainer width="100%" height={200}>

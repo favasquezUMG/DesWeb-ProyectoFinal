@@ -15,7 +15,7 @@ const sinAcentos = (texto: string) =>
     texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 
 // Usuario institucional del alumno (no es un buzón real): nombre.apellido[n]@dominio
-export const generarCorreoAlumno = async (nombres: string, apellidos: string): Promise<string> => {
+const generarCorreoAlumno = async (nombres: string, apellidos: string): Promise<string> => {
     const base = `${sinAcentos(nombres.split(/\s+/)[0]) || "alumno"}.${sinAcentos(apellidos.split(/\s+/)[0]) || "dercas"}`;
     for (let n = 1; n < 1000; n++) {
         const email = `${base}${n === 1 ? "" : n}@${DOMINIO_ALUMNOS}`;
@@ -159,6 +159,9 @@ export const aprobarSolicitud = async (solicitudId: number, opciones: OpcionesAp
                 seccionId: seccion.seccionId,
                 fechaNacimiento: solicitud.alumnoFechaNacimiento,
                 accesoPortal: opciones.accesoPortal ?? null,
+                necesidadesApoyo: solicitud.alumnoNecesidadesApoyo,
+                alergias: solicitud.alumnoAlergias,
+                medicamentos: solicitud.alumnoMedicamentos,
             },
         });
 

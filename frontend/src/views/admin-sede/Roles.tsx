@@ -282,7 +282,7 @@ export default function RolesView() {
         <div className="space-y-4">
           {formError && <AlertBanner type="error" message={formError} />}
           <Input label="Nombre" value={form.nombre} disabled={editando !== "nuevo" && editando?.esSistema}
-            onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Secretaría, Contabilidad, Orientación" />
+            onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Secretaría, Orientación" />
           {editando !== "nuevo" && editando?.esSistema && (
             <p className="text-xs text-stone-500 -mt-2">Es un rol de sistema: no se puede renombrar.</p>
           )}

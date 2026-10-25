@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, User, Bell, BookOpen,
-  KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock,
+  KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock, Heart,
 } from "../components/Iconos";
 import type { AppUser, View } from "../types";
 import {
   getEstadoCuenta, getMisHijos, getHijosEncargado, getBoletinHijo, getOpcionesMatricula, crearMatricula,
-  getAsistenciaHijos, setNotificacionesHijo, cambiarPassword, restablecerPasswordHijo, getHorarioHijo, getEventos,
+  getAsistenciaHijos, setNotificacionesHijo, cambiarPassword, restablecerPasswordHijo, setSaludHijo, getHorarioHijo, getEventos,
   type EstadoCuentaDto, type HijoDto, type MesEstadoCuentaDto, type HijoEncargadoDto, type BoletinHijoDto,
   type OpcionesMatriculaDto, type SeccionMatriculaDto, type MatriculaCreadaResponse,
-  type AsistenciaHijoDto, type ClaseAlumnoDto, type EventoDto,
+  type AsistenciaHijoDto, type ClaseAlumnoDto, type EventoDto, type DatosSaludDto,
 } from "../lib/api";
+import { ModalSalud, tieneSalud } from "../components/InfoSalud";
 import { generarBoletinPdf } from "../lib/boletinPdf";
 import { PagoColegiaturaModal, formatoQ } from "../components/PagoColegiatura";
 import { CarritoBoton, claveColegiatura, useCarrito } from "../components/Carrito";
@@ -1074,6 +1075,14 @@ function PerfilView({ user }: { user?: AppUser }) {
   const [nuevaHijo, setNuevaHijo] = useState({ nueva: "", confirmar: "" });
   const [errorHijo, setErrorHijo] = useState("");
   const [guardandoHijo, setGuardandoHijo] = useState(false);
+  const [saludHijo, setSaludHijoAbierto] = useState<HijoEncargadoDto | null>(null);
+
+  async function guardarSaludHijo(datos: DatosSaludDto) {
+    if (!saludHijo) return;
+    const res = await setSaludHijo(saludHijo.alumnoId, datos);
+    setHijos((prev) => prev?.map((h) => (h.alumnoId === saludHijo.alumnoId ? { ...h, ...datos } : h)) ?? prev);
+    setAviso({ tipo: "success", texto: `${saludHijo.nombre.split(" ")[0]}: ${res.message}` });
+  }
 
   function abrirPassHijo(h: HijoEncargadoDto) {
     setPassHijo(h);
@@ -1226,6 +1235,15 @@ function PerfilView({ user }: { user?: AppUser }) {
                         </button>
                       )}
                     </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-stone-600">
+                      <span className="flex items-center gap-1">
+                        <Heart className={`w-3.5 h-3.5 ${tieneSalud(h) ? "text-danger-600" : "text-stone-400"}`} />
+                        {tieneSalud(h) ? "Tiene información de salud registrada" : "Sin información de salud registrada"}
+                      </span>
+                      <button onClick={() => setSaludHijoAbierto(h)} className="text-primary-700 hover:underline font-medium cursor-pointer">
+                        {h.esPrincipal || h.responsableFinanciero ? (tieneSalud(h) ? "Ver o actualizar" : "Agregar") : "Ver"}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className={`shrink-0 ${guardandoId === h.alumnoId ? "opacity-50 pointer-events-none" : ""}`}>
@@ -1237,6 +1255,9 @@ function PerfilView({ user }: { user?: AppUser }) {
           </div>
         )}
       </Card>
+
+      <ModalSalud alumno={saludHijo?.nombre ?? null} salud={saludHijo ?? {}} onCerrar={() => setSaludHijoAbierto(null)}
+        onGuardar={saludHijo && (saludHijo.esPrincipal || saludHijo.responsableFinanciero) ? guardarSaludHijo : undefined} />
 
       <Modal open={!!passHijo} onClose={() => !guardandoHijo && setPassHijo(null)} title={`Contraseña de ${passHijo?.nombre.split(" ")[0] ?? ""}`}
         footer={<>
