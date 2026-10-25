@@ -5,7 +5,7 @@ import {
   getEventos, crearEvento, actualizarEvento, eliminarEvento, enviarRecordatorioEvento,
   type EventoDto, type TipoEvento,
 } from "../../lib/api";
-import EventosCobro from "./EventosCobro";
+import Circulares from "./Circulares";
 
 const TIPOS: { id: TipoEvento; label: string; dot: string; badge: string }[] = [
   { id: "Festivo", label: "Festivo / Asueto (sin clases)", dot: "bg-success-600", badge: "bg-success-50 text-success-800 border-success-200" },
@@ -149,7 +149,7 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
       {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
       {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
 
-      <EventosCobro />
+      <Circulares />
 
       <div className="flex flex-wrap gap-2">
         {TIPOS.map((t) => (

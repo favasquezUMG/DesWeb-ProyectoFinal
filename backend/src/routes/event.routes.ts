@@ -5,8 +5,7 @@ import {
     createEvent,
     updateEvent,
     deleteEvent,
-    enviarRecordatorioAhora,
-    getInscritosEvento
+    enviarRecordatorioAhora
 } from "../controllers/event.controller.js";
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, ROL } from '../middlewares/role.middleware.js'
@@ -17,7 +16,6 @@ router.use(authenticateToken);
 
 router.get('/', permitir('calendario', ROL.CATEDRATICO, ROL.ENCARGADO, ROL.ALUMNO), getEvents);
 router.get('/:id', permitir('calendario', ROL.CATEDRATICO, ROL.ENCARGADO, ROL.ALUMNO), getEventById);
-router.get('/:id/inscritos', permitir('calendario'), getInscritosEvento);
 router.post('/', permitir('calendario'), createEvent);
 router.post('/:id/recordatorio', permitir('calendario'), enviarRecordatorioAhora);
 router.put('/:id', permitir('calendario'), updateEvent);
