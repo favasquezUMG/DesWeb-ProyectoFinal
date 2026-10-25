@@ -951,7 +951,8 @@ export interface EventoDto {
   tipoEvento: TipoEvento | string;
   enviarRecordatorio?: boolean;
   sede: { nombre: string } | null;
-  // Eventos con cobro (los paga el padre desde el carrito)
+  // Circular: los encargados autorizan (o no) la participación de sus hijos; puede tener costo
+  requiereAutorizacion: boolean;
   requierePago: boolean;
   costo: string | null;
   cupoMaximo: number | null;
@@ -1123,28 +1124,37 @@ export async function verificarPago(paymentIntentId: string): Promise<Verificaci
   return body.data;
 }
 
-// ─── Carrito de pagos (eventos con cobro + colegiaturas) ───────────────────────
+// ─── Cargos pendientes del encargado (colegiaturas y eventos autorizados) ──────
 
-export interface EventoDisponibleDto {
-  eventoId: number;
-  nombre: string;
-  descripcion: string | null;
-  tipoEvento: string;
-  fecha: string;
-  fechaLimiteInscripcion: string;
-  costo: number;
-  cupoMaximo: number | null;
-  /** null = sin límite de cupo. */
-  cuposDisponibles: number | null;
-  inscripcionAbierta: boolean;
-  alumnos: { alumnoId: number; nombre: string; inscrito: boolean }[];
-}
+export type CargoPendienteDto =
+  | {
+    tipo: "colegiatura";
+    alumnoId: number;
+    alumno: string;
+    anioLectivo: number;
+    mes: number;
+    descripcion: string;
+    monto: number;
+    vencido: boolean;
+  }
+  | {
+    tipo: "evento";
+    inscripcionId: number;
+    eventoId: number;
+    alumnoId: number;
+    alumno: string;
+    descripcion: string;
+    fechaEvento: string;
+    /** Último día para pagar; si no se paga, la participación se cancela (no genera mora). */
+    fechaLimite: string;
+    monto: number;
+  };
 
-export type ItemCarritoInput =
-  | { tipo: "evento"; alumnoId: number; eventoId: number }
-  | { tipo: "colegiatura"; alumnoId: number; anioLectivo: number; mes: number };
+export type ItemOrdenInput =
+  | { tipo: "colegiatura"; alumnoId: number; anioLectivo: number; mes: number }
+  | { tipo: "evento"; inscripcionId: number };
 
-export interface IntentCarritoDto {
+export interface IntentOrdenDto {
   ordenId: number;
   clientSecret: string;
   paymentIntentId: string;
@@ -1152,55 +1162,105 @@ export interface IntentCarritoDto {
   lineas: { tipo: "evento" | "colegiatura"; alumnoId: number; alumno: string; descripcion: string; monto: number }[];
 }
 
-export interface InscripcionDto {
-  inscripcionId: number;
-  eventoId: number;
-  evento: string;
-  fecha: string;
-  alumnoId: number;
-  alumno: string;
-  monto: number;
-  estado: "Confirmada" | "Reembolsada";
-  fechaPago: string | null;
-}
-
-export async function getEventosDisponibles(): Promise<EventoDisponibleDto[]> {
-  const body = await request<{ status: "success"; data: EventoDisponibleDto[] }>("/api/pagos/carrito/eventos");
-  return body.data;
-}
-
-export async function getMisInscripciones(): Promise<InscripcionDto[]> {
-  const body = await request<{ status: "success"; data: InscripcionDto[] }>("/api/pagos/carrito/inscripciones");
+/** Colegiaturas vencidas y del mes, y eventos autorizados sin pagar, de todos los hijos. */
+export async function getCargosPendientes(): Promise<CargoPendienteDto[]> {
+  const body = await request<{ status: "success"; data: CargoPendienteDto[] }>("/api/pagos/pendientes");
   return body.data;
 }
 
 /** El servidor valida cada concepto y calcula el total; el frontend solo dice qué quiere pagar. */
-export async function crearIntentCarrito(items: ItemCarritoInput[]): Promise<IntentCarritoDto> {
-  const body = await request<{ status: "success"; data: IntentCarritoDto }>("/api/pagos/carrito/intent", {
+export async function crearIntentOrden(items: ItemOrdenInput[]): Promise<IntentOrdenDto> {
+  const body = await request<{ status: "success"; data: IntentOrdenDto }>("/api/pagos/orden/intent", {
     method: "POST",
     body: JSON.stringify({ items }),
   });
   return body.data;
 }
 
-export async function verificarCarrito(paymentIntentId: string): Promise<VerificacionPagoDto> {
-  const body = await request<{ status: "success"; data: VerificacionPagoDto }>(`/api/pagos/carrito/verificar/${paymentIntentId}`);
+export async function verificarOrden(paymentIntentId: string): Promise<VerificacionPagoDto> {
+  const body = await request<{ status: "success"; data: VerificacionPagoDto }>(`/api/pagos/orden/verificar/${paymentIntentId}`);
   return body.data;
 }
 
-// ─── Eventos con cobro (administración) ───────────────────────────────────────
+// ─── Circulares de autorización ───────────────────────────────────────────────
 
-export interface InscritosEventoDto {
+/**
+ * Respuesta a una circular. null = todavía no responde.
+ * Autorizada = con costo, pendiente de pago (el cupo queda apartado); Confirmada = pagada o gratuita;
+ * Cancelada = venció la fecha límite sin pagar.
+ */
+export type EstadoAutorizacion = "Autorizada" | "Confirmada" | "NoAutorizada" | "Cancelada" | "Reembolsada";
+
+export interface CircularDto {
   eventoId: number;
   nombre: string;
+  descripcion: string | null;
+  tipoEvento: string;
+  fecha: string;
+  fechaLimite: string;
+  /** 0 = sin costo. */
+  costo: number;
   cupoMaximo: number | null;
-  inscritos: number;
-  recaudado: number;
-  detalle: { inscripcionId: number; alumnoId: number; alumno: string; grado: string; monto: number; estado: string; fechaPago: string | null }[];
+  /** null = sin límite de cupo. */
+  cuposDisponibles: number | null;
+  plazoAbierto: boolean;
+  alumnos: {
+    alumnoId: number;
+    nombre: string;
+    estado: EstadoAutorizacion | null;
+    inscripcionId: number | null;
+    monto: number | null;
+    fechaRespuesta: string | null;
+    /** Solo el encargado principal o el responsable financiero responde. */
+    puedeResponder: boolean;
+    puedePagar: boolean;
+  }[];
 }
 
-export async function getInscritosEvento(eventoId: number): Promise<InscritosEventoDto> {
-  const body = await request<{ status: "success"; data: InscritosEventoDto }>(`/api/events/${eventoId}/inscritos`);
+export async function getCirculares(): Promise<CircularDto[]> {
+  const body = await request<{ status: "success"; data: CircularDto[] }>("/api/circulares");
+  return body.data;
+}
+
+export async function responderCircular(eventoId: number, alumnoId: number, autoriza: boolean): Promise<{ message: string; estado: EstadoAutorizacion }> {
+  const body = await request<{ status: "success"; message: string; data: { estado: EstadoAutorizacion } }>(`/api/circulares/${eventoId}/respuesta`, {
+    method: "POST",
+    body: JSON.stringify({ alumnoId, autoriza }),
+  });
+  return { message: body.message, estado: body.data.estado };
+}
+
+export interface RespuestasCircularDto {
+  eventoId: number;
+  nombre: string;
+  fecha: string;
+  fechaLimite: string;
+  costo: number;
+  cupoMaximo: number | null;
+  resumen: {
+    total: number;
+    sinRespuesta: number;
+    noAutorizadas: number;
+    pendientesPago: number;
+    confirmadas: number;
+    canceladas: number;
+    reembolsadas: number;
+    recaudado: number;
+  };
+  detalle: {
+    alumnoId: number;
+    alumno: string;
+    grado: string;
+    estado: EstadoAutorizacion | null;
+    monto: number | null;
+    respondidoPor: string | null;
+    fechaRespuesta: string | null;
+    fechaPago: string | null;
+  }[];
+}
+
+export async function getRespuestasCircular(eventoId: number): Promise<RespuestasCircularDto> {
+  const body = await request<{ status: "success"; data: RespuestasCircularDto }>(`/api/circulares/${eventoId}/respuestas`);
   return body.data;
 }
 
@@ -1584,6 +1644,7 @@ export interface EventoInput {
   tipoEvento: TipoEvento | string;
   sedeId?: number | null;
   enviarRecordatorio?: boolean;
+  requiereAutorizacion?: boolean;
   requierePago?: boolean;
   costo?: number | null;
   cupoMaximo?: number | null;

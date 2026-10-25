@@ -9,7 +9,7 @@ import {
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
   ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard, FileText,
   User, ChevronLeft, ChevronRight, Menu, X, ChevronDown,
-  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, Ticket
+  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, FileSignature
 } from "lucide-react";
 
 // modulo: permiso que necesita el personal de sede para ver la opción del menú
@@ -64,7 +64,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Horario", view: "pad-horario", Icon: Clock },
     { label: "Calendario", view: "pad-calendario", Icon: CalendarDays },
     { label: "Pagos", view: "pad-pagos", Icon: CreditCard },
-    { label: "Eventos con cobro", view: "pad-eventos", Icon: Ticket },
+    { label: "Circulares", view: "pad-circulares", Icon: FileSignature },
     { label: "Becas", view: "pad-becas", Icon: Award },
     { label: "Avisos y Conducta", view: "pad-avisos", Icon: BellRing },
     { label: "Perfil", view: "pad-perfil", Icon: User },

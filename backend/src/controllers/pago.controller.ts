@@ -7,7 +7,7 @@ import { descuentoColegiatura } from '../services/becas.service.js';
 import { puedeVerAlumno } from '../services/acceso.service.js';
 import { hijosDe } from '../services/vinculos.service.js';
 import { sedeDelAlcance } from '../middlewares/role.middleware.js';
-import { OrdenEnProcesoError, liberarOrdenesPendientes } from '../services/carrito.service.js';
+import { OrdenEnProcesoError, liberarOrdenesPendientes } from '../services/ordenes.service.js';
 import { enviarComprobanteEnSegundoPlano, enviarComprobantePago } from '../services/comprobante.service.js';
 
 const sinAcceso = (res: Response) =>
@@ -175,7 +175,7 @@ export const crearIntentPago = async (req: AuthenticatedRequest, res: Response) 
             });
         }
 
-        // Si el mes estaba en un carrito sin pagar, ese carrito se cancela para no cobrarlo dos veces
+        // Si el mes estaba en una orden sin pagar, esa orden se cancela para no cobrarlo dos veces
         if (pagoExistente?.ordenId) await liberarOrdenesPendientes([pagoExistente.ordenId]);
 
         const fechaReferencia = new Date(Date.UTC(anio, mesNum - 1, 1));

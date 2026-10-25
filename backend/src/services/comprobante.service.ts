@@ -73,7 +73,7 @@ export const enviarComprobanteOrden = async (ordenId: number) => {
     });
 };
 
-// Pago de un mes suelto (sin carrito). El que pago viene en la metadata del PaymentIntent.
+// Pago de un mes suelto (sin orden). El que pago viene en la metadata del PaymentIntent.
 export const enviarComprobantePago = async (stripePaymentId: string) => {
     const pago = await prisma.pago.findUnique({ where: { stripePaymentId }, include: { alumno: seleccionNombre } });
     if (!pago) return;

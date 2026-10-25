@@ -9,12 +9,7 @@ import {
     getMisHijos,
     getMoraPagosMetrica
 } from '../controllers/pago.controller.js'
-import {
-    getEventosDisponibles,
-    crearIntentCarrito,
-    verificarCarrito,
-    getMisInscripciones
-} from '../controllers/carrito.controller.js'
+import { getPendientes, crearIntentOrden, verificarOrden } from '../controllers/cobro.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, ROL, verificarRol } from "../middlewares/role.middleware.js";
 
@@ -24,11 +19,10 @@ router.use(authenticateToken)
 
 router.get('/', permitir('pagos'), getPagos);
 router.get('/mis-hijos', verificarRol(ROL.ENCARGADO), getMisHijos);
-// Carrito: eventos con cobro y colegiaturas en un solo pago (solo encargados)
-router.get('/carrito/eventos', verificarRol(ROL.ENCARGADO), getEventosDisponibles);
-router.get('/carrito/inscripciones', verificarRol(ROL.ENCARGADO), getMisInscripciones);
-router.get('/carrito/verificar/:paymentIntentId', verificarRol(ROL.ENCARGADO), verificarCarrito);
-router.post('/carrito/intent', verificarRol(ROL.ENCARGADO), crearIntentCarrito);
+// Lo que el encargado tiene por pagar y el pago de varios conceptos juntos (colegiaturas y eventos autorizados)
+router.get('/pendientes', verificarRol(ROL.ENCARGADO), getPendientes);
+router.get('/orden/verificar/:paymentIntentId', verificarRol(ROL.ENCARGADO), verificarOrden);
+router.post('/orden/intent', verificarRol(ROL.ENCARGADO), crearIntentOrden);
 
 router.get('/metrica-mora', verificarRol(ROL.ADMIN, ROL.ADMIN_GENERAL, ROL.ADMIN_SEDE), getMoraPagosMetrica);
 router.get('/estado-cuenta/:alumnoId', getEstadoCuenta);
