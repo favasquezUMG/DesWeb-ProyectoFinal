@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { CalendarX2, CheckCircle2, Clock, FileCheck2, Send, Trash2, XCircle } from "lucide-react";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Input, Textarea, EmptyState, MetricCard } from "../components/Ui";
+import { CalendarX2, CheckCircle2, Clock, FileCheck2, Send, Trash2, XCircle } from "../components/Iconos";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Input, Textarea, EmptyState, Anillo, FechaBloque, colorDeCurso } from "../components/Ui";
 import {
   getAsistenciaHijos, solicitarJustificacion, cancelarJustificacion,
   type AsistenciaHijoDto, type EstadoAsistencia, type JustificacionDto,
@@ -125,47 +125,60 @@ export default function AsistenciaPadre() {
 
         return (
           <Card key={hijo.alumnoId} className="overflow-hidden">
-            <div className="p-5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="font-display text-lg font-semibold text-stone-900">{hijo.nombre}</p>
-                <p className="text-sm text-stone-500">{hijo.grado}</p>
+            <div className="p-6 flex flex-col lg:flex-row lg:items-center gap-6">
+              <div className="flex items-center gap-5 flex-1 min-w-0">
+                <Anillo valor={r.porcentaje} size={92} grosor={10} color={r.porcentaje >= 80 ? "#0f7b5f" : "#d99e00"}>
+                  <span className="font-display font-bold text-xl tabular-nums text-stone-900">{Math.round(r.porcentaje)}%</span>
+                </Anillo>
+                <div className="min-w-0">
+                  <p className="font-display text-2xl font-bold text-stone-900 leading-tight">{hijo.nombre}</p>
+                  <p className="text-sm text-stone-500 mt-0.5">{hijo.grado}</p>
+                </div>
               </div>
+              <dl className="flex gap-6 sm:gap-8">
+                {[["Faltas sin justificar", r.ausentes, "text-danger-700"], ["Justificadas", r.justificados, "text-stone-900"], ["Tardanzas", r.tardes, "text-warning-700"]].map(([k, v, c]) => (
+                  <div key={k as string}>
+                    <dd className={`font-display font-bold text-3xl tabular-nums leading-none ${c}`}>{v}</dd>
+                    <dt className="text-[13px] text-stone-500 mt-1.5">{k}</dt>
+                  </div>
+                ))}
+              </dl>
               <Btn variant="outline" size="sm" icon={<FileCheck2 className="w-4 h-4" />} onClick={() => abrir(hijo)}>
                 Justificar una ausencia
               </Btn>
             </div>
 
-            <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <MetricCard label="Asistencia" value={`${r.porcentaje}%`} variant={r.porcentaje >= 80 ? "success" : "warning"} />
-              <MetricCard label="Faltas" value={r.ausentes} sub="sin justificar" />
-              <MetricCard label="Justificadas" value={r.justificados} />
-              <MetricCard label="Tardanzas" value={r.tardes} />
-            </div>
-
-            <div className="px-5 pb-5">
+            <div className="px-6 pb-6">
               {fechas.length === 0 ? (
                 <p className="text-sm text-stone-500 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-success-600" />Sin faltas ni tardanzas registradas.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="border-t border-stone-100">
                   {fechas.map((fecha) => {
                     const clases = clasesDe.get(fecha) ?? [];
                     const j = porFecha.get(fecha);
                     const tieneFaltas = clases.some((c) => c.estado === "Ausente");
                     const puedeSolicitar = tieneFaltas && (!j || j.estado === "Rechazada");
                     return (
-                      <div key={fecha} className="p-3 bg-stone-50 border border-stone-100 rounded-xl">
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-stone-900 capitalize">{formatDia(fecha)}</p>
+                      <div key={fecha} className="py-4 border-b border-stone-100 last:border-b-0">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="flex items-start gap-4 min-w-0">
+                            <FechaBloque iso={fecha} tono={tieneFaltas ? "action" : "neutral"} />
+                            <div className="min-w-0">
+                            <p className="text-[15px] font-bold text-stone-900 capitalize">{formatDia(fecha)}</p>
                             {clases.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2">
                                 {clases.map((c, i) => (
-                                  <Badge key={i} variant={ESTADO_CLASE[c.estado].variant}>{c.curso}: {ESTADO_CLASE[c.estado].label}</Badge>
+                                  <span key={i} className="inline-flex items-center gap-1.5 text-[13px]">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${colorDeCurso(c.curso).solid}`} aria-hidden="true" />
+                                    <span className="text-stone-700 font-medium">{c.curso}</span>
+                                    <span className={`font-bold ${ESTADO_CLASE[c.estado].variant === "success" ? "text-success-700" : ESTADO_CLASE[c.estado].variant === "danger" ? "text-danger-700" : ESTADO_CLASE[c.estado].variant === "warning" ? "text-warning-700" : "text-info-700"}`}>{ESTADO_CLASE[c.estado].label}</span>
+                                  </span>
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-xs text-stone-500 mt-1">Ausencia avisada con anticipación.</p>
+                              <p className="text-[13px] text-stone-500 mt-1">Ausencia avisada con anticipación.</p>
                             )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {j && (
@@ -184,7 +197,7 @@ export default function AsistenciaPadre() {
                           </div>
                         </div>
                         {j && (
-                          <div className="mt-2 text-xs text-stone-600 space-y-1">
+                          <div className="mt-3 ml-16 text-[13px] text-stone-600 space-y-1 bg-sand-100 rounded-2xl px-4 py-3">
                             <p><span className="font-medium">Motivo:</span> {j.motivo}</p>
                             {j.comentario && <p><span className="font-medium">Respuesta de la sede:</span> {j.comentario}</p>}
                           </div>

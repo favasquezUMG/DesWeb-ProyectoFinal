@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Bell, Send, FileText } from "lucide-react";
+import { Plus, Bell, Send, FileText } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal } from "../../components/Ui";
 import {
   getComunicados,
@@ -28,7 +28,7 @@ const DESTINOS: { value: DestinoComunicado; label: string }[] = [
   { value: "seccion", label: "Encargados de una sección…" },
 ];
 
-const INPUT_CLS = "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700";
+const INPUT_CLS = "w-full border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10";
 
 type Seccion = AlumnoDto["seccion"];
 
@@ -198,7 +198,7 @@ export default function NotificacionesView() {
         </div>
       </Card>
 
-      <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Historial de envíos</h3>
+      <h3 className="text-[13px] font-semibold text-stone-500">Historial de envíos</h3>
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">

@@ -1,6 +1,12 @@
+<<<<<<< HEAD:frontend/src/views/admin-sede/Circulares.tsx
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { FileSignature, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Input, Modal, Select, TD, TH, Textarea, Toggle } from "../../components/Ui";
+=======
+import { useCallback, useEffect, useState } from "react";
+import { Pencil, Plus, Ticket, Trash2, Users } from "../../components/Iconos";
+import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Input, Modal, Select, TD, TH, Textarea } from "../../components/Ui";
+>>>>>>> origin/main:frontend/src/views/admin-sede/EventosCobro.tsx
 import { formatoQ } from "../../components/PagoColegiatura";
 import {
   actualizarEvento,
@@ -144,8 +150,13 @@ export default function Circulares() {
     <Card className="overflow-hidden">
       <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between gap-3">
         <div>
+<<<<<<< HEAD:frontend/src/views/admin-sede/Circulares.tsx
           <h3 className="font-display font-semibold text-stone-900 flex items-center gap-2"><FileSignature className="w-4 h-4 text-primary-700" />Circulares de autorización</h3>
           <p className="text-xs text-stone-500 mt-0.5">Los encargados autorizan la participación de cada hijo. Si tiene costo, lo pagan desde su estado de cuenta; la beca no aplica.</p>
+=======
+          <h3 className="font-display font-bold text-stone-900 flex items-center gap-2"><Ticket className="w-4 h-4 text-primary-700" />Eventos con cobro</h3>
+          <p className="text-xs text-stone-500 mt-0.5">Los padres los ven en su sección Eventos y los pagan desde el carrito. La beca no aplica a eventos.</p>
+>>>>>>> origin/main:frontend/src/views/admin-sede/EventosCobro.tsx
         </div>
         <Btn variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => abrir("nuevo")}>Nueva circular</Btn>
       </div>
@@ -164,14 +175,19 @@ export default function Circulares() {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
+<<<<<<< HEAD:frontend/src/views/admin-sede/Circulares.tsx
             <thead className="bg-stone-50 border-b border-stone-100">
               <tr><TH>Evento</TH><TH>Fecha</TH><TH>Sede</TH><TH className="text-right">Costo</TH><TH>Cupo</TH><TH>Responder hasta</TH><TH className="text-right">Acciones</TH></tr>
+=======
+            <thead>
+              <tr><TH>Evento</TH><TH>Fecha</TH><TH>Sede</TH><TH className="text-right">Costo</TH><TH>Cupo</TH><TH>Inscripción hasta</TH><TH className="text-right">Acciones</TH></tr>
+>>>>>>> origin/main:frontend/src/views/admin-sede/EventosCobro.tsx
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {eventos.map((e) => (
-                <tr key={e.eventoId} className="hover:bg-stone-50">
-                  <TD><span className="font-medium text-stone-900">{e.nombre}</span></TD>
-                  <TD><span className="text-xs font-mono-data">{formatoFecha(e.fecha)}</span></TD>
+                <tr key={e.eventoId} className="hover:bg-sand-50">
+                  <TD><span className="font-semibold text-stone-900">{e.nombre}</span></TD>
+                  <TD><span className="text-[13px] text-stone-500 tabular-nums">{formatoFecha(e.fecha)}</span></TD>
                   <TD>{e.sede?.nombre ?? <Badge>Todas</Badge>}</TD>
                   <TD className="text-right">
                     {e.requierePago
@@ -179,7 +195,7 @@ export default function Circulares() {
                       : <span className="text-stone-400">Sin costo</span>}
                   </TD>
                   <TD>{e.cupoMaximo ?? <span className="text-stone-400">Sin límite</span>}</TD>
-                  <TD><span className="text-xs font-mono-data">{e.fechaLimiteInscripcion ? formatoFecha(e.fechaLimiteInscripcion) : "Día anterior"}</span></TD>
+                  <TD><span className="text-[13px] text-stone-500 tabular-nums">{e.fechaLimiteInscripcion ? formatoFecha(e.fechaLimiteInscripcion) : "Día anterior"}</span></TD>
                   <TD className="text-right">
                     <div className="flex justify-end gap-1">
                       <Btn variant="ghost" size="sm" icon={<Users className="w-4 h-4" />} onClick={() => verRespuestas(e)}>Respuestas</Btn>
@@ -248,8 +264,45 @@ export default function Circulares() {
         </p>
       </Modal>
 
+<<<<<<< HEAD:frontend/src/views/admin-sede/Circulares.tsx
       <Drawer open={respuestas !== null} onClose={() => setRespuestas(null)} title={respuestas ? `Respuestas — ${respuestas.nombre}` : "Respuestas"}>
         {respuestas && <DetalleRespuestas respuestas={respuestas} />}
+=======
+      <Drawer open={inscritos !== null} onClose={() => setInscritos(null)} title={inscritos ? `Inscritos — ${inscritos.nombre}` : "Inscritos"}>
+        {inscritos && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-stone-200 p-3">
+                <p className="text-xs text-stone-500">Inscritos</p>
+                <p className="text-2xl font-display font-bold text-primary-700">
+                  {inscritos.inscritos}{inscritos.cupoMaximo !== null && <span className="text-sm text-stone-400"> / {inscritos.cupoMaximo}</span>}
+                </p>
+              </div>
+              <div className="rounded-lg border border-stone-200 p-3">
+                <p className="text-xs text-stone-500">Recaudado</p>
+                <p className="text-2xl font-display font-bold text-success-700">{formatoQ(inscritos.recaudado)}</p>
+              </div>
+            </div>
+            {inscritos.detalle.length === 0 ? (
+              <p className="text-sm text-stone-500 text-center py-6">Todavía no hay alumnos inscritos.</p>
+            ) : (
+              <ul className="divide-y divide-stone-100 rounded-lg border border-stone-200">
+                {inscritos.detalle.map((i) => (
+                  <li key={i.inscripcionId} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-stone-900 truncate">{i.alumno}</p>
+                      <p className="text-xs text-stone-500">{i.grado}</p>
+                    </div>
+                    {i.estado === "Confirmada" ? <Badge variant="success">Pagado</Badge>
+                      : i.estado === "Pendiente" ? <Badge variant="warning">Pago en curso</Badge>
+                      : <Badge variant="info">Reembolsado</Badge>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+>>>>>>> origin/main:frontend/src/views/admin-sede/EventosCobro.tsx
       </Drawer>
     </Card>
   );

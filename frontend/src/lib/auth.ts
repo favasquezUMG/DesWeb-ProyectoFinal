@@ -4,7 +4,6 @@ const TOKEN_KEY = "dercas.token";
 const USER_KEY = "dercas.user";
 
 const ROLE_FROM_BACKEND: Record<string, Role> = {
-  "Admin": "admin-general",
   "Administrador General": "admin-general",
   "Administrador de Sede": "admin-sede",
   "Catedratico": "catedratico",
@@ -12,13 +11,13 @@ const ROLE_FROM_BACKEND: Record<string, Role> = {
   "Encargado": "padre",
 };
 
-// Los roles creados por el colegio (Secretaría, Contabilidad...) son personal administrativo:
+// Los roles creados por el colegio (ej. Secretaría) son personal administrativo:
 // usan la interfaz de sede y el menú se filtra con sus permisos.
 export function mapBackendRole(nombreRol: string): Role {
   return ROLE_FROM_BACKEND[nombreRol] ?? "admin-sede";
 }
 
-export function getInitials(nombre: string): string {
+function getInitials(nombre: string): string {
   return nombre
     .split(/\s+/)
     .filter(Boolean)

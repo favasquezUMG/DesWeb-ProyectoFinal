@@ -6,6 +6,7 @@ import {
     setNotificacionesHijo,
     restablecerPasswordHijo,
     getHorarioHijo,
+    setSaludHijo,
 } from "../controllers/encargado.controller.js";
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { verificarRol, ROL } from "../middlewares/role.middleware.js";
@@ -20,5 +21,6 @@ router.get('/hijos/:alumnoId/horario', getHorarioHijo);
 router.get('/hijos/:alumnoId/matricula', getOpcionesMatricula);
 router.patch('/hijos/:alumnoId/notificaciones', setNotificacionesHijo);
 router.post('/hijos/:alumnoId/password', restablecerPasswordHijo);
+router.put('/hijos/:alumnoId/salud', setSaludHijo);
 
 export default router;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, X, CalendarCheck } from "lucide-react";
-import { Card, SectionHeader, Btn, AlertBanner, Modal, Select, Input, EmptyState } from "../../components/Ui";
+import { Plus, X, CalendarCheck } from "../../components/Iconos";
+import { Card, SectionHeader, Btn, AlertBanner, Modal, Select, Input, EmptyState, colorDeCurso } from "../../components/Ui";
 import {
   getSeccionesAdmin, getCursosSeccionAdmin, crearHorario, eliminarHorario,
   type SeccionAdminDto, type CursoSeccionAdminDto,
@@ -132,7 +132,7 @@ export default function HorariosView() {
       {secciones.length === 0 && !loading ? (
         <EmptyState icon={<CalendarCheck className="w-10 h-10" />} title="Sin secciones" description="Cree las secciones del ciclo en Grados y Secciones." />
       ) : loading ? (
-        <div className="h-64 rounded-xl bg-stone-100 animate-pulse" />
+        <div className="h-64 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />
       ) : cursos.length === 0 ? (
         <EmptyState icon={<CalendarCheck className="w-10 h-10" />} title="La sección no tiene cursos" description="Asigne primero los cursos y catedráticos en Cursos." />
       ) : (
@@ -140,31 +140,31 @@ export default function HorariosView() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-primary-700 text-white">
-                  <th className="px-4 py-3 text-left font-medium w-28">Hora</th>
-                  {dias.map((d) => <th key={d} className="px-4 py-3 text-left font-medium">{DIAS_SEMANA[d]}</th>)}
+                <tr>
+                  <th className="px-4 pt-5 pb-3 text-left w-28 text-[13px] font-semibold text-stone-500">Hora</th>
+                  {dias.map((d) => <th key={d} className="px-2 pt-5 pb-3 text-left font-display text-[15px] font-bold text-stone-800">{DIAS_SEMANA[d]}</th>)}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100">
+              <tbody>
                 {franjas.map((franja, i) => {
                   const [inicio, fin] = franja.split("–");
                   return (
-                    <tr key={franja} className={i % 2 === 0 ? "bg-white" : "bg-stone-50/50"}>
-                      <td className="px-4 py-3 font-mono-data text-stone-500 font-medium whitespace-nowrap">{franja}</td>
+                    <tr key={franja}>
+                      <td className="px-4 py-2 font-display font-bold text-[14px] text-stone-800 tabular-nums whitespace-nowrap align-top">{franja}</td>
                       {dias.map((d) => {
                         const b = bloques.find((x) => x.diaSemana === d && x.horaInicio === inicio && x.horaFin === fin);
                         return (
-                          <td key={d} className="px-2 py-2">
+                          <td key={d} className="px-1.5 py-1.5 align-top">
                             {b ? (
-                              <div className={`relative p-2 rounded-lg border group ${b.color}`}>
-                                <p className="font-semibold leading-tight pr-4">{b.curso}</p>
-                                <p className="text-[10px] opacity-70 mt-0.5">{b.catedratico}</p>
+                              <div className={`relative pl-3 pr-7 py-2.5 rounded-xl group overflow-hidden textile-pattern ${colorDeCurso(b.curso).solid} ${colorDeCurso(b.curso).fg}`}>
+                                <p className="font-display font-bold text-[14px] leading-tight">{b.curso}</p>
+                                <p className="text-xs opacity-80 mt-0.5">{b.catedratico}</p>
                                 <button onClick={() => setAQuitar(b)} aria-label={`Quitar ${b.curso} del ${DIAS_SEMANA[d]}`}
-                                  className="absolute top-1 right-1 p-0.5 rounded opacity-50 hover:opacity-100 hover:text-danger-700 cursor-pointer"><X className="w-3 h-3" /></button>
+                                  className="absolute top-1.5 right-1.5 p-1 rounded-full opacity-75 hover:opacity-100 hover:bg-white hover:text-danger-700 cursor-pointer"><X className="w-3 h-3" /></button>
                               </div>
                             ) : (
                               <button onClick={() => abrirNuevo(d, franja)} aria-label={`Agregar clase el ${DIAS_SEMANA[d]} de ${franja}`}
-                                className="w-full h-12 border border-dashed border-stone-200 rounded-lg flex items-center justify-center text-stone-300 hover:border-primary-300 hover:bg-primary-50 transition-colors cursor-pointer">
+                                className="w-full h-[58px] border-[1.5px] border-dashed border-stone-200 rounded-xl flex items-center justify-center text-stone-300 hover:border-primary-300 hover:bg-primary-50 transition-colors cursor-pointer">
                                 <Plus className="w-4 h-4" />
                               </button>
                             )}

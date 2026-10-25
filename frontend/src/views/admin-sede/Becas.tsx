@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, Edit, Ban, History, PauseCircle, PlayCircle, RefreshCw, ClipboardCheck, Check, X, Award, Inbox, Wallet, Receipt,
-} from "lucide-react";
+} from "../../components/Iconos";
 import {
   Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea,
 } from "../../components/Ui";
@@ -286,7 +286,7 @@ export default function BecasView() {
         action={
           <div className="flex flex-wrap items-center gap-2 justify-end">
             <select value={anio} onChange={(e) => setAnio(Number(e.target.value))} aria-label="Ciclo lectivo"
-              className="border border-stone-300 rounded-md bg-white text-sm py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-primary-700">
+              className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl bg-white text-sm py-1.5 px-2 focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10">
               {ANIOS.map((a) => <option key={a} value={a}>Ciclo {a}</option>)}
             </select>
             <Btn variant="outline" size="sm" loading={evaluando} icon={<ClipboardCheck className="w-4 h-4" />} onClick={evaluar}>Evaluar requisitos</Btn>
@@ -402,17 +402,17 @@ export default function BecasView() {
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-stone-50 border-b border-stone-100">
+                    <thead>
                       <tr><TH>Alumno</TH><TH>Programa</TH><TH>Descuento</TH><TH>Total a pagar</TH><TH>Vigencia</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
                     </thead>
-                    <tbody className="divide-y divide-stone-50">
+                    <tbody className="divide-y divide-stone-100">
                       {becas.map((b) => {
                         const porcentaje = Number(b.porcentaje);
                         const vigente = b.estado === "Activa" || b.estado === "Suspendida";
                         return (
-                          <tr key={b.becaId} className="hover:bg-stone-50 transition-colors">
+                          <tr key={b.becaId} className="hover:bg-sand-50 transition-colors">
                             <TD>
-                              <p className="font-medium text-stone-900 text-sm">{nombreDe(b.alumno.usuario)}</p>
+                              <p className="font-semibold text-stone-900 text-[15px]">{nombreDe(b.alumno.usuario)}</p>
                               <p className="text-xs text-stone-500">{gradoSeccion(b.alumno.seccion)}</p>
                             </TD>
                             <TD>
@@ -420,7 +420,7 @@ export default function BecasView() {
                               {b.descripcion && <p className="text-xs text-stone-500 max-w-[14rem] truncate" title={b.descripcion}>{b.descripcion}</p>}
                             </TD>
                             <TD><Badge variant="success">{porcentaje}%</Badge></TD>
-                            <TD><span className="font-mono-data font-semibold text-primary-700">{formatQ(colegiatura * (1 - porcentaje / 100))}</span></TD>
+                            <TD><span className="font-display font-bold tabular-nums text-primary-700">{formatQ(colegiatura * (1 - porcentaje / 100))}</span></TD>
                             <TD><span className="text-stone-500 text-xs whitespace-nowrap">{formatFecha(b.fechaInicio)} – {formatFecha(b.fechaFin)}</span></TD>
                             <TD><Badge variant={ESTADO_BECA_BADGE[b.estado]}>{b.estado}</Badge></TD>
                             <TD className="text-right whitespace-nowrap">
@@ -465,17 +465,17 @@ export default function BecasView() {
             <Card className="overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-stone-50 border-b border-stone-100">
+                  <thead>
                     <tr><TH>Alumno</TH><TH>Programa</TH><TH>Cupos</TH><TH>Solicitada por</TH><TH>Justificación</TH><TH className="text-right">Resolución</TH></tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-stone-100">
                     {solicitudes.map((s) => {
                       const programa = programas.find((p) => p.programaId === s.programaId);
                       const sinCupo = programa?.cuposDisponibles === 0;
                       return (
                         <tr key={s.becaId} className="hover:bg-stone-50 transition-colors align-top">
                           <TD>
-                            <p className="font-medium text-stone-900 text-sm">{nombreDe(s.alumno.usuario)}</p>
+                            <p className="font-semibold text-stone-900 text-[15px]">{nombreDe(s.alumno.usuario)}</p>
                             <p className="text-xs text-stone-500">{gradoSeccion(s.alumno.seccion)}</p>
                           </TD>
                           <TD>

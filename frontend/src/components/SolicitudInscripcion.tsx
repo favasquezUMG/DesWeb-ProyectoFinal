@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Clock, Download, Printer } from "lucide-react";
+import { CheckCircle2, Clock, Download, Printer } from "./Iconos";
 import { Stepper, Input, Select, Textarea, Btn, AlertBanner } from "./Ui";
-import { MALLA_CNB } from "../data";
 import {
   type SolicitudGuardada,
   guardarSolicitud,
@@ -11,7 +10,8 @@ import {
 } from "../lib/solicitudes";
 import { generarConstanciaPdf, etiquetaGradoSolicitud } from "../lib/constanciaPdf";
 import axios from "axios";
-import { getSedes, type SedeDto } from "@/lib/api";
+import { getInfoInicio, type InfoInicioDto, type DatosSaludDto } from "@/lib/api";
+import { CamposSalud, SALUD_VACIA } from "./InfoSalud";
 
 export type SolicitudInscripcionModo = "publico" | "presencial";
 
@@ -27,37 +27,29 @@ const STEPS = ["Encargado", "Alumno", "Documentos", "Confirmación"];
 
 const PARENTESCOS = ["Madre", "Padre", "Tutor Legal", "Otro"];
 
-const DOCUMENTOS_REQUERIDOS = [
+const DOCUMENTOS = [
   { id: "partida-nacimiento", label: "Certificación de nacimiento del alumno extendida por RENAP" },
   { id: "certificado-grado", label: "Certificado del último grado aprobado" },
   { id: "copia-dpi", label: "Copia de DPI del padre o encargado" },
   { id: "fotografias", label: "Dos fotografías tamaño cédula" },
 ];
 
+// En Preprimaria el alumno suele empezar a estudiar: no tiene un grado aprobado que certificar
+const documentosRequeridos = (nivel: string) =>
+  normalizar(nivel) === "preprimaria" ? DOCUMENTOS.filter((d) => d.id !== "certificado-grado") : DOCUMENTOS;
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type NivelId = "pre" | "pri" | "bas" | "div";
+// Edad esperada por nivel: el primer grado empieza en "base" años y cada grado suma uno,
+// con "holgura" años de margen. Un nivel que no esté aquí no se valida por edad.
+const EDAD_POR_NIVEL: Record<string, { base: number; holgura: number }> = {
+  preprimaria: { base: 4, holgura: 1 },
+  primaria: { base: 6, holgura: 2 },
+  basico: { base: 12, holgura: 3 },
+  diversificado: { base: 15, holgura: 4 },
+};
 
-const OFFSET_POR_NIVEL: Record<NivelId, number> = { pre: 0, pri: 3, bas: 9, div: 12 };
-const ORDEN_ANIO_DIV: Record<string, number> = { Cuarto: 0, Quinto: 1, Sexto: 2 };
-
-const RANGOS_EDAD_POR_POSICION: { min: number; max: number }[] = [
-  { min: 4, max: 5 },   // Párvulos 1
-  { min: 5, max: 6 },   // Párvulos 2
-  { min: 6, max: 7 },   // Párvulos 3
-  { min: 6, max: 8 },   // Primero Primaria
-  { min: 7, max: 9 },   // Segundo Primaria
-  { min: 8, max: 10 },  // Tercero Primaria
-  { min: 9, max: 11 },  // Cuarto Primaria
-  { min: 10, max: 12 }, // Quinto Primaria
-  { min: 11, max: 13 }, // Sexto Primaria
-  { min: 12, max: 15 }, // Primero Básico
-  { min: 13, max: 16 }, // Segundo Básico
-  { min: 14, max: 17 }, // Tercero Básico
-  { min: 15, max: 19 }, // Cuarto (Diversificado)
-  { min: 16, max: 20 }, // Quinto (Diversificado)
-  { min: 17, max: 21 }, // Sexto (Diversificado)
-];
+const normalizar = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
 interface DatosEncargado {
   nombres: string;
@@ -72,10 +64,8 @@ interface DatosAlumno {
   nombres: string;
   apellidos: string;
   fechaNacimiento: string;
-  nivelId: NivelId | "";
-  grado: string; // usado cuando nivelId es pre/pri/bas
-  carrera: string; // usado cuando nivelId es "div"
-  anio: string; // usado cuando nivelId es "div" (Cuarto/Quinto/Sexto)
+  nivel: string;
+  grado: string;
   sede: string;
 }
 
@@ -91,21 +81,11 @@ function calcularEdad(fechaISO: string): number | null {
   return edad;
 }
 
-function calcularPosicionGrado(d: DatosAlumno): number | null {
-  if (!d.nivelId) return null;
-  if (d.nivelId === "div") {
-    if (!d.anio || !(d.anio in ORDEN_ANIO_DIV)) return null;
-    return OFFSET_POR_NIVEL.div + ORDEN_ANIO_DIV[d.anio];
-  }
-  const nivel = MALLA_CNB.find((n) => n.id === d.nivelId);
-  if (!nivel) return null;
-  const indice = nivel.grados.findIndex((g) => g.nombre === d.grado);
-  if (indice === -1) return null;
-  return OFFSET_POR_NIVEL[d.nivelId] + indice;
-}
-
-function nombreNivel(nivelId: string): string {
-  return MALLA_CNB.find((n) => n.id === nivelId)?.nivel ?? "";
+function rangoEdad(d: DatosAlumno, niveles: InfoInicioDto["niveles"]): { min: number; max: number } | null {
+  const regla = EDAD_POR_NIVEL[normalizar(d.nivel)];
+  const indice = niveles.find((n) => n.nivel === d.nivel)?.grados.indexOf(d.grado) ?? -1;
+  if (!regla || indice === -1) return null;
+  return { min: regla.base + indice, max: regla.base + indice + regla.holgura };
 }
 
 function validarEncargado(d: DatosEncargado): Partial<Record<keyof DatosEncargado, string>> {
@@ -119,18 +99,12 @@ function validarEncargado(d: DatosEncargado): Partial<Record<keyof DatosEncargad
   return errores;
 }
 
-function validarAlumno(d: DatosAlumno): Partial<Record<keyof DatosAlumno, string>> {
+function validarAlumno(d: DatosAlumno, niveles: InfoInicioDto["niveles"]): Partial<Record<keyof DatosAlumno, string>> {
   const errores: Partial<Record<keyof DatosAlumno, string>> = {};
   if (!d.nombres.trim()) errores.nombres = "Los nombres son obligatorios.";
   if (!d.apellidos.trim()) errores.apellidos = "Los apellidos son obligatorios.";
-  if (!d.nivelId) errores.nivelId = "Seleccione el nivel educativo.";
-
-  if (d.nivelId === "div") {
-    if (!d.carrera) errores.carrera = "Seleccione la carrera.";
-    if (!d.anio) errores.anio = "Seleccione el año.";
-  } else if (d.nivelId && !d.grado) {
-    errores.grado = "Seleccione el grado al que aplica.";
-  }
+  if (!d.nivel) errores.nivel = "Seleccione el nivel educativo.";
+  else if (!d.grado) errores.grado = "Seleccione el grado al que aplica.";
 
   if (!d.fechaNacimiento) {
     errores.fechaNacimiento = "La fecha de nacimiento es obligatoria.";
@@ -139,12 +113,9 @@ function validarAlumno(d: DatosAlumno): Partial<Record<keyof DatosAlumno, string
     if (edad === null || edad < 0 || edad > 30) {
       errores.fechaNacimiento = "Ingrese una fecha de nacimiento válida.";
     } else {
-      const posicion = calcularPosicionGrado(d);
-      if (posicion !== null) {
-        const rango = RANGOS_EDAD_POR_POSICION[posicion];
-        if (rango && (edad < rango.min || edad > rango.max)) {
-          errores.fechaNacimiento = `La edad (${edad} años) no es coherente con el grado seleccionado (rango esperado: ${rango.min}–${rango.max} años).`;
-        }
+      const rango = rangoEdad(d, niveles);
+      if (rango && (edad < rango.min || edad > rango.max)) {
+        errores.fechaNacimiento = `La edad (${edad} años) no es coherente con el grado seleccionado (rango esperado: ${rango.min}–${rango.max} años).`;
       }
     }
   }
@@ -153,7 +124,7 @@ function validarAlumno(d: DatosAlumno): Partial<Record<keyof DatosAlumno, string
   return errores;
 }
 
-export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
+function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
   return (
     <div id="constancia-imprimible" className="p-10 text-stone-900 text-sm">
       <div className="flex items-start justify-between border-b-2 border-primary-700 pb-3 mb-4">
@@ -163,14 +134,14 @@ export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuarda
         </div>
         <div className="text-right">
           <p className="text-xs text-stone-500">Número de solicitud</p>
-          <p className="font-mono-data font-semibold text-primary-700">{solicitud.numero}</p>
+          <p className="font-display font-bold tabular-nums text-primary-700">{solicitud.numero}</p>
         </div>
       </div>
 
       <p className="text-xs text-stone-500 mb-4">Fecha de emisión: {formatearFecha(solicitud.fechaSolicitud)}</p>
 
       <section className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-700 border-b border-stone-200 pb-1 mb-2">Datos del encargado</h3>
+        <h3 className="font-display text-lg font-bold text-stone-900 pb-2 mb-3 border-b-[1.5px] border-stone-200">Datos del encargado</h3>
         <p>Nombre: {solicitud.encargado.nombres} {solicitud.encargado.apellidos}</p>
         <p>DPI: {solicitud.encargado.dpi}</p>
         <p>Teléfono: {solicitud.encargado.telefono}</p>
@@ -179,7 +150,7 @@ export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuarda
       </section>
 
       <section className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-700 border-b border-stone-200 pb-1 mb-2">Datos del alumno</h3>
+        <h3 className="font-display text-lg font-bold text-stone-900 pb-2 mb-3 border-b-[1.5px] border-stone-200">Datos del alumno</h3>
         <p>Nombre: {solicitud.alumno.nombres} {solicitud.alumno.apellidos}</p>
         <p>Fecha de nacimiento: {formatearFecha(solicitud.alumno.fechaNacimiento)}</p>
         <p>Nivel: {solicitud.alumno.nivel}</p>
@@ -189,7 +160,7 @@ export function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuarda
       </section>
 
       <section className="mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-700 border-b border-stone-200 pb-1 mb-2">Documentos a presentar en la sede</h3>
+        <h3 className="font-display text-lg font-bold text-stone-900 pb-2 mb-3 border-b-[1.5px] border-stone-200">Documentos a presentar en la sede</h3>
         <ul className="list-disc list-inside space-y-0.5">
           {solicitud.documentos.map((d) => <li key={d}>{d}</li>)}
         </ul>
@@ -224,7 +195,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   const [fechaLimite] = useState(calcularFechaLimite);
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudGuardada | null>(null);
   const [cargandoEmail, setCargandoEmail] = useState(false);
-  const [sedes, setSedes] = useState<SedeDto[]>([])
+  const [info, setInfo] = useState<InfoInicioDto | null>(null);
+  const [errorCarga, setErrorCarga] = useState("");
 
   const [encargado, setEncargado] = useState<DatosEncargado>({
     nombres: "", apellidos: "", dpi: "", telefono: "", correo: "", parentesco: "",
@@ -232,16 +204,19 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   const [erroresEncargado, setErroresEncargado] = useState<Partial<Record<keyof DatosEncargado, string>>>({});
 
   const [alumno, setAlumno] = useState<DatosAlumno>({
-    nombres: "", apellidos: "", fechaNacimiento: "", nivelId: "", grado: "", carrera: "", anio: "", sede: "",
+    nombres: "", apellidos: "", fechaNacimiento: "", nivel: "", grado: "", sede: "",
   });
   const [erroresAlumno, setErroresAlumno] = useState<Partial<Record<keyof DatosAlumno, string>>>({});
+  const [salud, setSalud] = useState<DatosSaludDto>(SALUD_VACIA);
 
   const [documentos, setDocumentos] = useState<Record<string, boolean>>({});
   const [observaciones, setObservaciones] = useState("");
   const [errorDocumentos, setErrorDocumentos] = useState("");
 
-  const nivelSeleccionado = MALLA_CNB.find((n) => n.id === alumno.nivelId);
-  const carreraSeleccionada = nivelSeleccionado?.carreras?.find((c) => c.nombre === alumno.carrera);
+  const sedes = info?.sedes ?? [];
+  const niveles = info?.niveles ?? [];
+  const gradosDelNivel = niveles.find((n) => n.nivel === alumno.nivel)?.grados ?? [];
+  const documentosAlumno = documentosRequeridos(alumno.nivel);
 
   function actualizarEncargado<K extends keyof DatosEncargado>(campo: K, valor: string) {
     setEncargado((prev) => ({ ...prev, [campo]: valor }));
@@ -254,13 +229,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   }
 
   function cambiarNivel(valor: string) {
-    setAlumno((prev) => ({ ...prev, nivelId: valor as NivelId | "", grado: "", carrera: "", anio: "" }));
-    setErroresAlumno((prev) => ({ ...prev, nivelId: undefined, grado: undefined, carrera: undefined, anio: undefined }));
-  }
-
-  function cambiarCarrera(valor: string) {
-    setAlumno((prev) => ({ ...prev, carrera: valor, anio: "" }));
-    setErroresAlumno((prev) => ({ ...prev, carrera: undefined, anio: undefined }));
+    setAlumno((prev) => ({ ...prev, nivel: valor, grado: "" }));
+    setErroresAlumno((prev) => ({ ...prev, nivel: undefined, grado: undefined }));
   }
 
   function marcarDocumento(id: string, valor: boolean) {
@@ -271,7 +241,6 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   async function irSiguiente() {
     if (step === 0) {
 
-      //Validacion de campos vacios, formato correo, DPI
       const errores = validarEncargado(encargado);
       setErroresEncargado(errores);
       if (Object.values(errores).some(Boolean)) return;
@@ -302,11 +271,11 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
       }
       setCargandoEmail(false)
     } else if (step === 1) {
-      const errores = validarAlumno(alumno);
+      const errores = validarAlumno(alumno, niveles);
       setErroresAlumno(errores);
       if (Object.values(errores).some(Boolean)) return;
     } else if (step === 2) {
-      const faltanDocumentos = DOCUMENTOS_REQUERIDOS.some((doc) => !documentos[doc.id]);
+      const faltanDocumentos = documentosAlumno.some((doc) => !documentos[doc.id]);
       if (faltanDocumentos) {
         setErrorDocumentos(
           modo === "publico"
@@ -325,13 +294,14 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           nombres: alumno.nombres,
           apellidos: alumno.apellidos,
           fechaNacimiento: alumno.fechaNacimiento,
-          nivel: nombreNivel(alumno.nivelId),
-          carrera: alumno.nivelId === "div" ? alumno.carrera : undefined,
-          anio: alumno.nivelId === "div" ? alumno.anio : undefined,
-          grado: alumno.nivelId === "div" ? undefined : alumno.grado,
+          nivel: alumno.nivel,
+          grado: alumno.grado,
           sede: alumno.sede,
+          necesidadesApoyo: salud.necesidadesApoyo?.trim() || null,
+          alergias: salud.alergias?.trim() || null,
+          medicamentos: salud.medicamentos?.trim() || null,
         },
-        documentos: DOCUMENTOS_REQUERIDOS.map((d) => d.label),
+        documentos: documentosAlumno.map((d) => d.label),
         observaciones: modo === "presencial" ? observaciones.trim() || undefined : undefined,
         fechaSolicitud: new Date().toISOString(),
         fechaLimite: fechaLimite.toISOString(),
@@ -355,24 +325,17 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   }
 
   useEffect(() => {
-    async function cargarSedes() {
-      try{
-        const data = await getSedes();
-        setSedes(data);
-      } catch (error) {
-        console.error("Error al cargar datos desde el backend:", error)
-      }
-    }
-    cargarSedes();
-
-  }, [])
+    getInfoInicio()
+      .then(setInfo)
+      .catch(() => setErrorCarga("No se pudieron cargar las sedes y los grados. Recargue la página e intente de nuevo."));
+  }, []);
 
   const fechaLimiteTexto = formatearFecha(fechaLimite);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Solicitud de inscripción</h2>
+        <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Solicitud de inscripción</h2>
         <p className="text-stone-500 text-sm">
           {modo === "publico"
             ? "Complete los siguientes pasos para solicitar el cupo de su hijo. La documentación se entrega físicamente en la sede."
@@ -422,30 +385,31 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
             ))}
           </Select>
 
-          <Select label="Nivel educativo" value={alumno.nivelId} onChange={(e) => cambiarNivel(e.target.value)} error={erroresAlumno.nivelId}>
+          <Select label="Nivel educativo" value={alumno.nivel} onChange={(e) => cambiarNivel(e.target.value)} error={erroresAlumno.nivel}>
             <option value="">Seleccione…</option>
-            {MALLA_CNB.map((n) => <option key={n.id} value={n.id}>{n.nivel}</option>)}
+            {niveles.map((n) => <option key={n.nivel} value={n.nivel}>{n.nivel}</option>)}
           </Select>
 
-          {alumno.nivelId && alumno.nivelId !== "div" && (
+          {alumno.nivel && (
             <Select label="Grado al que aplica" value={alumno.grado} onChange={(e) => actualizarAlumno("grado", e.target.value)} error={erroresAlumno.grado}>
               <option value="">Seleccione…</option>
-              {nivelSeleccionado?.grados.map((g) => <option key={g.nombre} value={g.nombre}>{g.nombre}</option>)}
+              {gradosDelNivel.map((g) => <option key={g} value={g}>{g}</option>)}
             </Select>
           )}
 
-          {alumno.nivelId === "div" && (
-            <>
-              <Select label="Carrera" value={alumno.carrera} onChange={(e) => cambiarCarrera(e.target.value)} error={erroresAlumno.carrera}>
-                <option value="">Seleccione…</option>
-                {nivelSeleccionado?.carreras?.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
-              </Select>
-              <Select label="Año" value={alumno.anio} onChange={(e) => actualizarAlumno("anio", e.target.value)} error={erroresAlumno.anio} disabled={!carreraSeleccionada}>
-                <option value="">Seleccione…</option>
-                {carreraSeleccionada?.anios.map((a) => <option key={a.nombre} value={a.nombre}>{a.nombre}</option>)}
-              </Select>
-            </>
-          )}
+          {errorCarga && <div className="sm:col-span-2"><AlertBanner type="error" message={errorCarga} /></div>}
+
+          <div className="sm:col-span-2 pt-4 mt-2 border-t border-stone-200 space-y-4">
+            <div>
+              <h3 className="font-display font-bold text-stone-900">Salud y necesidades de apoyo <span className="text-sm font-normal text-stone-500">(opcional)</span></h3>
+              <p className="text-sm text-stone-500 mt-1">
+                Si el alumno tiene alguna discapacidad, condición de salud, alergias o toma
+                medicamentos, indíquelo para que el colegio prepare los apoyos y sepa cómo atenderlo en una emergencia.
+                Esta información no influye en la aprobación de la solicitud.
+              </p>
+            </div>
+            <CamposSalud valor={salud} onChange={setSalud} />
+          </div>
         </div>
       )}
 
@@ -467,7 +431,7 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           />
 
           <div className="space-y-2">
-            {DOCUMENTOS_REQUERIDOS.map((doc) => (
+            {documentosAlumno.map((doc) => (
               <label key={doc.id} className="flex items-start gap-3 p-3 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer">
                 <input
                   type="checkbox"
@@ -506,7 +470,7 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
 
           <div>
             <p className="text-sm text-stone-500">Número de solicitud</p>
-            <p className="font-display text-2xl font-semibold text-primary-700 font-mono-data">{solicitudGuardada.numero}</p>
+            <p className="font-display text-2xl font-bold text-primary-700 font-mono-data">{solicitudGuardada.numero}</p>
           </div>
 
           <div className="px-4 py-3 bg-warning-50 border border-warning-200 rounded-lg text-left">

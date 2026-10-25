@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Send, Trash2, CheckCircle2, Clock, Mail } from "lucide-react";
+import { Plus, Send, Trash2, CheckCircle2, Clock, Mail } from "../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, EmptyState } from "../components/Ui";
 import { getSession } from "../lib/auth";
 import {
@@ -20,7 +20,7 @@ import { TIPOS_CONDUCTA, tipoConductaVariant, formatFecha } from "../lib/conduct
 
 const nombreCurso = (c: CursoSeccionDto) => `${c.curso.nombre} — ${c.seccion.grado.nombre} "${c.seccion.nombre}"`;
 
-const INPUT_CLS = "w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700";
+const INPUT_CLS = "w-full border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10";
 
 interface FormState {
   seccionId: string;

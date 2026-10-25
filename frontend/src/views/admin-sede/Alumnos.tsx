@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, AlertOctagon, UserX } from "lucide-react";
+import { Search, Users, AlertOctagon, UserX, Heart } from "../../components/Iconos";
 import { Card, SectionHeader, Badge, Drawer, AlertBanner, TH, TD } from "../../components/Ui";
-import { getAlumnos, setAccesoPortalAlumno, type AlumnoDto } from "../../lib/api";
+import { getAlumnos, setAccesoPortalAlumno, setSaludAlumno, type AlumnoDto, type DatosSaludDto } from "../../lib/api";
+import { IndicadorSalud, ModalSalud } from "../../components/InfoSalud";
 import { nombreDe } from "../../lib/becas";
 import EncargadosAlumno from "./EncargadosAlumno";
 
@@ -19,6 +20,14 @@ export default function AlumnosView() {
   const [abierto, setAbierto] = useState<AlumnoDto | null>(null);
   const [aviso, setAviso] = useState("");
   const [guardandoAcceso, setGuardandoAcceso] = useState<number | null>(null);
+  const [saludDe, setSaludDe] = useState<AlumnoDto | null>(null);
+
+  async function guardarSalud(datos: DatosSaludDto) {
+    if (!saludDe) return;
+    const res = await setSaludAlumno(saludDe.alumnoId, datos);
+    setAlumnos((prev) => prev.map((x) => (x.alumnoId === saludDe.alumnoId ? { ...x, ...res.data } : x)));
+    setAviso(res.message);
+  }
 
   // "nivel" = regla por defecto (Primaria sin acceso); "si"/"no" = excepción de la sede
   async function cambiarAcceso(a: AlumnoDto, opcion: string) {
@@ -79,10 +88,10 @@ export default function AlumnosView() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre o correo…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-700 bg-white" />
+              className="w-full pl-10 pr-3.5 py-2.5 text-[15px] border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white" />
           </div>
           <select value={gradoFilter} onChange={(e) => setGradoFilter(e.target.value)} aria-label="Filtrar por grado"
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700 bg-white">
+            className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white">
             <option value="todos">Todos los grados</option>
             {grados.map((g) => <option key={g}>{g}</option>)}
           </select>
@@ -94,18 +103,19 @@ export default function AlumnosView() {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-stone-50 border-b border-stone-100">
+            <thead>
               <tr><TH>Alumno</TH><TH>Grado · Sección</TH><TH>Contacto principal</TH><TH>Encargados</TH><TH>Acceso al portal</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {loading ? (
                 <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-stone-500">Cargando alumnos…</td></tr>
               ) : filtrados.map((a) => (
-                <tr key={a.alumnoId} className="hover:bg-stone-50 transition-colors">
+                <tr key={a.alumnoId} className="hover:bg-sand-50 transition-colors">
                   <TD>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-stone-900 text-sm">{nombreDe(a.usuario)}</p>
+                      <p className="font-semibold text-stone-900 text-[15px]">{nombreDe(a.usuario)}</p>
                       {a.tieneRestriccion && <span title="Tiene una restricción judicial registrada"><AlertOctagon className="w-4 h-4 text-danger-700" /></span>}
+                      <IndicadorSalud salud={a} onClick={() => setSaludDe(a)} />
                     </div>
                     <p className="text-xs text-stone-400">{a.usuario.email}</p>
                   </TD>
@@ -120,15 +130,18 @@ export default function AlumnosView() {
                       <select aria-label={`Acceso al portal de ${nombreDe(a.usuario)}`} disabled={guardandoAcceso === a.alumnoId}
                         value={a.accesoPortal == null ? "nivel" : a.accesoPortal ? "si" : "no"}
                         onChange={(e) => cambiarAcceso(a, e.target.value)}
-                        className="border border-stone-300 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary-700 disabled:opacity-50">
+                        className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-2 py-1 text-xs bg-white focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 disabled:opacity-50">
                         <option value="nivel">Según nivel ({a.accesoPorNivel ? "sí" : "no"})</option>
                         <option value="si">Habilitado</option>
                         <option value="no">Deshabilitado</option>
                       </select>
                     </div>
                   </TD>
-                  <TD className="text-right">
-                    <button onClick={() => setAbierto(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-md cursor-pointer">
+                  <TD className="text-right whitespace-nowrap">
+                    <button onClick={() => setSaludDe(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
+                      <Heart className="w-3.5 h-3.5" />Salud
+                    </button>
+                    <button onClick={() => setAbierto(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
                       <Users className="w-3.5 h-3.5" />Encargados
                     </button>
                   </TD>
@@ -141,6 +154,8 @@ export default function AlumnosView() {
           </table>
         </div>
       </Card>
+
+      <ModalSalud alumno={saludDe ? nombreDe(saludDe.usuario) : null} salud={saludDe ?? {}} onCerrar={() => setSaludDe(null)} onGuardar={guardarSalud} />
 
       <Drawer open={!!abierto} onClose={() => setAbierto(null)} title="Encargados del alumno">
         {abierto && <EncargadosAlumno alumnoId={abierto.alumnoId} onCambio={() => { cargar().catch(() => {}); }} />}

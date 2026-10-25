@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Users, Award, CheckCircle2, CalendarDays, FileText, FileCheck2, UserX } from "lucide-react";
-import { Card, MetricCard, SectionHeader, AlertBanner } from "../../components/Ui";
+import { AlertTriangle, Users, Award, CheckCircle2, FileText, FileCheck2, UserX } from "../../components/Iconos";
+import { Card, MetricCard, SectionHeader, AlertBanner, FechaBloque } from "../../components/Ui";
 import { getDashboardSede, type DashboardSedeDto } from "../../lib/api";
 import { formatFecha } from "../../lib/becas";
 
@@ -20,7 +20,7 @@ export default function DashboardSede() {
       <div className="space-y-6">
         <SectionHeader title="Dashboard" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}
         </div>
       </div>
     );
@@ -35,7 +35,7 @@ export default function DashboardSede() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title={`Dashboard — ${data.sede}`} subtitle={`Ciclo escolar ${data.anioLectivo} · Al ${new Date().toLocaleDateString("es-GT")}`} />
+      <SectionHeader title={data.sede} subtitle={`Ciclo escolar ${data.anioLectivo} · Al ${new Date().toLocaleDateString("es-GT")}`} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard label="Alumnos inscritos" value={data.alumnos.total}
@@ -50,24 +50,31 @@ export default function DashboardSede() {
         <MetricCard label="Becas activas" value={data.becas.activas} sub={`${data.becas.porcentaje}% del alumnado`} icon={<Award className="w-5 h-5" />} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <h3 className="font-display font-semibold text-stone-800 text-base mb-4">Aprobación por grado</h3>
+      {pendientes.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {pendientes.map((p) => (
+            <div key={p.texto} className={`flex items-center gap-3 pl-2 pr-5 py-2 rounded-full ${p.Icon === UserX ? "bg-danger-50 text-danger-800" : "bg-white border border-stone-200/80 text-stone-700"}`}>
+              <span className={`w-9 h-9 rounded-full flex items-center justify-center font-display font-bold text-base tabular-nums ${p.Icon === UserX ? "bg-danger-600 text-white" : "bg-action-500 text-white"}`}>{p.n}</span>
+              <span className="text-sm font-semibold">{p.texto}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <Card className="p-6 lg:col-span-3">
+          <h3 className="font-display font-bold text-stone-900 text-lg mb-5">Aprobación por grado</h3>
           {data.porGrado.length === 0 ? <p className="text-sm text-stone-500">No hay alumnos inscritos en este ciclo.</p> : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {data.porGrado.map((g) => {
                 const pct = g.evaluados ? Math.round((g.aprobados / g.evaluados) * 100) : 0;
                 return (
-                  <div key={g.grado}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-stone-700 font-medium">{g.grado}</span>
-                      <span className="font-mono-data text-stone-500">
-                        {g.evaluados ? `${g.aprobados}/${g.evaluados} aprobados` : `${g.total} alumnos · sin notas`}
-                      </span>
+                  <div key={g.grado} className="grid grid-cols-[minmax(0,10rem)_1fr_3.5rem] items-center gap-4">
+                    <span className="text-[15px] font-semibold text-stone-800 truncate">{g.grado}</span>
+                    <div className="w-full bg-sand-100 rounded-full h-3.5" title={g.evaluados ? `${g.aprobados} de ${g.evaluados} aprobados` : `${g.total} alumnos sin notas`}>
+                      <div className={`h-3.5 rounded-full ${pct >= 80 ? "bg-primary-600" : pct >= 60 ? "bg-warning-500" : "bg-danger-600"}`} style={{ width: `${pct}%` }} />
                     </div>
-                    <div className="w-full bg-stone-100 rounded-full h-2">
-                      <div className={`h-2 rounded-full ${pct >= 80 ? "bg-success-600" : pct >= 60 ? "bg-warning-500" : "bg-danger-600"}`} style={{ width: `${pct}%` }} />
-                    </div>
+                    <span className="font-display font-bold text-lg text-right tabular-nums text-stone-900">{g.evaluados ? `${pct}%` : "—"}</span>
                   </div>
                 );
               })}
@@ -75,30 +82,42 @@ export default function DashboardSede() {
           )}
         </Card>
 
-        <Card className="p-5">
-          <h3 className="font-display font-semibold text-stone-800 text-base mb-4">Alertas</h3>
-          <div className="space-y-2.5">
-            {pendientes.map((p) => (
-              <div key={p.texto} className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs ${p.cls}`}>
-                <p.Icon className="w-3.5 h-3.5 mt-0.5 shrink-0" /><span><strong>{p.n}</strong> {p.texto}</span>
-              </div>
-            ))}
-            {data.enRiesgo.map((a) => (
-              <div key={a.alumnoId} className="flex items-start gap-2 p-2.5 rounded-lg border text-xs bg-warning-50 text-warning-800 border-warning-200">
-                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>{a.nombre} ({a.grado}) — promedio {a.promedio}{a.cursosReprobados ? `, ${a.cursosReprobados} curso(s) bajo 61` : ""}</span>
-              </div>
-            ))}
-            {data.proximosEventos.map((e) => (
-              <div key={e.eventoId} className="flex items-start gap-2 p-2.5 rounded-lg border text-xs bg-primary-50 text-primary-800 border-primary-200">
-                <CalendarDays className="w-3.5 h-3.5 mt-0.5 shrink-0" /><span>{e.nombre} — {formatFecha(e.fecha)}</span>
-              </div>
-            ))}
-            {pendientes.length === 0 && data.enRiesgo.length === 0 && data.proximosEventos.length === 0 && (
-              <p className="text-sm text-stone-500">Sin alertas por ahora.</p>
+        <div className="lg:col-span-2 space-y-5">
+          <Card className="p-6">
+            <h3 className="font-display font-bold text-stone-900 text-lg mb-3">Alumnos en riesgo</h3>
+            {data.enRiesgo.length === 0 ? <p className="text-sm text-stone-500">Ningún alumno por debajo del mínimo.</p> : (
+              <ul className="divide-y divide-stone-100">
+                {data.enRiesgo.map((a) => (
+                  <li key={a.alumnoId} className="flex items-center gap-3 py-2.5">
+                    <span className="w-9 h-9 rounded-full bg-sand-100 text-stone-700 flex items-center justify-center text-xs font-bold shrink-0">{a.nombre.split(" ").slice(0, 2).map((x) => x[0]).join("")}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-semibold text-stone-900 truncate">{a.nombre}</p>
+                      <p className="text-xs text-stone-500">{a.grado}{a.cursosReprobados ? `, ${a.cursosReprobados} curso(s) bajo 61` : ""}</p>
+                    </div>
+                    <span className="font-display font-bold text-xl text-danger-700 tabular-nums">{a.promedio}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-        </Card>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="font-display font-bold text-stone-900 text-lg mb-4">Próximos eventos</h3>
+            {data.proximosEventos.length === 0 ? <p className="text-sm text-stone-500">Sin eventos próximos.</p> : (
+              <ul className="space-y-3">
+                {data.proximosEventos.map((e, i) => (
+                  <li key={e.eventoId} className="flex items-center gap-3">
+                    <FechaBloque iso={e.fecha} tono={i === 0 ? "primary" : "neutral"} />
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-stone-900 truncate">{e.nombre}</p>
+                      <p className="text-xs text-stone-500 capitalize">{formatFecha(e.fecha)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   );

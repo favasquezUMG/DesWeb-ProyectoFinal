@@ -411,7 +411,6 @@ export const getPagos = async (req: AuthenticatedRequest, res: Response) => {
     }
 };
 
-//Get by ID
 export const getPagoById = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 

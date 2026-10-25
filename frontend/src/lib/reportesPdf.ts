@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import type { CatedraticoSedeDto, DashboardSedeDto } from "./api";
 
-const PRIMARY = [26, 57, 41] as const;
+const PRIMARY = [43, 58, 140] as const;
 const TEXT = [30, 30, 30] as const;
 const MUTED = [110, 110, 110] as const;
 const ANCHO = 216;

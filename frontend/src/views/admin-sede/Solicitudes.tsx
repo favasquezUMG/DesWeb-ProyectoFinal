@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Search, FileText, CheckCircle2, XCircle, Clock, AlertTriangle, UserCheck, Copy, Printer } from "lucide-react";
+import { Search, FileText, CheckCircle2, XCircle, Clock, AlertTriangle, UserCheck, Copy, Printer, Heart } from "../../components/Iconos";
+import { DetalleSalud, tieneSalud } from "../../components/InfoSalud";
 import { Card, SectionHeader, Badge, Btn, Drawer, Modal, AlertBanner, Select, Textarea, TH, TD, EmptyState } from "../../components/Ui";
 import {
   getSolicitudesAdmin, getOpcionesAprobacion, marcarSolicitud, aprobarSolicitud, rechazarSolicitud,
@@ -102,28 +103,28 @@ export default function SolicitudesView() {
           <div className="relative flex-1 lg:max-w-sm lg:ml-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Número, alumno, encargado o correo…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-700 bg-white" />
+              className="w-full pl-10 pr-3.5 py-2.5 text-[15px] border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-stone-50 border-b border-stone-100">
+            <thead>
               <tr><TH>Solicitud</TH><TH>Alumno</TH><TH>Grado solicitado</TH><TH>Encargado</TH><TH>Fecha límite</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {loading ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-stone-500">Cargando solicitudes…</td></tr>
               ) : solicitudes.length === 0 ? (
                 <tr><td colSpan={7}><EmptyState icon={<FileText className="w-10 h-10" />} title="No hay solicitudes" description="No hay solicitudes con este filtro." /></td></tr>
               ) : solicitudes.map((s) => (
-                <tr key={s.solicitudId} className="hover:bg-stone-50 transition-colors">
+                <tr key={s.solicitudId} className="hover:bg-sand-50 transition-colors">
                   <TD>
                     <p className="font-mono-data text-xs font-semibold text-stone-900">{s.numero}</p>
                     <p className="text-[11px] text-stone-400">{s.modo === "PUBLICO" ? "En línea" : "Presencial"} · {formatFecha(s.fechaSolicitud)}</p>
                   </TD>
                   <TD>
-                    <p className="font-medium text-stone-900 text-sm">{nombreAlumno(s)}</p>
+                    <p className="font-semibold text-stone-900 text-[15px]">{nombreAlumno(s)}</p>
                     <p className="text-xs text-stone-400">{edad(s.alumnoFechaNacimiento)} años</p>
                   </TD>
                   <TD><span className="text-sm text-stone-700">{gradoPedido(s)}</span><p className="text-xs text-stone-400">{s.sede?.nombre ?? "Sin sede"}</p></TD>
@@ -131,7 +132,7 @@ export default function SolicitudesView() {
                   <TD><span className={`text-xs font-mono-data ${vencida(s) ? "text-warning-700 font-semibold" : "text-stone-600"}`}>{formatFecha(s.fechaLimite)}</span></TD>
                   <TD><EstadoBadgeSolicitud s={s} /></TD>
                   <TD className="text-right">
-                    <button onClick={() => setAbierta(s)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-md cursor-pointer">
+                    <button onClick={() => setAbierta(s)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
                       <FileText className="w-3.5 h-3.5" />{s.estado === "PENDIENTE" || s.estado === "REVISION" ? "Revisar" : "Ver"}
                     </button>
                   </TD>
@@ -153,10 +154,16 @@ export default function SolicitudesView() {
   );
 }
 
+const saludDe = (s: SolicitudDto) => ({
+  necesidadesApoyo: s.alumnoNecesidadesApoyo,
+  alergias: s.alumnoAlergias,
+  medicamentos: s.alumnoMedicamentos,
+});
+
 function Dato({ k, v }: { k: string; v: string | null | undefined }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium text-stone-500 uppercase tracking-wide">{k}</dt>
+      <dt className="text-[11px] font-medium text-stone-500">{k}</dt>
       <dd className="text-sm text-stone-900">{v || "—"}</dd>
     </div>
   );
@@ -259,6 +266,15 @@ function DetalleSolicitud({ solicitud: s, onResuelta, onCambio }: {
           <Dato k="Grado solicitado" v={gradoPedido(s)} />
           <Dato k="Sede" v={s.sede?.nombre} />
         </dl>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold text-stone-800 mb-2 flex items-center gap-2">
+          Salud y necesidades de apoyo
+          {tieneSalud(saludDe(s)) && <Badge variant="danger"><Heart className="w-3 h-3" />Requiere atención</Badge>}
+        </h3>
+        {tieneSalud(saludDe(s)) ? <DetalleSalud salud={saludDe(s)} /> : <p className="text-sm text-stone-400">El encargado no indicó información de salud.</p>}
+        <p className="text-xs text-stone-400 mt-2">Al aprobar la solicitud, esta información pasa a la ficha del alumno.</p>
       </section>
 
       <section>
@@ -403,7 +419,7 @@ function ResultadoAprobacion({ resultado, solicitud }: { resultado: { mensaje: s
         <div className="w-14 h-14 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-3">
           <UserCheck className="w-7 h-7 text-success-600" />
         </div>
-        <p className="font-display text-lg font-semibold text-success-800">Inscripción completada</p>
+        <p className="font-display text-lg font-bold text-success-800">Inscripción completada</p>
         <p className="text-sm text-stone-600 mt-1">{resultado.mensaje}</p>
       </div>
 
@@ -411,17 +427,17 @@ function ResultadoAprobacion({ resultado, solicitud }: { resultado: { mensaje: s
 
       <Card className="p-4 space-y-3 text-sm">
         <div>
-          <p className="text-xs font-medium text-stone-500 uppercase">Encargado — {data.encargado.nombre}</p>
+          <p className="text-[13px] font-semibold text-stone-500">Encargado — {data.encargado.nombre}</p>
           <p>Usuario: <span className="font-mono-data">{data.encargado.usuario}</span></p>
           {data.encargado.passwordTemporal
-            ? <p>Contraseña temporal: <span className="font-mono-data font-semibold">{data.encargado.passwordTemporal}</span></p>
+            ? <p>Contraseña temporal: <span className="font-display font-bold tabular-nums">{data.encargado.passwordTemporal}</span></p>
             : <p className="text-stone-500">Ya tenía cuenta: usa su contraseña actual.</p>}
         </div>
         <div className="border-t border-stone-100 pt-3">
-          <p className="text-xs font-medium text-stone-500 uppercase">Alumno — {data.alumno.nombre}</p>
+          <p className="text-[13px] font-semibold text-stone-500">Alumno — {data.alumno.nombre}</p>
           <p>Usuario: <span className="font-mono-data">{data.alumno.usuario}</span></p>
           {data.alumno.passwordTemporal
-            ? <p>Contraseña temporal: <span className="font-mono-data font-semibold">{data.alumno.passwordTemporal}</span></p>
+            ? <p>Contraseña temporal: <span className="font-display font-bold tabular-nums">{data.alumno.passwordTemporal}</span></p>
             : <p className="text-stone-500">Sin acceso al portal por su nivel; el encargado consulta su información.</p>}
         </div>
       </Card>

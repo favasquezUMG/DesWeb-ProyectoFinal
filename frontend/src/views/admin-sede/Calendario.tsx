@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Bell, Edit, Trash2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { Plus, Bell, Edit, Trash2, ChevronLeft, ChevronRight, CalendarDays } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Modal, Input, Select, Textarea, AlertBanner, Badge, Toggle } from "../../components/Ui";
 import {
   getEventos, crearEvento, actualizarEvento, eliminarEvento, enviarRecordatorioEvento,
@@ -163,10 +163,10 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <button onClick={() => setAnio(anio - 1)} aria-label="Año anterior" className="p-1.5 rounded-lg hover:bg-stone-100 cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="font-display font-semibold text-stone-800">{anio}</span>
+            <span className="font-display font-bold text-stone-900">{anio}</span>
             <button onClick={() => setAnio(anio + 1)} aria-label="Año siguiente" className="p-1.5 rounded-lg hover:bg-stone-100 cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          {loading ? <div className="h-96 rounded-xl bg-stone-100 animate-pulse" /> : (
+          {loading ? <div className="h-96 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" /> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {MESES.map((mes, m) => {
                 const dias = new Date(anio, m + 1, 0).getDate();

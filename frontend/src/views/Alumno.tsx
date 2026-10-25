@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Clock, Bell, CheckCircle2, ChevronRight, ClipboardList, CalendarDays } from "lucide-react";
+import { BookOpen, Clock } from "../components/Iconos";
 import type { View } from "../types";
 import {
   getPerfilAlumno, getMisNotasAlumno, getMiHorarioAlumno, getMiAsistenciaAlumno, getEventos, getMisNotificaciones,
   type PerfilAlumnoDto, type BoletinHijoDto, type ClaseAlumnoDto, type AsistenciaAlumnoDto, type EventoDto, type NotificacionDto,
 } from "../lib/api";
-import { Card, MetricCard, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState } from "../components/Ui";
+import { Card, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState, CursoMarca, colorDeCurso, Anillo, FechaBloque, CardTitulo, LinkAccion } from "../components/Ui";
 import CalendarioEventos from "../components/CalendarioEventos";
 import HorarioSemanal, { DIAS, asuetosDeLaSemana } from "../components/HorarioSemanal";
 
@@ -34,7 +34,7 @@ function useCarga<T>(cargar: () => Promise<T>, mensaje: string) {
 function Cargando({ filas = 3 }: { filas?: number }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {Array.from({ length: filas }, (_, i) => <div key={i} className="h-28 rounded-xl bg-stone-100 animate-pulse" />)}
+      {Array.from({ length: filas }, (_, i) => <div key={i} className="h-28 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}
     </div>
   );
 }
@@ -86,97 +86,138 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
       {error && <AlertBanner type="error" message={error} />}
 
       {notas.loading ? <Cargando filas={4} /> : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard label="Promedio general" value={boletin?.promedioGeneral != null ? Math.round(boletin.promedioGeneral) : "—"}
-            sub={boletin?.cursosEvaluados ? "Unidades evaluadas" : "Sin notas aún"} icon={<BookOpen className="w-5 h-5" />}
-            variant={boletin?.promedioGeneral == null ? "default" : boletin.promedioGeneral >= boletin.notaAprobacion ? "success" : "danger"} />
-          <MetricCard label="Cursos aprobados" value={boletin ? `${boletin.cursosAprobados}/${boletin.cursos.length}` : "—"}
-            sub="Según unidades evaluadas" icon={<CheckCircle2 className="w-5 h-5" />}
-            variant={boletin && boletin.cursosAprobados < boletin.cursosEvaluados ? "warning" : "success"} />
-          <MetricCard label="Asistencia" value={porcentaje !== undefined ? `${Math.round(porcentaje)}%` : "—"}
-            sub={asistencia.data ? `${asistencia.data.resumen.ausentes} ausencias · ${asistencia.data.resumen.tardes} tardes` : undefined}
-            icon={<ClipboardList className="w-5 h-5" />}
-            variant={porcentaje === undefined ? "default" : porcentaje >= 80 ? "success" : "warning"} />
-          <MetricCard label="Próxima clase" value={proxima ? proxima.clase.horaInicio : "—"}
-            sub={proxima ? `${proxima.hoy ? "Hoy" : DIAS[proxima.clase.diaSemana]} · ${proxima.clase.curso}` : "Sin horario"}
-            icon={<Clock className="w-5 h-5" />} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Promedio + aprobados */}
+          <Card className="p-6 lg:col-span-2 flex flex-col sm:flex-row gap-6 sm:items-center">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-stone-500">Promedio general</p>
+              <p className={`font-display font-bold text-[4.5rem] leading-none tabular-nums tracking-tight mt-1 ${boletin?.promedioGeneral == null ? "text-stone-300" : boletin.promedioGeneral >= boletin.notaAprobacion ? "text-stone-900" : "text-danger-700"}`}>
+                {boletin?.promedioGeneral != null ? Math.round(boletin.promedioGeneral) : "—"}
+              </p>
+              <p className="text-sm text-stone-500 mt-2">{boletin?.cursosEvaluados ? "Con las unidades evaluadas hasta hoy" : "Aún no hay notas"}</p>
+            </div>
+            {boletin && boletin.cursos.length > 0 && (
+              <div className="sm:w-64 shrink-0">
+                <p className="text-sm font-semibold text-stone-700 mb-2.5">
+                  <span className="font-display text-2xl font-bold text-stone-900 tabular-nums">{boletin.cursosAprobados}</span>
+                  <span className="text-stone-400"> de {boletin.cursos.length}</span> cursos aprobados
+                </p>
+                <div className="flex gap-1" aria-hidden="true">
+                  {boletin.cursos.map((c) => (
+                    <span key={c.cursoSeccionId} title={c.curso}
+                      className={`h-3 flex-1 rounded-full ${c.aprobado === null ? "bg-stone-200" : c.aprobado ? "bg-primary-700" : "bg-danger-600"}`} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Próxima clase */}
+          {(() => {
+            const col = proxima ? colorDeCurso(proxima.clase.curso) : null;
+            return (
+              <div className={`rounded-[20px] p-6 relative overflow-hidden textile-pattern ${col ? `${col.solid} ${col.fg}` : "bg-stone-400 text-white"}`}>
+                <span className="absolute -right-6 -bottom-8 font-display font-extrabold text-[9rem] leading-none opacity-[0.14] select-none" aria-hidden="true">
+                  {proxima ? proxima.clase.curso.charAt(0) : ""}
+                </span>
+                <div className="relative">
+                  <p className="text-sm font-semibold opacity-80 flex items-center gap-1.5"><Clock className="w-4 h-4" />
+                    {proxima ? (proxima.hoy ? "Tu próxima clase, hoy" : `Tu próxima clase, el ${DIAS[proxima.clase.diaSemana].toLowerCase()}`) : "Próxima clase"}
+                  </p>
+                  <p className="font-display font-bold text-5xl leading-none mt-4 tabular-nums">{proxima ? proxima.clase.horaInicio : "—"}</p>
+                  <p className="font-display font-bold text-xl mt-3 leading-tight">{proxima ? proxima.clase.curso : "Sin horario publicado"}</p>
+                  {proxima && <p className="text-sm opacity-80 mt-0.5">{proxima.clase.catedratico}</p>}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-semibold text-stone-800 text-base">Mis cursos</h3>
-          {onNavigate && (
-            <button onClick={() => onNavigate("alu-notas")} className="text-xs text-primary-700 hover:underline font-medium flex items-center gap-1 cursor-pointer">
-              Ver notas completas <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        {!boletin || boletin.cursos.length === 0 ? (
-          <p className="text-sm text-stone-500">{notas.loading ? "Cargando…" : "Aún no tienes cursos asignados."}</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {boletin.cursos.slice(0, 6).map((c) => (
-              <div key={c.cursoSeccionId} className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-xl">
-                <div className="min-w-0">
-                  <p className="font-medium text-stone-900 text-sm">{c.curso}</p>
-                  <p className="text-xs text-stone-500">{c.catedratico}</p>
-                </div>
-                {c.promedio !== null ? (
-                  <div className="text-right shrink-0">
-                    <p className={`font-mono-data font-bold text-xl ${colorNota(c.promedio, boletin.notaAprobacion)}`}>{Math.round(c.promedio)}</p>
-                    <EstadoBadge aprobado={!!c.aprobado} label={c.aprobado ? "✓" : "✗"} />
-                  </div>
-                ) : <span className="text-xs text-stone-400 shrink-0">Sin notas</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display font-semibold text-stone-800 text-base">Próximos eventos</h3>
-            {onNavigate && (
-              <button onClick={() => onNavigate("alu-calendario")} className="text-xs text-primary-700 hover:underline font-medium flex items-center gap-1 cursor-pointer">
-                Calendario <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          {proximosEventos.length === 0 ? (
-            <p className="text-sm text-stone-500">{eventos.loading ? "Cargando…" : "No hay eventos próximos."}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card className="p-6 lg:col-span-2">
+          <CardTitulo titulo="Mis cursos" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-notas")}>Ver todas las notas</LinkAccion>} />
+          {!boletin || boletin.cursos.length === 0 ? (
+            <p className="text-sm text-stone-500">{notas.loading ? "Cargando…" : "Aún no tienes cursos asignados."}</p>
           ) : (
-            <div className="space-y-2">
-              {proximosEventos.map((e) => (
-                <div key={e.eventoId} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-stone-200 bg-stone-50 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CalendarDays className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                    <span className="font-medium text-stone-800 truncate">{e.nombre}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {boletin.cursos.slice(0, 8).map((c) => {
+                return (
+                  <div key={c.cursoSeccionId} className="flex items-center gap-3 p-3 rounded-2xl bg-sand-100">
+                    <CursoMarca nombre={c.curso} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-stone-900 text-[15px] truncate">{c.curso}</p>
+                      <p className="text-[13px] text-stone-600 truncate">{c.catedratico}</p>
+                    </div>
+                    {c.promedio !== null ? (
+                      <span className={`font-display font-bold text-2xl tabular-nums shrink-0 ${c.aprobado ? "text-stone-900" : "text-danger-700"}`}
+                        aria-label={`Promedio ${Math.round(c.promedio)}, ${c.aprobado ? "aprobado" : "reprobado"}`}>
+                        {Math.round(c.promedio)}
+                      </span>
+                    ) : <span className="text-xs font-semibold text-stone-500 shrink-0">Sin notas</span>}
                   </div>
-                  <span className="font-mono-data shrink-0 text-stone-600">{e.fecha.slice(0, 10).split("-").reverse().join("/")}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
 
-        <Card className="p-5">
-          <h3 className="font-display font-semibold text-stone-800 text-base mb-3">Avisos recientes</h3>
+        <Card className="p-6 flex flex-col">
+          <CardTitulo titulo="Asistencia" />
+          {porcentaje === undefined ? (
+            <p className="text-sm text-stone-500">{asistencia.loading ? "Cargando…" : "Sin registros todavía."}</p>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
+              <Anillo valor={porcentaje} size={132} grosor={12} color={porcentaje >= 80 ? "#0f7b5f" : "#d99e00"}>
+                <span className="font-display font-bold text-3xl tabular-nums text-stone-900">{Math.round(porcentaje)}%</span>
+              </Anillo>
+              {asistencia.data && (
+                <div className="flex gap-5 text-sm">
+                  <span><span className="font-display font-bold text-lg text-stone-900 tabular-nums">{asistencia.data.resumen.ausentes}</span> <span className="text-stone-500">ausencias</span></span>
+                  <span><span className="font-display font-bold text-lg text-stone-900 tabular-nums">{asistencia.data.resumen.tardes}</span> <span className="text-stone-500">tardes</span></span>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card className="p-6">
+          <CardTitulo titulo="Próximos eventos" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-calendario")}>Abrir calendario</LinkAccion>} />
+          {proximosEventos.length === 0 ? (
+            <p className="text-sm text-stone-500">{eventos.loading ? "Cargando…" : "No hay eventos próximos."}</p>
+          ) : (
+            <ul className="space-y-3">
+              {proximosEventos.map((e, i) => (
+                <li key={e.eventoId} className="flex items-center gap-3.5">
+                  <FechaBloque iso={e.fecha} tono={i === 0 ? "primary" : "neutral"} />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-stone-900 text-[15px] truncate">{e.nombre}</p>
+                    <p className="text-[13px] text-stone-500">{e.tipoEvento === "Academico" ? "Académico" : e.tipoEvento === "Reunion" ? "Reunión" : e.tipoEvento}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card className="p-6">
+          <CardTitulo titulo="Avisos recientes" />
           {(avisos.data ?? []).length === 0 ? (
             <p className="text-sm text-stone-500">{avisos.loading ? "Cargando…" : "No tienes avisos."}</p>
           ) : (
-            <div className="space-y-2.5">
+            <ul className="divide-y divide-stone-100 -my-2">
               {avisos.data!.slice(0, 4).map((n) => (
-                <div key={n.notificacionId} className="flex items-start gap-2.5">
-                  <Bell className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${n.leida ? "text-stone-300" : "text-primary-500"}`} />
+                <li key={n.notificacionId} className="flex items-start gap-3 py-3">
+                  <span className={`w-2.5 h-2.5 mt-1.5 rounded-full shrink-0 ${n.leida ? "bg-stone-200" : "bg-action-500"}`} aria-label={n.leida ? "Leído" : "Sin leer"} />
                   <div className="min-w-0">
-                    <p className={`text-sm ${n.leida ? "text-stone-600" : "text-stone-900 font-medium"}`}>{n.titulo}</p>
-                    <p className="text-[10px] text-stone-400 mt-0.5">{new Date(n.fechaEnvio).toLocaleDateString("es-GT")}</p>
+                    <p className={`text-[15px] leading-snug ${n.leida ? "text-stone-600" : "text-stone-900 font-semibold"}`}>{n.titulo}</p>
+                    <p className="text-xs text-stone-400 mt-1">{new Date(n.fechaEnvio).toLocaleDateString("es-GT", { day: "numeric", month: "long" })}</p>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </Card>
       </div>
@@ -206,31 +247,34 @@ function MisNotas() {
           <div className="md:hidden space-y-3">
             {boletin.cursos.map((c) => (
               <Card key={c.cursoSeccionId} className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-display font-semibold text-stone-900">{c.curso}</p>
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3 min-w-0">
+                  <CursoMarca nombre={c.curso} />
+                  <div className="min-w-0">
+                    <p className="font-display font-bold text-stone-900 text-[17px] leading-tight">{c.curso}</p>
                     <p className="text-xs text-stone-500">{c.catedratico}</p>
                     {c.seccionAnterior && <Badge variant="neutral" className="mt-1">Sección anterior: {c.seccionAnterior}</Badge>}
+                  </div>
                   </div>
                   {c.aprobado !== null && <EstadoBadge aprobado={c.aprobado} />}
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
                   {c.unidades.map((u) => (
                     <div key={u.numero} className="flex flex-col items-center">
-                      <span className="text-[10px] text-stone-400 mb-1">U{u.numero}</span>
+                      <span className="text-xs font-semibold text-stone-500 mb-1.5">Unidad {u.numero}</span>
                       {u.nota !== null ? (
-                        <span className={`font-mono-data font-bold text-sm px-2 py-1 rounded-lg
-                          ${u.nota >= minimo ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}>
+                        <span className={`font-display font-bold text-lg tabular-nums w-full text-center py-1.5 rounded-xl
+                          ${u.nota >= minimo ? "bg-sand-100 text-stone-900" : "bg-danger-50 text-danger-700"}`}>
                           {Math.round(u.nota)}
                         </span>
-                      ) : <span className="text-stone-300 font-mono-data text-sm px-2 py-1">—</span>}
+                      ) : <span className="w-full text-center py-1.5 rounded-xl border-[1.5px] border-dashed border-stone-200 text-stone-300 font-display text-lg">—</span>}
                     </div>
                   ))}
                 </div>
                 {c.promedio !== null && (
-                  <div className="mt-3 pt-2 border-t border-stone-100 flex justify-between text-sm">
-                    <span className="text-stone-500">Promedio</span>
-                    <span className={`font-mono-data font-bold text-base ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                  <div className="mt-4 pt-3 border-t border-stone-100 flex items-baseline justify-between text-sm">
+                    <span className="font-semibold text-stone-600">Promedio</span>
+                    <span className={`font-display font-bold text-2xl tabular-nums ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
                   </div>
                 )}
               </Card>
@@ -242,28 +286,32 @@ function MisNotas() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-stone-50 border-b border-stone-200">
+                  <tr>
                     <TH>Curso</TH>
-                    <TH>Catedrático</TH>
                     {unidades.map((u) => <TH key={u} className="text-center">Unidad {u}</TH>)}
                     <TH className="text-center">Promedio</TH>
                     <TH className="text-center">Estado</TH>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-50">
+                <tbody className="divide-y divide-stone-100">
                   {boletin.cursos.map((c) => (
-                    <tr key={c.cursoSeccionId} className="hover:bg-stone-50 transition-colors">
+                    <tr key={c.cursoSeccionId} className="hover:bg-sand-50 transition-colors">
                       <TD>
-                        <span className="font-medium text-stone-900">{c.curso}</span>
-                        {c.seccionAnterior && <Badge variant="neutral" className="ml-2">Sección anterior: {c.seccionAnterior}</Badge>}
+                        <div className="flex items-center gap-3">
+                          <CursoMarca nombre={c.curso} size="sm" />
+                          <div className="min-w-0">
+                            <p className="font-bold text-stone-900">{c.curso}</p>
+                            <p className="text-[13px] text-stone-500">{c.catedratico}</p>
+                          </div>
+                          {c.seccionAnterior && <Badge variant="neutral">Sección anterior: {c.seccionAnterior}</Badge>}
+                        </div>
                       </TD>
-                      <TD><span className="text-stone-500 text-xs">{c.catedratico}</span></TD>
                       {c.unidades.map((u) => (
                         <TD key={u.numero} className="text-center">
                           {u.nota !== null ? (
                             <span title={`Zona ${u.zona ?? 0} + Examen ${u.examen ?? 0}`}
-                              className={`inline-block font-mono-data font-semibold text-sm px-2 py-0.5 rounded-md
-                                ${u.nota >= minimo ? "bg-success-100 text-success-800" : "bg-danger-100 text-danger-800"}`}
+                              className={`inline-flex items-center justify-center min-w-11 h-9 px-2 font-display font-bold text-base tabular-nums rounded-xl
+                                ${u.nota >= minimo ? "bg-sand-100 text-stone-900" : "bg-danger-50 text-danger-700"}`}
                               aria-label={u.nota >= minimo ? `${u.nota} — aprobado` : `${u.nota} — reprobado`}>
                               {Math.round(u.nota)}
                             </span>
@@ -272,7 +320,7 @@ function MisNotas() {
                       ))}
                       <TD className="text-center">
                         {c.promedio !== null
-                          ? <span className={`font-mono-data font-bold text-base ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
+                          ? <span className={`font-display font-bold text-2xl tabular-nums ${colorNota(c.promedio, minimo)}`}>{Math.round(c.promedio)}</span>
                           : "—"}
                       </TD>
                       <TD className="text-center">
@@ -285,7 +333,7 @@ function MisNotas() {
             </div>
           </Card>
 
-          <p className="text-xs text-stone-400 text-center">
+          <p className="text-[13px] text-stone-500 text-center max-w-xl mx-auto leading-relaxed">
             Cada unidad vale 100 puntos (zona + examen) · {minimo} o más = aprobado · El promedio cuenta solo las unidades ya evaluadas.
           </p>
         </>
