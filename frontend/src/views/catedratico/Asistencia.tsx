@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, ClipboardList, Save } from "lucide-react";
+import { CheckCircle2, ClipboardList, Save } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, AlertBanner, EmptyState, TH, TD } from "../../components/Ui";
 import { getListaAsistencia, pasarLista, type EstadoAsistencia, type ListaAsistenciaDto } from "../../lib/api";
 import { CursoSelect, Cargando, errorMsg, formatFechaCorta, hoyISO, iniciales, useMisCursos } from "./shared";
@@ -101,7 +101,7 @@ export default function Asistencia() {
             max={hoyISO()}
             onChange={(e) => setFecha(e.target.value)}
             aria-label="Fecha"
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-700"
+            className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] bg-white focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10"
           />
         </div>
       </div>
@@ -116,9 +116,9 @@ export default function Asistencia() {
         <EmptyState icon={<ClipboardList className="w-10 h-10" />} title="Sin alumnos" description="La sección no tiene alumnos inscritos." />
       ) : (
         <>
-          <Card className="p-4">
+          <Card className="p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[15px]">
                 {ESTADOS.map((s) => (
                   <span key={s.key} className="flex items-center gap-1.5">
                     <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />{s.plural}: <strong>{conteo(s.key)}</strong>
@@ -129,7 +129,7 @@ export default function Asistencia() {
                 <span className="text-xs text-stone-500">Marcar todos:</span>
                 {ESTADOS.filter((s) => s.key === "Presente" || s.key === "Ausente").map((s) => (
                   <button key={s.key} onClick={() => marcarTodos(s.key)}
-                    className={`px-2 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${s.color} opacity-80 hover:opacity-100`}>
+                    className={`px-3.5 py-1.5 rounded-full text-[13px] font-bold transition-opacity cursor-pointer ${s.color} hover:opacity-90`}>
                     {s.plural}
                   </button>
                 ))}
@@ -139,19 +139,19 @@ export default function Asistencia() {
 
           <Card className="overflow-hidden">
             <table className="w-full">
-              <thead className="bg-stone-50 border-b border-stone-100">
+              <thead>
                 <tr><TH>Alumno</TH><TH className="text-center">Estado</TH></tr>
               </thead>
-              <tbody className="divide-y divide-stone-50">
+              <tbody className="divide-y divide-stone-100">
                 {lista.alumnos.map((a) => (
-                  <tr key={a.alumnoId} className="hover:bg-stone-50">
+                  <tr key={a.alumnoId} className="hover:bg-sand-50">
                     <TD>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-primary-100 text-primary-800 flex items-center justify-center text-xs font-bold">
+                        <div className="w-9 h-9 rounded-full bg-sand-100 text-stone-700 flex items-center justify-center text-xs font-bold">
                           {iniciales(a.nombres, a.apellidos)}
                         </div>
                         <div>
-                          <span className="font-medium text-stone-900 text-sm">{a.apellidos}, {a.nombres}</span>
+                          <span className="font-semibold text-stone-900 text-[15px]">{a.apellidos}, {a.nombres}</span>
                           {a.diaJustificado ? (
                             <p className="text-[11px] text-info-700">Ausencia justificada por la sede</p>
                           ) : !a.estado && a.ausenteEnOtraClase && (
@@ -161,14 +161,14 @@ export default function Asistencia() {
                       </div>
                     </TD>
                     <TD className="text-center">
-                      <div className="flex justify-center gap-1" role="group" aria-label={`Estado de ${a.nombres} ${a.apellidos}`}>
+                      <div className="flex justify-center gap-1.5" role="group" aria-label={`Estado de ${a.nombres} ${a.apellidos}`}>
                         {opcionesDe(a).map((s) => (
                           <button key={s.key} onClick={() => setEstados((prev) => ({ ...prev, [a.alumnoId]: s.key }))}
                             aria-pressed={estados[a.alumnoId] === s.key}
                             aria-label={`Marcar ${s.key.toLowerCase()}`}
                             title={s.key}
-                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer
-                              ${estados[a.alumnoId] === s.key ? s.color + " ring-2 ring-offset-1 ring-primary-300" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}>
+                            className={`w-10 h-10 rounded-full text-sm font-display font-bold transition-colors cursor-pointer
+                              ${estados[a.alumnoId] === s.key ? s.color : "bg-white border-[1.5px] border-stone-200 text-stone-400 hover:border-stone-400 hover:text-stone-700"}`}>
                             {s.label}
                           </button>
                         ))}

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { loadStripe, type StripeCardNumberElementOptions, type StripeElementsOptions } from "@stripe/stripe-js";
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { AlertCircle, CheckCircle2, Clock, CreditCard, Lock, Mail, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, CreditCard, Lock, Mail, ShieldCheck } from "./Iconos";
 import { Btn, Input, Modal } from "./Ui";
 import { crearIntentPago, verificarPago, type IntentPagoDto } from "../lib/api";
 import { getSession } from "../lib/auth";
@@ -30,11 +30,11 @@ const ESTILO_CAMPO: StripeCardNumberElementOptions["style"] = {
   base: {
     fontFamily: "Outfit, system-ui, sans-serif",
     fontSize: "15px",
-    color: "#1c1917", // stone-900
+    color: "#1c1a2e", // stone-900
     letterSpacing: "0.02em",
-    "::placeholder": { color: "#a8a29e" }, // stone-400
+    "::placeholder": { color: "#a59b8b" }, // stone-400
   },
-  invalid: { color: "#b91c1c" }, // danger-700
+  invalid: { color: "#a31a26" }, // danger-700
 };
 
 const MARCAS: Record<string, string> = {
@@ -206,7 +206,7 @@ function ResumenPago({ intent }: { intent: IntentPagoDto }) {
       )}
       <div className="flex justify-between items-baseline pt-2 border-t border-sand-200">
         <span className="font-semibold text-stone-900">Total a pagar</span>
-        <span className="font-mono-data font-bold text-lg text-primary-700">{formatoQ(intent.montoFinal)}</span>
+        <span className="font-display font-bold tabular-nums text-lg text-primary-700">{formatoQ(intent.montoFinal)}</span>
       </div>
     </div>
   );
@@ -342,14 +342,14 @@ function FormularioTarjeta({ cobro, verificar, onEnviando, onResultado }: {
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 rounded-md bg-danger-50 border border-danger-100 text-danger-800 text-sm" role="alert">
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 border border-danger-100 text-danger-800 text-sm" role="alert">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {MODO_PRUEBA && (
-        <p className="text-xs text-stone-500 bg-stone-50 border border-dashed border-stone-300 rounded-md px-3 py-2">
+        <p className="text-xs text-stone-500 bg-stone-50 border border-dashed border-stone-300 rounded-lg px-3 py-2">
           Modo prueba: use la tarjeta <span className="font-mono-data">4242 4242 4242 4242</span>, cualquier fecha futura y cualquier CVC.
           Para simular un rechazo: <span className="font-mono-data">4000 0000 0000 0002</span>.
         </p>
@@ -393,7 +393,7 @@ function CampoTarjeta({ label, enfocado, error, extra, children }: {
     <div className="flex flex-col gap-1">
       <span className="text-sm font-medium text-stone-700">{label}</span>
       <div
-        className={`relative flex items-center rounded-md border bg-white px-3 py-2.5 transition-shadow
+        className={`relative flex items-center rounded-lg border bg-white px-3 py-2.5 transition-shadow
           ${error ? "border-danger-600" : enfocado ? "border-primary-700" : "border-stone-300"}
           ${enfocado ? (error ? "ring-2 ring-danger-600/30" : "ring-2 ring-primary-700/25") : ""}`}
       >
@@ -425,7 +425,7 @@ function TarjetaVistaPrevia({ marca, nombre, enfocado }: { marca: string; nombre
 
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex items-start justify-between">
-          <div className="w-9 h-7 rounded-md bg-gradient-to-br from-amber-200 to-amber-400 opacity-90" />
+          <div className="w-9 h-7 rounded-lg bg-gradient-to-br from-amber-200 to-amber-400 opacity-90" />
           <span className="text-sm font-semibold tracking-wider">
             {MARCAS[marca] ?? <CreditCard className="w-5 h-5 text-white/70" />}
           </span>
@@ -437,13 +437,13 @@ function TarjetaVistaPrevia({ marca, nombre, enfocado }: { marca: string; nombre
 
         <div className="flex items-end justify-between gap-4 text-xs">
           <div className="min-w-0">
-            <p className="text-white/50 uppercase tracking-wide text-[10px]">Titular</p>
+            <p className="text-white/50 uppercase tracking-wide text-[11px]">Titular</p>
             <p className={`truncate uppercase font-medium transition-colors ${resaltar("nombre")}`}>
               {nombre.trim() || "Nombre completo"}
             </p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-white/50 uppercase tracking-wide text-[10px]">
+            <p className="text-white/50 uppercase tracking-wide text-[11px]">
               {enfocado === "cvc" ? "CVC" : "Vence"}
             </p>
             <p className={`font-mono-data transition-colors ${resaltar(enfocado === "cvc" ? "cvc" : "vencimiento")}`}>
@@ -463,7 +463,7 @@ function ResultadoPago({ resultado, onCerrar }: { resultado: Resultado; onCerrar
         <div className="w-14 h-14 rounded-full bg-warning-100 flex items-center justify-center">
           <Clock className="w-7 h-7 text-warning-700" />
         </div>
-        <h3 className="font-display font-semibold text-stone-900 text-lg">Pago en proceso</h3>
+        <h3 className="font-display font-bold text-stone-900 text-lg">Pago en proceso</h3>
         <p className="text-stone-600 text-sm max-w-sm">
           Su banco todavía está procesando el pago. El estado de cuenta se actualizará automáticamente cuando se confirme,
           y el comprobante llegará a <span className="font-medium text-stone-900">{resultado.correo}</span>.
@@ -478,9 +478,9 @@ function ResultadoPago({ resultado, onCerrar }: { resultado: Resultado; onCerrar
       <div className="w-14 h-14 rounded-full bg-success-100 flex items-center justify-center">
         <CheckCircle2 className="w-7 h-7 text-success-700" />
       </div>
-      <h3 className="font-display font-semibold text-stone-900 text-lg">¡Pago realizado!</h3>
+      <h3 className="font-display font-bold text-stone-900 text-lg">¡Pago realizado!</h3>
       <p className="text-stone-600 text-sm max-w-sm">
-        Se cobraron <span className="font-mono-data font-semibold text-stone-900">{formatoQ(resultado.monto)}</span> correctamente.
+        Se cobraron <span className="font-display font-bold tabular-nums text-stone-900">{formatoQ(resultado.monto)}</span> correctamente.
         El pago ya aparece en su estado de cuenta y el comprobante se envió a{" "}
         <span className="font-medium text-stone-900">{resultado.correo}</span>.
       </p>

@@ -173,7 +173,7 @@ export function CursoSelect({ cursos, value, onChange }: {
       value={value ?? ""}
       onChange={(e) => onChange(Number(e.target.value))}
       aria-label="Curso"
-      className="border border-stone-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-700"
+      className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] bg-white focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10"
     >
       {cursos.map((c) => (
         <option key={c.cursoSeccionId} value={c.cursoSeccionId}>{nombreCurso(c)}</option>

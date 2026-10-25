@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download, GraduationCap, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, BookOpen, Users2, ShieldCheck, Download, GraduationCap, ArrowLeft } from "../components/Iconos";
 import { Sede, type AppUser, type Role } from "../types";
 import type { Portal } from "./Home";
 import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
@@ -259,91 +259,73 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left panel — brand */}
-      <div className="hidden md:flex md:w-2/5 lg:w-1/2 bg-primary-700 flex-col p-10 lg:p-14 relative overflow-hidden textile-pattern">
-        {/* Decorative geometry */}
-        <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full border-2 border-white/8" />
-        <div className="absolute bottom-16 left-16 w-40 h-40 rounded-full border border-white/5" />
-        <div className="absolute top-1/3 right-0 w-px h-48 bg-white/10" />
+      {/* Panel izquierdo: marca */}
+      <div className="hidden md:flex md:w-2/5 lg:w-[46%] bg-primary-800 textile-pattern text-white flex-col p-10 lg:p-14 relative overflow-hidden">
+        <div className="franja-tejido absolute left-0 right-0 bottom-0 h-3" aria-hidden="true" />
+        <button type="button" onClick={onBack} className="flex items-center gap-3 self-start cursor-pointer group">
+          <span className="w-11 h-11 rounded-[14px] bg-action-500 text-white flex items-center justify-center font-display font-extrabold text-xl rotate-[-4deg]">V</span>
+          <span className="font-display font-bold text-lg group-hover:text-subject-social transition-colors">Colegio Vanguardia</span>
+        </button>
 
-        {/* Título y características se centran juntos como un solo bloque, con un
-            espacio fijo (no proporcional) entre ellos — evita el hueco enorme que
-            dejaba el justify-between original cuando el panel es muy alto. */}
-        <div className="flex-1 flex flex-col justify-center">
-          <div>
-            <p className="font-display text-white/60 text-sm tracking-widest uppercase">Portal Académico</p>
-            <button type="button" onClick={onBack} className="text-left cursor-pointer">
-              <h1 className="font-display text-white text-4xl lg:text-5xl font-bold mt-2 leading-tight hover:text-primary-100 transition-colors">Colegio Vanguardia</h1>
-            </button>
-            <p className="text-primary-200 mt-4 text-base leading-relaxed max-w-sm">
-              Sistema integral de gestión académica: matrícula, notas, horarios, asistencia y pagos.
-            </p>
+        <div className="relative flex-1 flex flex-col justify-center py-10">
+          <h1 className="font-display font-extrabold text-5xl lg:text-6xl leading-[0.98] tracking-tight max-w-md">
+            Todo el colegio en un solo lugar
+          </h1>
+          <p className="text-white/70 mt-5 text-[17px] leading-relaxed max-w-sm">
+            Matrícula, notas, horarios, asistencia y pagos para alumnos, familias y docentes.
+          </p>
+
+          <div className="flex gap-2.5 mt-10" aria-hidden="true">
+            {["bg-subject-math", "bg-subject-language", "bg-subject-science", "bg-subject-social", "bg-subject-english", "bg-subject-arts"].map((c, i) => (
+              <span key={c} className={`w-11 h-11 rounded-2xl ${c} ${i % 2 ? "rotate-[4deg] translate-y-1.5" : "rotate-[-3deg]"}`} />
+            ))}
           </div>
 
-          <div className="space-y-4 mt-10">
-            <div className="flex items-center gap-3 text-primary-100">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><BookOpen className="w-4 h-4" /></div>
-              <span className="text-sm">El mejor colegio del país</span>
-            </div>
-            <div className="flex items-center gap-3 text-primary-100">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" opacity=".7"/><rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/><rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" opacity=".3"/></svg>
-              </div>
-              <span className="text-sm">Gestión multi-sede</span>
-            </div>
-            <div className="flex items-center gap-3 text-primary-100">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-              </div>
-              <span className="text-sm">Notas, asistencia y pagos en línea</span>
-            </div>
-            <div className="flex items-center gap-3 text-primary-100">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><Users2 className="w-4 h-4" /></div>
-              <span className="text-sm">Solicitud de inscripción en línea</span>
-            </div>
-            <div className="flex items-center gap-3 text-primary-100">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><ShieldCheck className="w-4 h-4" /></div>
-              <span className="text-sm">Acceso seguro por roles</span>
-            </div>
-          </div>
+          <ul className="mt-10 space-y-3 text-[15px] text-white/85">
+            {[[BookOpen, "Notas y boletas por unidad"], [Users2, "Solicitud de inscripción en línea"], [ShieldCheck, "Acceso seguro según su rol"]].map(([Icon, t]) => {
+              const I = Icon as typeof BookOpen;
+              return <li key={t as string} className="flex items-center gap-3"><I className="w-5 h-5 text-subject-social shrink-0" />{t as string}</li>;
+            })}
+          </ul>
         </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-primary-300 text-xs">© {new Date().getFullYear()} Colegio Vanguardia · Todos los derechos reservados</p>
-          <button type="button" onClick={onBack} className="text-primary-200 hover:text-white text-xs flex items-center gap-1 cursor-pointer shrink-0">
+        <div className="relative flex items-center justify-between gap-4 text-xs text-white/55">
+          <p>© {new Date().getFullYear()} Colegio Vanguardia</p>
+          <button type="button" onClick={onBack} className="hover:text-white font-semibold flex items-center gap-1 cursor-pointer shrink-0">
             <ArrowLeft className="w-3.5 h-3.5" /> Volver al inicio
           </button>
         </div>
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center overflow-y-auto p-6 sm:p-10 bg-sand-100">
+      <div className="flex-1 flex items-center justify-center overflow-y-auto p-5 sm:p-10 bg-sand-100">
         <div className={`w-full ${screen === "solicitud" ? "max-w-2xl" : screen === "consulta" ? "max-w-md" : "max-w-sm"} transition-[max-width] duration-200`}>
           <div className="md:hidden mb-8 text-center">
-            <button type="button" onClick={onBack} className="cursor-pointer">
-              <p className="font-display font-bold text-primary-700 text-2xl">Colegio Vanguardia</p>
+            <button type="button" onClick={onBack} className="cursor-pointer inline-flex flex-col items-center gap-3">
+              <span className="w-12 h-12 rounded-[16px] bg-action-500 text-white flex items-center justify-center font-display font-extrabold text-2xl rotate-[-4deg]">V</span>
+              <span className="font-display font-bold text-stone-900 text-2xl">Colegio Vanguardia</span>
             </button>
-            <p className="text-stone-500 text-sm">Sistema Académico</p>
+            <p className="text-stone-500 text-sm">Sistema académico</p>
             <button type="button" onClick={onBack} className="mt-2 text-xs text-stone-500 hover:text-stone-700 inline-flex items-center gap-1 cursor-pointer">
               <ArrowLeft className="w-3.5 h-3.5" /> Volver al inicio
             </button>
           </div>
 
-          <Card className="p-6 sm:p-8">
+          <Card className="p-6 sm:p-9 rounded-[28px] border-transparent">
             {screen === "login" && (
               <form onSubmit={handleLogin} noValidate>
-                <div className="grid grid-cols-2 gap-1 p-1 mb-6 rounded-lg bg-stone-100" role="tablist" aria-label="Tipo de acceso">
+                <div className="grid grid-cols-2 gap-1 p-1 mb-7 rounded-full bg-sand-100" role="tablist" aria-label="Tipo de acceso">
                   {PORTALES.map(({ id, label, Icon }) => (
                     <button key={id} type="button" role="tab" aria-selected={portal === id} onClick={() => cambiarPortal(id)}
-                      className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer
-                        ${portal === id ? "bg-white text-primary-700 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}>
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-bold transition-colors cursor-pointer
+                        ${portal === id ? "bg-primary-800 text-white" : "text-stone-500 hover:text-stone-800"}`}>
                       <Icon className="w-4 h-4 shrink-0" />
                       <span className="leading-tight">{label}</span>
                     </button>
                   ))}
                 </div>
 
-                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">{portalActual.titulo}</h2>
+                <h2 className="font-display text-[2rem] leading-tight font-bold text-stone-900 mb-1.5">{portalActual.titulo}</h2>
                 <p className="text-stone-500 text-sm mb-6">{portalActual.texto}</p>
 
                 {error && (
@@ -366,7 +348,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label htmlFor="password" className="text-sm font-medium text-stone-700">Contraseña</label>
-                      <button type="button" onClick={() => setScreen("forgot")} className="text-xs text-primary-700 hover:underline font-medium">¿Olvidó su contraseña?</button>
+                      <button type="button" onClick={() => setScreen("forgot")} className="text-[13px] text-primary-700 hover:text-primary-900 font-bold">¿Olvidó su contraseña?</button>
                     </div>
                     <Input
                       id="password" type={showPass ? "text" : "password"} autoComplete="current-password"
@@ -406,7 +388,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
             {screen === "forgot" && (
               <form onSubmit={handleForgot} noValidate>
-                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Recuperar contraseña</h2>
+                <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Recuperar contraseña</h2>
                 <p className="text-stone-500 text-sm mb-6">Ingrese su correo institucional y le enviaremos un enlace para restablecer su contraseña.</p>
 
                 {forgotSent ? (
@@ -438,7 +420,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
             {screen === "reset" && (
               <form onSubmit={handleReset} noValidate>
-                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Nueva contraseña</h2>
+                <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Nueva contraseña</h2>
                 <p className="text-stone-500 text-sm mb-6">Escriba la contraseña que usará a partir de ahora (mínimo 8 caracteres).</p>
 
                 {resetDone ? (
@@ -478,7 +460,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
             {screen === "sede" && selectedUser && (
               <div>
-                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Seleccionar sede</h2>
+                <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Seleccionar sede</h2>
                 <p className="text-stone-500 text-sm mb-6">Su usuario tiene acceso a varias sedes. Seleccione la sede de trabajo para esta sesión.</p>
 
                 <div className="space-y-2 mb-6">
@@ -509,7 +491,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
             {screen === "consulta" && (
               <div>
-                <h2 className="font-display text-2xl font-semibold text-stone-900 mb-1">Consultar estado de solicitud</h2>
+                <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Consultar estado de solicitud</h2>
                 <p className="text-stone-500 text-sm mb-6">Ingrese el número de solicitud, o el DPI y correo del encargado.</p>
 
                 <Tabs
@@ -556,7 +538,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-stone-500">Solicitud</p>
-                          <p className="font-mono-data font-semibold text-stone-900">{consultaResultado.numero}</p>
+                          <p className="font-display font-bold tabular-nums text-stone-900">{consultaResultado.numero}</p>
                         </div>
                         <Badge variant={cfg.variant}>{estado}</Badge>
                       </div>

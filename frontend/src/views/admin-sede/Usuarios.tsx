@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Edit, UserX, UserCheck, KeyRound, BookOpen, Users } from "lucide-react";
+import { Plus, Search, Edit, UserX, UserCheck, KeyRound, BookOpen, Users } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, Drawer, Modal, AlertBanner, Input, Select, Textarea, TH, TD } from "../../components/Ui";
 import {
   getUsuarios,
@@ -199,15 +199,15 @@ export default function UsuariosView() {
           <div className="relative flex-1 max-w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre o correo…"
-              className="w-full pl-9 pr-3 py-2 text-sm border border-stone-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-700 bg-white" />
+              className="w-full pl-10 pr-3.5 py-2.5 text-[15px] border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white" />
           </div>
           <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)} aria-label="Filtrar por rol"
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700 bg-white">
+            className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white">
             <option value="">Todos los roles</option>
             {roles.map((r) => <option key={r.rolId} value={r.rolId}>{etiquetaRol(r.nombre)}</option>)}
           </select>
           <select value={estado} onChange={(e) => setEstado(e.target.value as Estado)} aria-label="Filtrar por estado"
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-700 bg-white">
+            className="border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white">
             <option value="activos">Activos</option>
             <option value="inactivos">Dados de baja</option>
             <option value="todos">Todos</option>
@@ -215,21 +215,21 @@ export default function UsuariosView() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-stone-50 border-b border-stone-100">
+            <thead>
               <tr><TH>Usuario</TH><TH>Roles</TH><TH>Sede</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {loading ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">Cargando usuarios…</td></tr>
               ) : usuarios.map((u) => (
-                <tr key={u.usuarioId} className="hover:bg-stone-50">
+                <tr key={u.usuarioId} className="hover:bg-sand-50">
                   <TD>
-                    <p className="font-medium text-stone-900 text-sm">{nombreDe(u)}</p>
-                    <p className="text-xs text-stone-400">{u.email}</p>
+                    <p className="font-semibold text-stone-900 text-[15px]">{nombreDe(u)}</p>
+                    <p className="text-[13px] text-stone-500">{u.email}</p>
                   </TD>
                   <TD>
                     <div className="flex flex-wrap gap-1">
-                      <Badge variant="primary">{etiquetaRol(u.rol.nombre)}</Badge>
+                      <Badge variant={/alumno/i.test(u.rol.nombre) ? "info" : /encargado/i.test(u.rol.nombre) ? "warning" : /catedr/i.test(u.rol.nombre) ? "success" : "primary"}>{etiquetaRol(u.rol.nombre)}</Badge>
                       {u.rolesAdicionales.map((r) => <Badge key={r.rolId} variant="neutral">+ {etiquetaRol(r.rol.nombre)}</Badge>)}
                     </div>
                     {u.alumno && <p className="text-xs text-stone-400 mt-0.5">{u.alumno.seccion.grado.nombre} "{u.alumno.seccion.nombre}"</p>}
@@ -364,7 +364,7 @@ export default function UsuariosView() {
               <p className="text-xs text-stone-500">Correo</p>
               <p className="font-mono-data text-stone-900">{passwordTemporal.email}</p>
               <p className="text-xs text-stone-500 pt-2 flex items-center gap-1"><KeyRound className="w-3.5 h-3.5" />Contraseña temporal</p>
-              <p className="font-mono-data text-lg font-semibold text-primary-700 tracking-wider">{passwordTemporal.clave}</p>
+              <p className="font-mono-data text-lg font-semibold text-primary-700">{passwordTemporal.clave}</p>
             </div>
           </div>
         )}

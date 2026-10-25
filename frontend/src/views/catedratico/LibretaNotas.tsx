@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookText, CheckCircle2, Plus, Save } from "lucide-react";
+import { BookText, CheckCircle2, Plus, Save } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, AlertBanner, Tabs, EmptyState } from "../../components/Ui";
 import { getLibreta, guardarNotasActividad, type ActividadDto, type LibretaDto } from "../../lib/api";
 import ActividadModal, { type ActividadEnEdicion } from "./ActividadModal";
@@ -168,10 +168,10 @@ export default function LibretaNotas() {
             placeholder="—"
             aria-label={`Nota de ${act.nombre} de ${nombreAlumno}`}
             aria-invalid={!!err}
-            className={`w-16 text-center border rounded-lg px-2 py-1.5 text-sm font-mono-data font-semibold focus:outline-none focus:ring-2 transition-colors
+            className={`w-16 text-center border rounded-lg px-2 py-1.5 text-sm font-display font-bold tabular-nums focus:outline-none focus:ring-2 transition-colors
               ${err ? "border-danger-500 bg-danger-50 text-danger-800 focus:ring-danger-500" : clavesCambiadas.has(k) ? "border-warning-400 bg-warning-50 text-stone-800 focus:ring-primary-700" : "border-stone-200 bg-white text-stone-800 focus:ring-primary-700 focus:border-primary-700"}`}
           />
-          {err && <span className="text-[10px] text-danger-700 leading-tight">{err}</span>}
+          {err && <span className="text-[11px] text-danger-700 leading-tight">{err}</span>}
         </div>
       </td>
     );
@@ -179,14 +179,14 @@ export default function LibretaNotas() {
 
   function encabezadoActividad(act: ActividadDto) {
     return (
-      <th key={act.actividadId} className="px-2 py-2 text-center text-xs font-semibold text-stone-500">
+      <th key={act.actividadId} className="px-2 py-2 text-center text-[13px] font-semibold text-stone-500">
         <button
           onClick={() => unidadActual && setEdicion({ unidadId: unidadActual.unidadId, actividad: act })}
           className="flex flex-col items-center gap-0.5 mx-auto hover:text-primary-700 cursor-pointer"
           title="Editar actividad"
         >
           <span className="max-w-28 truncate">{act.nombre}</span>
-          <span className="text-[10px] font-normal text-stone-400">(0–{act.puntosMaximos})</span>
+          <span className="text-[11px] font-normal text-stone-400">(0–{act.puntosMaximos})</span>
         </button>
       </th>
     );
@@ -256,7 +256,7 @@ export default function LibretaNotas() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-stone-50 text-[11px] font-semibold uppercase tracking-wider">
+                    <tr className="bg-stone-50 text-[11px] font-semibold">
                       <th className="sticky left-0 bg-stone-50 z-10" />
                       {zona.length > 0 && (
                         <th colSpan={zona.length + 1} className="px-2 pt-2 text-center text-primary-800 border-b-2 border-primary-200">
@@ -270,54 +270,54 @@ export default function LibretaNotas() {
                       )}
                       <th colSpan={3} />
                     </tr>
-                    <tr className="bg-stone-50 border-b border-stone-200">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider sticky left-0 bg-stone-50 z-10 min-w-52">Alumno</th>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-[13px] font-semibold text-stone-500 sticky left-0 bg-stone-50 z-10 min-w-52">Alumno</th>
                       {zona.map(encabezadoActividad)}
                       {zona.length > 0 && (
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-primary-800 bg-primary-50 uppercase">
+                        <th className="px-3 py-2 text-center text-xs font-semibold text-primary-800 bg-primary-50">
                           Total zona
-                          <span className="block text-[10px] font-normal normal-case text-primary-700">de {puntosZona}</span>
+                          <span className="block text-[11px] font-normal normal-case text-primary-700">de {puntosZona}</span>
                         </th>
                       )}
                       {examenes.map(encabezadoActividad)}
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-stone-600 bg-stone-100 uppercase">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-stone-600 bg-stone-100">
                         Total unidad
-                        <span className="block text-[10px] font-normal normal-case text-stone-400">de 100</span>
+                        <span className="block text-[11px] font-normal normal-case text-stone-400">de 100</span>
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-stone-500 uppercase">
+                      <th className="px-3 py-2 text-center text-[13px] font-semibold text-stone-500">
                         Nota final
-                        <span className="block text-[10px] font-normal normal-case text-stone-400">promedio</span>
+                        <span className="block text-[11px] font-normal normal-case text-stone-400">promedio</span>
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-stone-500 uppercase">Estado</th>
+                      <th className="px-3 py-2 text-center text-[13px] font-semibold text-stone-500">Estado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-stone-100">
                     {libreta.alumnos.map((al) => {
                       const t = totales.get(al.alumnoId);
                       const nu = t && idxUnidad >= 0 ? t.unidades[idxUnidad] : undefined;
                       const nombreAlumno = `${al.nombres} ${al.apellidos}`;
                       const final = t ? redondear(t.total) : 0;
                       return (
-                        <tr key={al.alumnoId} className="hover:bg-stone-50 transition-colors">
+                        <tr key={al.alumnoId} className="hover:bg-sand-50 transition-colors">
                           <td className="px-4 py-3 sticky left-0 bg-white z-10">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-800 flex items-center justify-center text-[10px] font-bold shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-sand-100 text-stone-700 flex items-center justify-center text-[11px] font-bold shrink-0">
                                 {iniciales(al.nombres, al.apellidos)}
                               </div>
-                              <span className="font-medium text-stone-900 whitespace-nowrap">{al.apellidos}, {al.nombres}</span>
+                              <span className="font-semibold text-stone-900 whitespace-nowrap">{al.apellidos}, {al.nombres}</span>
                             </div>
                           </td>
                           {zona.map((act) => celdaNota(act, al.alumnoId, nombreAlumno))}
                           {zona.length > 0 && (
-                            <td className="px-3 py-3 text-center font-mono-data font-bold text-primary-800 bg-primary-50/60">{nu ? redondear(nu.zona) : 0}</td>
+                            <td className="px-3 py-3 text-center font-display font-bold tabular-nums text-primary-800 bg-primary-50/60">{nu ? redondear(nu.zona) : 0}</td>
                           )}
                           {examenes.map((act) => celdaNota(act, al.alumnoId, nombreAlumno))}
-                          <td className={`px-3 py-3 text-center font-mono-data font-bold bg-stone-50 ${nu && nu.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-800"}`}>
+                          <td className={`px-3 py-3 text-center font-display font-bold tabular-nums bg-stone-50 ${nu && nu.total >= NOTA_APROBACION ? "text-success-700" : "text-stone-800"}`}>
                             {nu ? redondear(nu.total) : 0}
                           </td>
                           <td className="px-3 py-3 text-center">
                             {t?.conNotas ? (
-                              <span className={`font-mono-data font-bold ${final >= NOTA_APROBACION ? "text-success-700" : "text-stone-700"}`}>{final}</span>
+                              <span className={`font-display font-bold tabular-nums ${final >= NOTA_APROBACION ? "text-success-700" : "text-stone-700"}`}>{final}</span>
                             ) : <span className="text-stone-300 font-mono-data">—</span>}
                           </td>
                           <td className="px-3 py-3 text-center"><EstadoNota totales={t} /></td>

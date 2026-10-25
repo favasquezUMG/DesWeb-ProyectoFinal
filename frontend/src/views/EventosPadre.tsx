@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, Check, Clock, ShoppingCart, Ticket, Users } from "lucide-react";
-import { AlertBanner, Badge, Btn, Card, EmptyState, SectionHeader, TD, TH } from "../components/Ui";
+import { CalendarDays, Check, Clock, ShoppingCart, Ticket, Users } from "../components/Iconos";
+import { AlertBanner, Badge, Btn, Card, EmptyState, SectionHeader, TD, TH, FechaBloque } from "../components/Ui";
 import { CarritoBoton, claveColegiatura, claveEvento, useCarrito, type ItemCarrito } from "../components/Carrito";
 import { formatoQ } from "../components/PagoColegiatura";
 import {
@@ -58,7 +58,7 @@ export default function EventosPadre() {
       {error && <AlertBanner type="error" title="No se pudieron cargar los eventos" message={error} />}
 
       {sinAgregar.length > 0 && (
-        <Card className="p-4 border-warning-200 bg-warning-50">
+        <Card className="p-4 border-transparent bg-warning-50">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2">
               <Clock className="w-4 h-4 text-warning-700 mt-0.5 shrink-0" />
@@ -78,7 +78,7 @@ export default function EventosPadre() {
 
       {eventos === null ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[0, 1].map((i) => <div key={i} className="h-48 rounded-xl bg-stone-100 animate-pulse" />)}
+          {[0, 1].map((i) => <div key={i} className="h-48 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}
         </div>
       ) : eventos.length === 0 ? (
         <EmptyState
@@ -94,18 +94,18 @@ export default function EventosPadre() {
 
       {inscripciones.length > 0 && (
         <Card className="overflow-hidden">
-          <div className="px-5 py-4 border-b border-stone-100">
-            <h3 className="font-semibold text-stone-800">Inscripciones pagadas</h3>
+          <div className="px-6 pt-5 pb-1">
+            <h3 className="font-display font-bold text-lg text-stone-900">Inscripciones pagadas</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-stone-50 border-b border-stone-100">
+              <thead>
                 <tr><TH>Evento</TH><TH>Fecha</TH><TH>Alumno</TH><TH className="text-right">Monto</TH><TH>Estado</TH></tr>
               </thead>
-              <tbody className="divide-y divide-stone-50">
+              <tbody className="divide-y divide-stone-100">
                 {inscripciones.map((i) => (
                   <tr key={i.inscripcionId}>
-                    <TD><span className="font-medium text-stone-900">{i.evento}</span></TD>
+                    <TD><span className="font-semibold text-stone-900">{i.evento}</span></TD>
                     <TD><span className="text-xs font-mono-data text-stone-600">{new Date(i.fecha).toLocaleDateString("es-GT", { timeZone: "UTC" })}</span></TD>
                     <TD>{i.alumno}</TD>
                     <TD className="text-right"><span className="font-mono-data">{formatoQ(i.monto)}</span></TD>
@@ -126,13 +126,16 @@ function TarjetaEvento({ evento }: { evento: EventoDisponibleDto }) {
   const agotado = evento.cuposDisponibles !== null && evento.cuposDisponibles <= 0;
 
   return (
-    <Card className="p-5 flex flex-col gap-4">
+    <Card className="p-6 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3.5 min-w-0">
+        <FechaBloque iso={evento.fecha} tono="action" />
         <div className="min-w-0">
-          <p className="font-display font-semibold text-stone-900 text-lg leading-tight">{evento.nombre}</p>
+          <p className="font-display font-bold text-stone-900 text-xl leading-tight">{evento.nombre}</p>
           <p className="text-sm text-stone-500 mt-0.5 capitalize">{formatoFecha(evento.fecha)}</p>
         </div>
-        <span className="font-mono-data font-bold text-lg text-primary-700 shrink-0">{formatoQ(evento.costo)}</span>
+        </div>
+        <span className="font-display font-bold text-lg text-stone-900 bg-subject-social/25 px-3 py-1 rounded-full tabular-nums shrink-0">{formatoQ(evento.costo)}</span>
       </div>
 
       {evento.descripcion && <p className="text-sm text-stone-600">{evento.descripcion}</p>}

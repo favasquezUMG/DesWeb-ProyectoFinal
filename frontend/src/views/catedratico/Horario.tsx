@@ -1,4 +1,4 @@
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck } from "../../components/Iconos";
 import { Card, SectionHeader, AlertBanner, EmptyState } from "../../components/Ui";
 import type { CursoSeccionDto } from "../../lib/api";
 import { Cargando, DIAS_SEMANA, useMisCursos } from "./shared";
@@ -75,7 +75,7 @@ export default function Horario() {
                         {enCelda.map((c) => (
                           <div key={c.cursoSeccionId} className="p-2 rounded-lg bg-primary-100 text-primary-800 border border-primary-200 mb-1 last:mb-0">
                             <p className="font-semibold text-xs">{c.curso}</p>
-                            <p className="text-[10px] opacity-70 mt-0.5">{c.grupo}</p>
+                            <p className="text-[11px] opacity-70 mt-0.5">{c.grupo}</p>
                           </div>
                         ))}
                       </td>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Search, CornerDownLeft } from "lucide-react";
+import { Search, CornerDownLeft } from "./Iconos";
 import type { View } from "../types";
 
 export interface SeccionBuscable {
@@ -63,7 +63,7 @@ export default function BuscadorSecciones({ secciones, onNavigate }: {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="p-2 rounded-md text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
+        className="w-10 h-10 rounded-full flex items-center justify-center bg-white border-[1.5px] border-stone-200 text-stone-600 hover:text-stone-900 hover:border-stone-400 transition-colors cursor-pointer"
         aria-label="Buscar sección (Ctrl+K)"
         title="Buscar sección (Ctrl+K)"
       >
@@ -72,22 +72,22 @@ export default function BuscadorSecciones({ secciones, onNavigate }: {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[15vh]" role="dialog" aria-modal="true" aria-label="Buscar sección">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-xs" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
-            <div className="flex items-center gap-2 px-4 border-b border-stone-200">
-              <Search className="w-4 h-4 text-stone-400 shrink-0" />
+          <div className="absolute inset-0 bg-primary-900/40" onClick={() => setOpen(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-xl overflow-hidden">
+            <div className="flex items-center gap-3 px-5 border-b border-stone-100">
+              <Search className="w-5 h-5 text-primary-600 shrink-0" />
               <input
                 ref={inputRef}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 onKeyDown={onKeyDown}
                 placeholder="¿A dónde quiere ir?"
-                className="flex-1 py-3 text-sm bg-transparent focus:outline-none"
+                className="flex-1 py-4 text-base bg-transparent focus:outline-none placeholder-stone-400"
                 aria-label="Buscar sección"
               />
-              <kbd className="hidden sm:block text-[10px] text-stone-400 border border-stone-200 rounded px-1.5 py-0.5">Esc</kbd>
+              <kbd className="hidden sm:block text-[11px] font-semibold text-stone-500 bg-stone-100 rounded-lg px-2 py-0.5">Esc</kbd>
             </div>
-            <ul className="max-h-80 overflow-y-auto py-1" role="listbox">
+            <ul className="max-h-80 overflow-y-auto p-2" role="listbox">
               {resultados.length === 0 ? (
                 <li className="px-4 py-6 text-sm text-stone-500 text-center">No se encontró ninguna sección.</li>
               ) : resultados.map((s, i) => (
@@ -95,7 +95,7 @@ export default function BuscadorSecciones({ secciones, onNavigate }: {
                   <button
                     onClick={() => ir(s)}
                     onMouseEnter={() => setActivo(i)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left cursor-pointer ${i === activo ? "bg-primary-50 text-primary-800" : "text-stone-700"}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[15px] text-left cursor-pointer ${i === activo ? "bg-primary-800 text-white font-semibold" : "text-stone-700"}`}
                   >
                     <s.Icon className="w-4 h-4 shrink-0 opacity-70" />
                     <span className="flex-1">{s.label}</span>

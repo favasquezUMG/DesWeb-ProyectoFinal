@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Edit, Trash2, BookOpen } from "lucide-react";
-import { Card, SectionHeader, Btn, TH, TD, Modal, Select, AlertBanner, EmptyState, Badge } from "../../components/Ui";
+import { Plus, Edit, Trash2, BookOpen } from "../../components/Iconos";
+import { Card, SectionHeader, Btn, TH, TD, Modal, Select, AlertBanner, EmptyState, Badge, CursoMarca } from "../../components/Ui";
 import {
   getGrados, getSeccionesAdmin, getCursosSeccionAdmin, asignarCursoSeccion, cambiarCatedraticoCurso, quitarCursoSeccion,
   type GradoDto, type SeccionAdminDto, type CursoSeccionAdminDto,
@@ -117,18 +117,18 @@ export default function CursosView() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-stone-50 border-b border-stone-100">
+            <thead>
               <tr><TH>Curso</TH><TH>Grado · Sección</TH><TH>Catedrático</TH><TH>Horario</TH><TH className="text-right">Acciones</TH></tr>
             </thead>
-            <tbody className="divide-y divide-stone-50">
+            <tbody className="divide-y divide-stone-100">
               {loading ? (
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-stone-500">Cargando cursos…</td></tr>
               ) : visibles.length === 0 ? (
                 <tr><td colSpan={5}><EmptyState icon={<BookOpen className="w-10 h-10" />} title="Sin cursos asignados"
                   description={secciones.length ? "Asigne los cursos de la malla a cada sección." : `No hay secciones en ${ciclo}. Créelas en Grados y Secciones.`} /></td></tr>
               ) : visibles.map((a) => (
-                <tr key={a.cursoSeccionId} className="hover:bg-stone-50 transition-colors">
-                  <TD><span className="font-medium text-stone-900">{a.curso.nombre}</span></TD>
+                <tr key={a.cursoSeccionId} className="hover:bg-sand-50 transition-colors">
+                  <TD><span className="flex items-center gap-3"><CursoMarca nombre={a.curso.nombre} size="sm" /><span className="font-semibold text-stone-900">{a.curso.nombre}</span></span></TD>
                   <TD>{etiquetaSeccion(a.seccion)}</TD>
                   <TD>{a.catedratico.usuario.nombres} {a.catedratico.usuario.apellidos}</TD>
                   <TD>
