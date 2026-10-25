@@ -264,7 +264,14 @@ export function cambiarEstadoUsuario(id: number, activo: boolean, motivo: string
 
 // ---------- Alumnos y encargados ----------
 
-export interface AlumnoDto {
+/** Discapacidad o necesidad de apoyo, alergias y medicamentos del alumno (null = no indicado) */
+export interface DatosSaludDto {
+  necesidadesApoyo: string | null;
+  alergias: string | null;
+  medicamentos: string | null;
+}
+
+export interface AlumnoDto extends Partial<DatosSaludDto> {
   alumnoId: number;
   seccionId: number;
   fechaNacimiento?: string | null;
@@ -281,6 +288,10 @@ export interface AlumnoDto {
 
 export function setAccesoPortalAlumno(alumnoId: number, accesoPortal: boolean | null): Promise<{ status: "success"; message: string; data: { accesoPortal: boolean | null; accesoPortalEfectivo: boolean } }> {
   return request(`/api/alumnos/${alumnoId}/acceso-portal`, { method: "PATCH", body: JSON.stringify({ accesoPortal }) });
+}
+
+export function setSaludAlumno(alumnoId: number, datos: DatosSaludDto): Promise<{ status: "success"; message: string; data: DatosSaludDto }> {
+  return request(`/api/alumnos/${alumnoId}/salud`, { method: "PUT", body: JSON.stringify(datos) });
 }
 
 export async function getAlumnos(params?: { seccionId?: number; q?: string }): Promise<AlumnoDto[]> {
@@ -659,7 +670,7 @@ export interface LibretaDto {
   grado: string;
   seccion: string;
   unidades: { unidadId: number; numero: number; actividades: ActividadDto[] }[];
-  alumnos: { alumnoId: number; nombres: string; apellidos: string }[];
+  alumnos: ({ alumnoId: number; nombres: string; apellidos: string } & DatosSaludDto)[];
   notas: { actividadId: number; alumnoId: number; valor: number }[];
 }
 
@@ -1266,6 +1277,9 @@ export interface HijoEncargadoDto {
   usuarioPortal: string;
   accesoPortal: boolean;
   accesoPorNivel: boolean;
+  necesidadesApoyo: string | null;
+  alergias: string | null;
+  medicamentos: string | null;
 }
 
 export interface UnidadBoletinDto {
@@ -1353,6 +1367,10 @@ export function restablecerPasswordHijo(alumnoId: number, password: string): Pro
   return request(`/api/encargado/hijos/${alumnoId}/password`, { method: "POST", body: JSON.stringify({ password }) });
 }
 
+export function setSaludHijo(alumnoId: number, datos: DatosSaludDto): Promise<MessageResponse> {
+  return request(`/api/encargado/hijos/${alumnoId}/salud`, { method: "PUT", body: JSON.stringify(datos) });
+}
+
 // ---------- Portal del alumno ----------
 
 export interface PerfilAlumnoDto {
@@ -1430,6 +1448,9 @@ export interface SolicitudDto {
   alumnoCarrera: string | null;
   alumnoAnio: string | null;
   alumnoGrado: string | null;
+  alumnoNecesidadesApoyo: string | null;
+  alumnoAlergias: string | null;
+  alumnoMedicamentos: string | null;
   sedeId: number | null;
   sede: { sedeId: number; nombre: string } | null;
   documentos: string[];

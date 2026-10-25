@@ -159,6 +159,9 @@ export const aprobarSolicitud = async (solicitudId: number, opciones: OpcionesAp
                 seccionId: seccion.seccionId,
                 fechaNacimiento: solicitud.alumnoFechaNacimiento,
                 accesoPortal: opciones.accesoPortal ?? null,
+                necesidadesApoyo: solicitud.alumnoNecesidadesApoyo,
+                alergias: solicitud.alumnoAlergias,
+                medicamentos: solicitud.alumnoMedicamentos,
             },
         });
 

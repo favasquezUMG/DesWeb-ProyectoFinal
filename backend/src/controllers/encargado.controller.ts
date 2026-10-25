@@ -9,6 +9,7 @@ import { clasesDeAlumno } from "../services/alumno.service.js";
 import { accesoPorNivel, tieneAccesoPortal } from "../services/accesoPortal.service.js";
 import { validarPassword } from "../services/usuarios.service.js";
 import { ReglaNegocioError } from "../lib/errores.js";
+import { actualizarSalud, leerSalud } from "../services/salud.service.js";
 import bcrypt from "bcryptjs";
 
 // Vista del encargado (padre, madre, tutor): sus hijos, el boletín de notas,
@@ -62,6 +63,9 @@ export const getHijos = async (req: AuthenticatedRequest, res: Response) => {
                 usuarioPortal: v.alumno.usuario.email,
                 accesoPortal: tieneAccesoPortal({ accesoPortal: v.alumno.accesoPortal, nivel: v.alumno.seccion.grado.nivel }),
                 accesoPorNivel: accesoPorNivel(v.alumno.seccion.grado.nivel),
+                necesidadesApoyo: v.alumno.necesidadesApoyo,
+                alergias: v.alumno.alergias,
+                medicamentos: v.alumno.medicamentos,
                 };
             }),
         });
@@ -242,5 +246,29 @@ export const restablecerPasswordHijo = async (req: AuthenticatedRequest, res: Re
             return res.status(error.status).json({ status: "error", message: error.message });
         }
         return res.status(500).json({ status: "error", message: "Error al cambiar la contraseña del alumno.", error });
+    }
+};
+
+// PUT /api/encargado/hijos/:alumnoId/salud { necesidadesApoyo, alergias, medicamentos }
+// El contacto principal o el responsable de pagos mantiene al día la información de salud
+export const setSaludHijo = async (req: AuthenticatedRequest, res: Response) => {
+    const encargadoId = Number(req.user?.id);
+    const alumnoId = Number(req.params.alumnoId);
+
+    try {
+        if (!(await esResponsableDe(encargadoId, alumnoId))) {
+            return res.status(403).json({
+                status: "error",
+                message: "Solo el contacto principal o el responsable de pagos puede cambiar la información de salud del alumno.",
+            });
+        }
+
+        const data = await actualizarSalud(alumnoId, leerSalud(req.body), encargadoId, "El encargado");
+        return res.json({ status: "success", message: "Información de salud actualizada.", data });
+    } catch (error) {
+        if (error instanceof ReglaNegocioError) {
+            return res.status(error.status).json({ status: "error", message: error.message });
+        }
+        return res.status(500).json({ status: "error", message: "Error al guardar la información de salud.", error });
     }
 };
