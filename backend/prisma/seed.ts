@@ -11,17 +11,17 @@ const ROLES = [
     'Encargado',
 ] as const;
 
-const SEDES = [
-    { nombre: 'Sede Central', direccion: 'Zona 1, Ciudad de Guatemala', telefono: '22550001' },
-    { nombre: 'Sede Norte', direccion: 'Zona 18, Ciudad de Guatemala', telefono: '22550002' },
-    { nombre: 'Sede Sur', direccion: 'Villa Nueva, Guatemala', telefono: '22550003' },
-    { nombre: 'Sede Mixco', direccion: 'Zona 4 de Mixco, Guatemala', telefono: '22550004' },
-    { nombre: 'Sede Antigua', direccion: 'Antigua Guatemala, Sacatepéquez', telefono: '78320005' },
-    { nombre: 'Sede Quetzaltenango', direccion: 'Zona 3, Quetzaltenango', telefono: '77610006' },
-    { nombre: 'Sede Escuintla', direccion: 'Zona 1, Escuintla', telefono: '78880007' },
-    { nombre: 'Sede Cobán', direccion: 'Cobán, Alta Verapaz', telefono: '79510008' },
-    { nombre: 'Sede Huehuetenango', direccion: 'Zona 1, Huehuetenango', telefono: '77640009' },
-    { nombre: 'Sede Petén', direccion: 'Flores, Petén', telefono: '79260010' },
+const SEDES: { nombre: string; direccion: string; telefono: string | null }[] = [
+    { nombre: 'Sede Central', direccion: 'Zona 1, Ciudad de Guatemala', telefono: '52000983' },
+    { nombre: 'Sede Norte', direccion: 'Zona 18, Ciudad de Guatemala', telefono: null },
+    { nombre: 'Sede Sur', direccion: 'Villa Nueva, Guatemala', telefono: null },
+    { nombre: 'Sede Mixco', direccion: 'Zona 4 de Mixco, Guatemala', telefono: null },
+    { nombre: 'Sede Antigua', direccion: 'Antigua Guatemala, Sacatepéquez', telefono: null },
+    { nombre: 'Sede Quetzaltenango', direccion: 'Zona 3, Quetzaltenango', telefono: null },
+    { nombre: 'Sede Escuintla', direccion: 'Zona 1, Escuintla', telefono: null },
+    { nombre: 'Sede Cobán', direccion: 'Cobán, Alta Verapaz', telefono: null },
+    { nombre: 'Sede Huehuetenango', direccion: 'Zona 1, Huehuetenango', telefono: null },
+    { nombre: 'Sede Petén', direccion: 'Flores, Petén', telefono: null },
 ];
 
 // Solo las primeras sedes y grados reciben alumnos, cursos y notas, para que el

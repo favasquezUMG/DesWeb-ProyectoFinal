@@ -290,8 +290,8 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
 
         <div className="relative flex items-center justify-between gap-4 text-xs text-white/55">
           <p>© {new Date().getFullYear()} Colegio Vanguardia</p>
-          <button type="button" onClick={onBack} className="hover:text-white font-semibold flex items-center gap-1 cursor-pointer shrink-0">
-            <ArrowLeft className="w-3.5 h-3.5" /> Volver al inicio
+          <button type="button" onClick={onBack} className="px-4 py-2 rounded-full bg-white text-stone-900 text-sm font-extrabold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm hover:bg-sand-100 transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Volver al inicio
           </button>
         </div>
       </div>
@@ -305,8 +305,8 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
               <span className="font-display font-bold text-stone-900 text-2xl">Colegio Vanguardia</span>
             </button>
             <p className="text-stone-500 text-sm">Sistema académico</p>
-            <button type="button" onClick={onBack} className="mt-2 text-xs text-stone-500 hover:text-stone-700 inline-flex items-center gap-1 cursor-pointer">
-              <ArrowLeft className="w-3.5 h-3.5" /> Volver al inicio
+            <button type="button" onClick={onBack} className="mt-3 px-4 py-2 rounded-full bg-white border-[1.5px] border-stone-300 text-stone-900 text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer shadow-sm hover:border-stone-900 transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Volver al inicio
             </button>
           </div>
 
