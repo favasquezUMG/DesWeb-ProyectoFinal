@@ -41,6 +41,14 @@ function formatearTelefono(telefono: string | null): string | null {
   return /^\d{8}$/.test(telefono) ? `${telefono.slice(0, 4)}-${telefono.slice(4)}` : telefono;
 }
 
+// El mapa es solo de referencia: apunta al parque central del municipio de la sede.
+function mapaParqueCentral(nombre: string, direccion: string | null): string {
+  const lugar = (direccion ?? "")
+    .split(",").map(p => p.trim().replace(/^zona\s+\d+(\s+de)?\s*/i, "")).find(Boolean)
+    ?? nombre.replace(/^sede\s+/i, "");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Parque Central ${lugar}, Guatemala`)}`;
+}
+
 function rangoGrados(grados: string[]): string {
   if (grados.length <= 1) return grados[0] ?? "";
   return `${grados[0]} a ${grados[grados.length - 1]}`;
@@ -256,7 +264,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
             {sedes.map((s, i) => {
               const tono = TONOS_SEDE[i % TONOS_SEDE.length];
-              const mapa = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.nombre} ${s.direccion ?? ""} Guatemala`)}`;
+              const mapa = mapaParqueCentral(s.nombre, s.direccion);
               return (
                 <li key={s.sedeId} className="rounded-[26px] border border-stone-200/80 bg-white overflow-hidden flex flex-col">
                   <div className={`relative h-36 ${tono.fondo} overflow-hidden`} aria-hidden="true">
