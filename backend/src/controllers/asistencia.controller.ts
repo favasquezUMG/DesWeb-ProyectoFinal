@@ -481,7 +481,6 @@ export const updateAsistencia = async (req: AuthenticatedRequest, res: Response)
     }
 };
 
-//Delete
 export const deleteAsistenciaById = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { sedeDelAlcance } from "../middlewares/role.middleware.js";
@@ -19,19 +20,35 @@ export const getDashboardSede = async (req: AuthenticatedRequest, res: Response)
         const sedeId = alcance ?? (req.query.sedeId ? Number(req.query.sedeId) : undefined);
         const filtroSede = sedeId !== undefined ? { sedeId } : {};
 
-        // Ciclo: el año actual, o el último que tenga secciones
+        // Dos rondas de consultas en paralelo (la BD está lejos y cada viaje cuesta):
+        // 1) el ciclo y lo que no depende de él; 2) todo lo del ciclo
         const anioActual = new Date().getFullYear();
-        const ultimo = await prisma.seccion.findFirst({
-            where: { deletedAt: null, ...filtroSede, anioLectivo: { lte: anioActual } },
-            orderBy: { anioLectivo: "desc" },
-            select: { anioLectivo: true },
-        });
+        const filtroEvento = sedeId !== undefined ? { OR: [{ sedeId }, { sedeId: null }] } : {};
+        const [ultimo, sede, solicitudesPendientes, eventos] = await Promise.all([
+            // Ciclo: el año actual, o el último que tenga secciones
+            prisma.seccion.findFirst({
+                where: { deletedAt: null, ...filtroSede, anioLectivo: { lte: anioActual } },
+                orderBy: { anioLectivo: "desc" },
+                select: { anioLectivo: true },
+            }),
+            sedeId !== undefined ? prisma.sede.findUnique({ where: { sedeId }, select: { nombre: true } }) : null,
+            prisma.solicitud.count({
+                where: { estado: { in: ["PENDIENTE", "REVISION"] }, ...filtroEvento },
+            }),
+            prisma.evento.findMany({
+                where: { fecha: { gte: hoyUTC() }, ...filtroEvento },
+                orderBy: { fecha: "asc" },
+                take: 3,
+                select: { eventoId: true, nombre: true, fecha: true, tipoEvento: true },
+            }),
+        ]);
         const anioLectivo = ultimo?.anioLectivo ?? anioActual;
 
-        const [sede, alumnos] = await Promise.all([
-            sedeId !== undefined ? prisma.sede.findUnique({ where: { sedeId }, select: { nombre: true } }) : null,
+        // Alumnos del ciclo (en la sede, si hay filtro)
+        const filtroAlumnos = { usuario: { deletedAt: null }, seccion: { ...filtroSede, anioLectivo, deletedAt: null } };
+        const [alumnos, totalesUnidad, pagos, justificacionesPendientes, alumnosAnteriores] = await Promise.all([
             prisma.alumno.findMany({
-                where: { usuario: { deletedAt: null }, seccion: { ...filtroSede, anioLectivo, deletedAt: null } },
+                where: filtroAlumnos,
                 select: {
                     alumnoId: true,
                     usuario: { select: { nombres: true, apellidos: true } },
@@ -40,28 +57,25 @@ export const getDashboardSede = async (req: AuthenticatedRequest, res: Response)
                     becas: { where: { estado: "Activa", anioLectivo }, select: { porcentaje: true } },
                 },
             }),
-        ]);
-        const ids = alumnos.map((a) => a.alumnoId);
-
-        const [notas, pagos, solicitudesPendientes, justificacionesPendientes, eventos, alumnosAnteriores] = await Promise.all([
-            prisma.nota.findMany({
-                where: { alumnoId: { in: ids }, actividad: { unidad: { cursoSeccion: { seccion: { anioLectivo } } } } },
-                select: { alumnoId: true, valor: true, actividad: { select: { unidad: { select: { numero: true, cursoSeccionId: true } } } } },
-            }),
+            // Total de cada unidad (suma de sus actividades) por alumno y curso, ya sumado en la BD
+            prisma.$queryRaw<{ alumnoId: number; cursoSeccionId: number; numero: number; total: number }[]>`
+                SELECT n."alumnoId", u."cursoSeccionId", u.numero, SUM(n.valor)::float AS total
+                FROM "Nota" n
+                JOIN "Alumno" al ON al."alumnoId" = n."alumnoId"
+                JOIN "Usuario" us ON us."usuarioId" = al."alumnoId" AND us."deletedAt" IS NULL
+                JOIN "Seccion" sa ON sa."seccionId" = al."seccionId"
+                    AND sa."anioLectivo" = ${anioLectivo} AND sa."deletedAt" IS NULL
+                    ${sedeId !== undefined ? Prisma.sql`AND sa."sedeId" = ${sedeId}` : Prisma.empty}
+                JOIN "Actividad" a ON a."actividadId" = n."actividadId"
+                JOIN "Unidad" u ON u."unidadId" = a."unidadId"
+                JOIN "CursoSeccion" cs ON cs."cursoSeccionId" = u."cursoSeccionId"
+                JOIN "Seccion" s ON s."seccionId" = cs."seccionId" AND s."anioLectivo" = ${anioLectivo}
+                GROUP BY n."alumnoId", u."cursoSeccionId", u.numero`,
             prisma.pago.findMany({
-                where: { alumnoId: { in: ids }, anioLectivo, estado: { in: ["Pagado", "Exonerado"] } },
+                where: { alumno: filtroAlumnos, anioLectivo, estado: { in: ["Pagado", "Exonerado"] } },
                 select: { alumnoId: true, mes: true },
             }),
-            prisma.solicitud.count({
-                where: { estado: { in: ["PENDIENTE", "REVISION"] }, ...(sedeId !== undefined ? { OR: [{ sedeId }, { sedeId: null }] } : {}) },
-            }),
-            prisma.justificacionAusencia.count({ where: { estado: "Pendiente", alumnoId: { in: ids } } }),
-            prisma.evento.findMany({
-                where: { fecha: { gte: hoyUTC() }, ...(sedeId !== undefined ? { OR: [{ sedeId }, { sedeId: null }] } : {}) },
-                orderBy: { fecha: "asc" },
-                take: 3,
-                select: { eventoId: true, nombre: true, fecha: true, tipoEvento: true },
-            }),
+            prisma.justificacionAusencia.count({ where: { estado: "Pendiente", alumno: filtroAlumnos } }),
             prisma.alumno.count({
                 where: { usuario: { deletedAt: null }, seccion: { ...filtroSede, anioLectivo: anioLectivo - 1 } },
             }),
@@ -69,11 +83,9 @@ export const getDashboardSede = async (req: AuthenticatedRequest, res: Response)
 
         // Notas: unidad = suma de sus actividades; curso = promedio de unidades evaluadas;
         // alumno = promedio de sus cursos
-        const porUnidad = new Map<string, number>();
-        for (const n of notas) {
-            const k = `${n.alumnoId}|${n.actividad.unidad.cursoSeccionId}|${n.actividad.unidad.numero}`;
-            porUnidad.set(k, (porUnidad.get(k) ?? 0) + Number(n.valor));
-        }
+        const porUnidad = new Map<string, number>(
+            totalesUnidad.map((t) => [`${t.alumnoId}|${t.cursoSeccionId}|${t.numero}`, t.total]),
+        );
         const porCurso = new Map<string, number[]>();
         for (const [k, v] of porUnidad) {
             const [alumnoId, cs] = k.split("|");

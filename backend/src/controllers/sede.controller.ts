@@ -104,147 +104,72 @@ export const actualizarSede = async (req: Request, res: Response) => {
 
 
 // GET /api/sedes/metricas — Métricas consolidadas por sede para gráficos y dashboards
+// Todo sale en 4 consultas en paralelo (no 3 por sede): la BD está lejos y cada viaje cuesta.
 export const getSedesMetricas = async (_req: Request, res: Response) => {
   try {
     const anioActual = new Date().getFullYear();
 
-    // 1. Obtenemos las sedes activas
-    const sedes = await prisma.sede.findMany({
-      where: {
-        activo: true,
-        deletedAt: null,
-      },
-      select: {
-        sedeId: true,
-        nombre: true,
-      },
-    });
+    const [sedes, alumnosPorSede, totalesUnidad, moraPorSede] = await Promise.all([
+      prisma.sede.findMany({
+        where: { activo: true, deletedAt: null },
+        select: { sedeId: true, nombre: true },
+      }),
+      // Alumnos activos por sede
+      prisma.usuario.groupBy({
+        by: ["sedeId"],
+        where: { rol: { nombre: "Alumno" }, deletedAt: null },
+        _count: { _all: true },
+      }),
+      // Total de cada unidad (suma de sus actividades) por alumno, en el año actual
+      prisma.$queryRaw<{ sedeId: number; alumnoId: number; total: number }[]>`
+        SELECT us."sedeId", n."alumnoId", SUM(n.valor)::float AS total
+        FROM "Nota" n
+        JOIN "Usuario" us ON us."usuarioId" = n."alumnoId" AND us."deletedAt" IS NULL
+        JOIN "Actividad" a ON a."actividadId" = n."actividadId"
+        JOIN "Unidad" u ON u."unidadId" = a."unidadId"
+        JOIN "CursoSeccion" cs ON cs."cursoSeccionId" = u."cursoSeccionId"
+        JOIN "Seccion" s ON s."seccionId" = cs."seccionId"
+        WHERE s."anioLectivo" = ${anioActual} AND us."sedeId" IS NOT NULL
+        GROUP BY us."sedeId", n."alumnoId", a."unidadId"`,
+      // Pagos pendientes del año actual por sede
+      prisma.$queryRaw<{ sedeId: number; pendientes: number }[]>`
+        SELECT us."sedeId", COUNT(*)::int AS pendientes
+        FROM "Pago" p
+        JOIN "Usuario" us ON us."usuarioId" = p."alumnoId"
+        WHERE p."anioLectivo" = ${anioActual} AND p.estado = 'Pendiente' AND us."sedeId" IS NOT NULL
+        GROUP BY us."sedeId"`,
+    ]);
 
-    const rolAlumno = await prisma.rol.findFirst({
-      where: { nombre: "Alumno" },
-    });
+    const alumnosDe = new Map(alumnosPorSede.map((g) => [g.sedeId, g._count._all]));
+    const moraDe = new Map(moraPorSede.map((m) => [m.sedeId, m.pendientes]));
 
-    if (!rolAlumno) {
-      return res.status(400).json({ status: "error", message: "No se encontró el rol Alumno." });
+    // Totales de unidad agrupados por sede y alumno
+    const unidadesDe = new Map<number, Map<number, number[]>>();
+    for (const t of totalesUnidad) {
+      const porAlumno = unidadesDe.get(t.sedeId) ?? new Map<number, number[]>();
+      porAlumno.set(t.alumnoId, [...(porAlumno.get(t.alumnoId) ?? []), t.total]);
+      unidadesDe.set(t.sedeId, porAlumno);
     }
 
-    // 2. Procesamos las métricas por cada sede
-    const resultado = await Promise.all(
-      sedes.map(async (sede) => {
-        // a) Total de alumnos activos en esta sede
-        const totalAlumnos = await prisma.usuario.count({
-          where: {
-            sedeId: sede.sedeId,
-            rolId: rolAlumno.rolId,
-            deletedAt: null,
-          },
-        });
+    const resultado = sedes.map((sede) => {
+      const totalAlumnos = alumnosDe.get(sede.sedeId) ?? 0;
+      if (totalAlumnos === 0) {
+        return { sedeId: sede.sedeId, nombre: sede.nombre, alumnos: 0, aprobacion: 0, mora: 0 };
+      }
 
-        if (totalAlumnos === 0) {
-          return {
-            sedeId: sede.sedeId,
-            nombre: sede.nombre,
-            alumnos: 0,
-            aprobacion: 0,
-            mora: 0,
-          };
-        }
+      // Criterio de aprobación: Nota Final promedio (de sus unidades) >= 61
+      const promedios = [...(unidadesDe.get(sede.sedeId)?.values() ?? [])]
+        .map((unidades) => unidades.reduce((acc, curr) => acc + curr, 0) / unidades.length);
+      const aprobados = promedios.filter((p) => p >= 61).length;
 
-        // b) Obtener todas las notas registradas en esta sede para el año actual
-        const notasDetalle = await prisma.nota.findMany({
-          where: {
-            alumno: {
-              usuario: {
-                sedeId: sede.sedeId,
-                deletedAt: null,
-              },
-            },
-            actividad: {
-              unidad: {
-                cursoSeccion: {
-                  seccion: {
-                    anioLectivo: anioActual,
-                  },
-                },
-              },
-            },
-          },
-          select: {
-            alumnoId: true,
-            valor: true,
-            actividad: {
-              select: {
-                unidadId: true,
-              },
-            },
-          },
-        });
-
-        // c) Agrupar y sumar notas por (alumnoId + unidadId) -> Total Unidad
-        const sumaUnidades: Record<string, number> = {}; // Clave: `${alumnoId}_${unidadId}`
-
-        notasDetalle.forEach((n) => {
-          const key = `${n.alumnoId}_${n.actividad.unidadId}`;
-          sumaUnidades[key] = (sumaUnidades[key] || 0) + Number(n.valor);
-        });
-
-        // d) Agrupar los Totales de Unidad por Alumno
-        const promediosAlumnosSede: Record<number, number[]> = {};
-
-        Object.entries(sumaUnidades).forEach(([key, totalUnidad]) => {
-          const [alumnoIdStr] = key.split("_");
-          const alumnoId = Number(alumnoIdStr);
-
-          if (!promediosAlumnosSede[alumnoId]) {
-            promediosAlumnosSede[alumnoId] = [];
-          }
-          promediosAlumnosSede[alumnoId].push(totalUnidad);
-        });
-
-        // e) Calcular tasa de aprobación real de la sede
-        const alumnosEvaluadosSede = Object.keys(promediosAlumnosSede).length;
-        let aprobadosSede = 0;
-
-        Object.values(promediosAlumnosSede).forEach((totalesUnidad) => {
-          const promedioAlumno =
-            totalesUnidad.reduce((acc, curr) => acc + curr, 0) / totalesUnidad.length;
-
-          // Criterio de aprobación: Nota Final promedio >= 61
-          if (promedioAlumno >= 61) {
-            aprobadosSede++;
-          }
-        });
-
-        const tasaAprobacionSede = alumnosEvaluadosSede > 0
-          ? Math.round((aprobadosSede / alumnosEvaluadosSede) * 100)
-          : 0;
-
-        // f) Métrica de mora de la sede (pagos pendientes del año actual)
-        const pagosPendientes = await prisma.pago.count({
-          where: {
-            anioLectivo: anioActual,
-            estado: "Pendiente",
-            alumno: {
-              usuario: {
-                sedeId: sede.sedeId,
-              },
-            },
-          },
-        });
-
-        const porcentajeMora = totalAlumnos > 0
-          ? Math.round((pagosPendientes / totalAlumnos) * 100)
-          : 0;
-
-        return {
-          sedeId: sede.sedeId,
-          nombre: sede.nombre,
-          alumnos: totalAlumnos,
-          aprobacion: tasaAprobacionSede,
-          mora: porcentajeMora,
-        };
-      })
-    );
+      return {
+        sedeId: sede.sedeId,
+        nombre: sede.nombre,
+        alumnos: totalAlumnos,
+        aprobacion: promedios.length > 0 ? Math.round((aprobados / promedios.length) * 100) : 0,
+        mora: Math.round(((moraDe.get(sede.sedeId) ?? 0) / totalAlumnos) * 100),
+      };
+    });
 
     return res.json({ status: "success", data: resultado });
   } catch (error) {

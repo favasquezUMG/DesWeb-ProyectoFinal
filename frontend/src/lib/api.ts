@@ -26,7 +26,31 @@ interface ApiEnvelope {
   [key: string]: unknown;
 }
 
+// Caché corto de lecturas: al volver a una pestaña los datos aparecen al instante en vez de
+// esperar de nuevo al servidor. Cualquier escritura (POST/PUT/PATCH/DELETE) lo vacía, así que
+// después de guardar algo siempre se vuelve a consultar.
+const CACHE_MS = 30_000;
+const cacheGet = new Map<string, { expira: number; promesa: Promise<unknown> }>();
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const metodo = (options.method ?? "GET").toUpperCase();
+  if (metodo !== "GET") {
+    cacheGet.clear();
+    return requestServidor<T>(path, options);
+  }
+
+  // La clave incluye el token: al cambiar de usuario o de rol no se reutiliza lo anterior
+  const clave = `${getToken() ?? ""} ${path}`;
+  const guardado = cacheGet.get(clave);
+  if (guardado && guardado.expira > Date.now()) return guardado.promesa as Promise<T>;
+
+  const promesa = requestServidor<T>(path, options);
+  cacheGet.set(clave, { expira: Date.now() + CACHE_MS, promesa });
+  promesa.catch(() => cacheGet.delete(clave));
+  return promesa;
+}
+
+async function requestServidor<T>(path: string, options: RequestInit): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -538,11 +562,6 @@ export async function updateProgramaBeca(id: number, input: ProgramaBecaInput): 
     method: "PUT",
     body: JSON.stringify(input),
   });
-  return body.data;
-}
-
-export async function getPoliticaBecas(anioLectivo: number): Promise<PoliticaBecaDto> {
-  const body = await request<{ status: "success"; data: PoliticaBecaDto }>(`/api/becas/politica?anioLectivo=${anioLectivo}`);
   return body.data;
 }
 

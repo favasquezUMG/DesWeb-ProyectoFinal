@@ -489,7 +489,7 @@ export const getConteoAlumnos = async (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    const anioActual = new Date().getFullYear(); // 2026
+    const anioActual = new Date().getFullYear();
     const inicioAnioActual = new Date(`${anioActual}-01-01T00:00:00.000Z`);
 
     // 1. Total de alumnos activos en el sistema hoy
@@ -555,7 +555,6 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
       });
     }
 
-    // 1
     const alumnosActivos = await prisma.usuario.findMany({
       where: {
         rolId: rolAlumno.rolId,
@@ -636,14 +635,13 @@ export const getTasaAprobacion = async (_req: AuthenticatedRequest, res: Respons
     let alumnosAprobados = 0;
     let sumaPromediosGenerales = 0;
 
-    // 3
     Object.values(promediosAlumnos).forEach((totalesUnidad) => {
       const promedioAlumno =
         totalesUnidad.reduce((acc, curr) => acc + curr, 0) / totalesUnidad.length;
 
       sumaPromediosGenerales += promedioAlumno;
 
-      // Criterio de aprobación: Nota Final >= 61 (o 60 según colegio)
+      // Criterio de aprobación: Nota Final >= 61
       if (promedioAlumno >= 61) {
         alumnosAprobados++;
       }

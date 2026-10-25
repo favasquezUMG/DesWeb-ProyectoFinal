@@ -68,7 +68,6 @@ function validarEmail(value: string): string {
 
 function validarPassword(value: string): string {
   if (!value) return "La contraseña es obligatoria.";
-  //if (value.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
   return "";
 }
 
@@ -296,7 +295,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
         </div>
       </div>
 
-      {/* Right panel — form */}
+      {/* Panel derecho: formulario */}
       <div className="flex-1 flex items-center justify-center overflow-y-auto p-5 sm:p-10 bg-sand-100">
         <div className={`w-full ${screen === "solicitud" ? "max-w-2xl" : screen === "consulta" ? "max-w-md" : "max-w-sm"} transition-[max-width] duration-200`}>
           <div className="md:hidden mb-8 text-center">
