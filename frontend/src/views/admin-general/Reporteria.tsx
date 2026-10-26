@@ -39,7 +39,18 @@ export default function Reporteria() {
   }, [ciclo, sedeId, anioActual]);
 
   const sede = sedes.find((s) => s.sedeId === sedeId) ?? null;
-  const catedraticosFiltrados = catedraticos.filter((c) => !sede || c.sede === sede.nombre);
+  const seccionSeleccionada = secciones.find((s) => s.seccionId === seccionId);
+  
+  const catedraticosFiltrados = catedraticos.filter((c) => {
+    const cumpleSede = !sede || c.sede === sede.nombre;
+    const cumpleSeccion = !seccionSeleccionada || c.cursos.some((curso) => {
+      return(
+        curso.seccion === seccionSeleccionada.nombre ||
+        curso.seccion.includes(seccionSeleccionada.nombre)
+      );
+    });
+    return cumpleSede && cumpleSeccion;
+  });
 
   async function generar(clave: Clave) {
     setGenerando(clave);
@@ -79,7 +90,7 @@ export default function Reporteria() {
           <Select label="Ciclo escolar" value={ciclo} onChange={(e) => setCiclo(Number(e.target.value))}>
             {ciclos.map((c) => <option key={c} value={c}>{c}</option>)}
           </Select>
-          <Select label="Sección" value={seccionId} onChange={(e) => setSeccionId(e.target.value ? Number(e.target.value) : "")}>
+          <Select label="Sección" value={seccionId} onChange={(e) => {setSeccionId(e.target.value ? Number(e.target.value) : ""); setCatedraticoId("");}}>
             <option value="">Seleccione…</option>
             {secciones.map((s) => <option key={s.seccionId} value={s.seccionId}>{s.grado.nombre} {s.nombre}{sedeId ? "" : ` · ${s.sede.nombre}`}</option>)}
           </Select>

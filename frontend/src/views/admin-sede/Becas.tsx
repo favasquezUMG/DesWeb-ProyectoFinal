@@ -3,7 +3,7 @@ import {
   Plus, Edit, Ban, History, PauseCircle, PlayCircle, RefreshCw, ClipboardCheck, Check, X, Award, Inbox, Wallet, Receipt,
 } from "../../components/Iconos";
 import {
-  Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea,
+  Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea, TablaResponsiva,
 } from "../../components/Ui";
 import HistorialBeca from "../../components/HistorialBeca";
 import ProgramasBeca from "./becas/ProgramasBeca";
@@ -400,7 +400,7 @@ export default function BecasView() {
                 ))}
               </div>
               <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
+                <TablaResponsiva>
                   <table className="w-full">
                     <thead>
                       <tr><TH>Alumno</TH><TH>Programa</TH><TH>Descuento</TH><TH>Total a pagar</TH><TH>Vigencia</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
@@ -456,14 +456,14 @@ export default function BecasView() {
                       )}
                     </tbody>
                   </table>
-                </div>
+                </TablaResponsiva>
               </Card>
             </div>
           )}
 
           {tab === "Solicitudes" && (
             <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
+              <TablaResponsiva>
                 <table className="w-full">
                   <thead>
                     <tr><TH>Alumno</TH><TH>Programa</TH><TH>Cupos</TH><TH>Solicitada por</TH><TH>Justificación</TH><TH className="text-right">Resolución</TH></tr>
@@ -514,7 +514,7 @@ export default function BecasView() {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </TablaResponsiva>
             </Card>
           )}
 

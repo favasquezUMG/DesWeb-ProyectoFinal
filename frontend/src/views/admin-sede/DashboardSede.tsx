@@ -54,7 +54,7 @@ export default function DashboardSede() {
         <div className="flex flex-wrap gap-3">
           {pendientes.map((p) => (
             <div key={p.texto} className={`flex items-center gap-3 pl-2 pr-5 py-2 rounded-full ${p.Icon === UserX ? "bg-danger-50 text-danger-800" : "bg-white border border-stone-200/80 text-stone-700"}`}>
-              <span className={`w-9 h-9 rounded-full flex items-center justify-center font-display font-bold text-base tabular-nums ${p.Icon === UserX ? "bg-danger-600 text-white" : "bg-action-500 text-white"}`}>{p.n}</span>
+              <span className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center font-display font-bold text-base tabular-nums ${p.Icon === UserX ? "bg-danger-600 text-white" : "bg-action-500 text-white"}`}>{p.n}</span>
               <span className="text-sm font-semibold">{p.texto}</span>
             </div>
           ))}

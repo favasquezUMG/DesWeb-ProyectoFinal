@@ -146,7 +146,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (v: View) => voi
         <Card className="p-6 flex flex-col justify-between gap-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-stone-600">Pendientes</p>
-            <span className={`w-8 h-8 rounded-full flex items-center justify-center ${totalPendientes ? "bg-warning-600" : "bg-success-600"} text-white`}><AlertCircle className="w-4 h-4" /></span>
+            <span className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${totalPendientes ? "bg-warning-600" : "bg-success-600"} text-white`}><AlertCircle className="w-4 h-4" /></span>
           </div>
           <div>
             <p className={`font-display font-bold text-5xl leading-none tabular-nums ${totalPendientes ? "text-warning-700" : "text-stone-900"}`}>{totalPendientes ?? "…"}</p>
