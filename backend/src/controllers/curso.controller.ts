@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { seccionVigente } from '../lib/ciclo.js';
 
 //Get All (soporta filtro opcional ?gradoId=N para traer solo la malla de un grado)
 export const getCursos = async (req: Request, res: Response) => {
@@ -218,15 +219,15 @@ export const quitarCursoDeGrado = async (req: Request, res: Response) => {
             return res.status(404).json({ status: 'error', message: 'El curso no pertenece a la malla de ese grado.' });
         }
 
-        // Si ya hay secciones de ese grado impartiendo el curso, quitarlo de la
-        // malla dejaría asignaciones huérfanas respecto al plan de estudios.
+        // Si secciones vigentes de ese grado ya imparten el curso, quitarlo de la malla dejaría
+        // asignaciones huérfanas respecto al plan de estudios. Las de ciclos pasados no cuentan.
         const enUso = await prisma.cursoSeccion.count({
-            where: { cursoId: Number(id), seccion: { gradoId: Number(gradoId) } },
+            where: { cursoId: Number(id), seccion: { gradoId: Number(gradoId), ...seccionVigente() } },
         });
         if (enUso > 0) {
             return res.status(409).json({
                 status: 'error',
-                message: `No se puede quitar el curso de la malla porque ${enUso} sección(es) de ese grado ya lo tienen asignado.`,
+                message: `No se puede quitar el curso de la malla porque ${enUso} sección(es) de ese grado lo tienen asignado este ciclo.`,
             });
         }
 

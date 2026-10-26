@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
-import { sendMail } from "./mail.service.js";
+import { correoPermitido, sendMail } from "./mail.service.js";
 import { filtroVinculo } from "./vinculos.service.js";
 
 export interface Destinatario {
@@ -50,25 +50,28 @@ export const enviarADestinatarios = async (
     destinatarios: Destinatario[],
     construir: (d: Destinatario) => ContenidoCorreo,
     tipo: string,
-): Promise<{ enviados: number; fallidos: number }> => {
+): Promise<{ enviados: number; fallidos: number; omitidos: number }> => {
     let enviados = 0;
     let fallidos = 0;
+    let omitidos = 0;
 
     for (const d of destinatarios) {
         const { subject, html, mensaje } = construir(d);
+        const permitido = correoPermitido(d.email);
         const ok = await sendMail({ to: d.email, subject, html, usuarioId: d.usuarioId, mensaje, tipo });
-        if (ok) enviados++;
+        if (!permitido) omitidos++;
+        else if (ok) enviados++;
         else fallidos++;
     }
 
-    return { enviados, fallidos };
+    return { enviados, fallidos, omitidos };
 };
 
 // Para envios grandes: se responde al cliente de inmediato y el envio sigue en segundo plano
-export const enviarEnSegundoPlano = (descripcion: string, envio: () => Promise<{ enviados: number; fallidos: number }>) => {
+export const enviarEnSegundoPlano = (descripcion: string, envio: () => Promise<{ enviados: number; fallidos: number; omitidos?: number }>) => {
     envio()
-        .then(({ enviados, fallidos }) => {
-            console.log(`📧 ${descripcion}: ${enviados} enviados, ${fallidos} fallidos.`);
+        .then(({ enviados, fallidos, omitidos }) => {
+            console.log(`📧 ${descripcion}: ${enviados} enviados, ${fallidos} fallidos${omitidos ? `, ${omitidos} omitidos por dominio` : ""}.`);
         })
         .catch((error) => {
             console.error(`❌ Error en el envío "${descripcion}":`, error);

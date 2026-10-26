@@ -33,7 +33,9 @@ import bitacoraRoutes from "./routes/bitacora.routes.js";
 import encargadoRoutes from "./routes/encargado.routes.js";
 import portalAlumnoRoutes from "./routes/portalAlumno.routes.js";
 import gradoRoutes from "./routes/grado.routes.js";
+import circularRoutes from "./routes/circular.routes.js";
 import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
+import { iniciarVencimientoCirculares } from "./services/circulares.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
 dotenv.config();
@@ -126,12 +128,14 @@ app.use('/api/bitacora', bitacoraRoutes);
 app.use('/api/encargado', encargadoRoutes);
 app.use('/api/portal-alumno', portalAlumnoRoutes);
 app.use('/api/grados', gradoRoutes);
+app.use('/api/circulares', circularRoutes);
 
 app.listen(PORT, async () => {
   try {
     await prisma.$connect();
     console.log(`🚀 Servidor ejecutándose en ${HOST}:${PORT} [ambiente: ${process.env.NODE_ENV ?? "development"}]`);
     iniciarRecordatoriosEventos();
+    iniciarVencimientoCirculares();
     
   } catch (error) {
     console.error("❌ Error al conectar la base de datos:", error);

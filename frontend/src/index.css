@@ -268,12 +268,22 @@ h1, h2, h3 { text-wrap: balance; }
 @media print {
   body * { visibility: hidden; }
   #constancia-imprimible,
-  #constancia-imprimible * { visibility: visible; }
+  #constancia-imprimible *,
+  .recibo-imprimible,
+  .recibo-imprimible * { visibility: visible; }
   #constancia-imprimible {
     display: block !important;
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
+  }
+  /* Recibo que sí se ve en pantalla (ej. dentro de un modal) y al imprimir sale solo */
+  .recibo-imprimible {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 2rem;
   }
 }

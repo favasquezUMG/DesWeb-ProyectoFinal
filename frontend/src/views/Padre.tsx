@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  CreditCard, ShoppingCart, CheckCircle2, AlertCircle, AlertTriangle, Download, ChevronRight, User, Bell, BookOpen,
-  KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock, Heart,
+  CreditCard, CheckCircle2, Download, ChevronRight, User, Bell, BookOpen,
+  ClipboardList, GraduationCap, KeyRound, ShieldCheck, UserPlus, School, Laptop, Clock, Heart,
 } from "../components/Iconos";
 import type { AppUser, View } from "../types";
 import {
@@ -14,7 +14,7 @@ import {
 import { ModalSalud, tieneSalud } from "../components/InfoSalud";
 import { generarBoletinPdf } from "../lib/boletinPdf";
 import { PagoColegiaturaModal, formatoQ } from "../components/PagoColegiatura";
-import { CarritoBoton, claveColegiatura, useCarrito } from "../components/Carrito";
+import CargosPendientes from "../components/CargosPendientes";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
 import CalendarioEventos from "../components/CalendarioEventos";
 import HorarioSemanal, { asuetosDeLaSemana, diaSemanaHoy, jornadaPorDia } from "../components/HorarioSemanal";
@@ -26,7 +26,7 @@ import {
 import AvisosPadre from "./AvisosPadre";
 import AsistenciaPadre from "./AsistenciaPadre";
 import BecasPadre from "./BecasPadre";
-import EventosPadre from "./EventosPadre";
+import CircularesPadre from "./CircularesPadre";
 
 const errorDe = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
@@ -143,7 +143,7 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
   const vencidos = meses.filter((m) => m.ui === "vencido");
   const saldoVencido = vencidos.reduce((s, m) => s + m.montoAPagar, 0);
   const proximo = vencidos[0] ?? meses.find((m) => m.ui === "pendiente" && m.mes >= mesActual) ?? null;
-  const recientes = meses.filter((m) => m.mes <= Math.max(mesActual, meses[0]?.mes ?? 1)).slice(-5);
+  const recientes = meses.filter((m) => m.ui !== "sincobro" && m.mes <= Math.max(mesActual, meses[0]?.mes ?? 1)).slice(-5);
   const asistenciaHijo = hijo ? asistencia.get(hijo.alumnoId) : undefined;
   const porcentajeAsistencia = asistenciaHijo?.resumen.porcentaje;
   const primerNombre = hijo?.nombre.split(" ")[0] ?? "";
@@ -415,7 +415,7 @@ function MatriculaView({ user }: { user?: AppUser }) {
       <div className="space-y-5">
         <SectionHeader title="Inscribir a un alumno nuevo" subtitle="La solicitud la revisa la administración de la sede antes de crear la cuenta del alumno."
           action={<Btn variant="ghost" size="sm" onClick={() => setModoNuevo(false)}>← Volver a matrícula</Btn>} />
-        <SolicitudInscripcion modo="publico" onFinalizar={() => setModoNuevo(false)} onCancelar={() => setModoNuevo(false)} />
+        <SolicitudInscripcion modo="publico" conCuenta onFinalizar={() => setModoNuevo(false)} onCancelar={() => setModoNuevo(false)} />
       </div>
     );
   }
@@ -783,16 +783,18 @@ function NotasHijo() {
 
 // ─── Pagos ────────────────────────────────────────────────────────────────────
 
-type EstadoMesUi = "pagado" | "pendiente" | "vencido" | "reembolsado" | "becado" | "procesando";
+type EstadoMesUi = "pagado" | "pendiente" | "vencido" | "reembolsado" | "becado" | "procesando" | "sincobro";
 
 /**
  * El backend solo sabe si hay pago o no; "vencido" se calcula aquí: un mes
  * sin pagar cuyo periodo ya pasó. "becado" es un mes que la beca cubre al
  * 100%: no hay nada que cobrar (el backend rechaza un pago de Q0.00).
+ * "sincobro" es un mes que no se le cobra (entró con el ciclo empezado).
  */
 function estadoMesUi(m: MesEstadoCuentaDto, anio: number): EstadoMesUi {
   if (m.estado === "Pagado") return "pagado";
   if (m.estado === "Reembolsado") return "reembolsado";
+  if (m.estado === "No aplica") return "sincobro";
   if (m.estado === "Exonerado" || m.montoAPagar <= 0) return "becado";
   const hoy = new Date();
   const mesActual = anio < hoy.getFullYear() ? 13 : anio > hoy.getFullYear() ? 0 : hoy.getMonth() + 1;
@@ -814,7 +816,8 @@ function PagosView() {
   // "Pendiente" hasta que llegue el webhook, así que sin esto se volvería a
   // ofrecer "Pagar" (y el backend respondería 409).
   const [enProceso, setEnProceso] = useState<Set<string>>(new Set());
-  const carrito = useCarrito();
+  // Al pagar un mes suelto, los cargos pendientes se vuelven a cargar
+  const [versionCargos, setVersionCargos] = useState(0);
 
   useEffect(() => {
     getMisHijos()
@@ -861,8 +864,6 @@ function PagosView() {
   }) ?? [];
   const adeudados = meses.filter((m) => m.ui === "vencido");
   const saldoVencido = adeudados.reduce((suma, m) => suma + m.montoAPagar, 0);
-  // Lo primero que se le ofrece pagar: el mes vencido más antiguo, o el del mes en curso
-  const siguiente = adeudados[0] ?? meses.find((m) => m.ui === "pendiente" && m.mes === mesActual);
   const mensualidad = meses.find((m) => m.mes === Math.min(mesActual, 10));
 
   function pagar(mes: number) {
@@ -876,17 +877,14 @@ function PagosView() {
       <SectionHeader
         title="Pagos y Estado de Cuenta"
         subtitle={hijo ? `${hijo.nombre} · ${hijo.grado} sección ${hijo.seccion}` : undefined}
-        action={
-          <div className="flex items-center gap-2">
-            {hijos && hijos.length > 1 && (
-              <Select aria-label="Alumno" value={hijoId ?? ""} onChange={(e) => setHijoId(Number(e.target.value))}>
-                {hijos.map((h) => <option key={h.alumnoId} value={h.alumnoId}>{h.nombre}</option>)}
-              </Select>
-            )}
-            <CarritoBoton onPagado={() => { if (hijoId !== null) cargarEstadoCuenta(hijoId); }} />
-          </div>
-        }
+        action={hijos && hijos.length > 1 ? (
+          <Select aria-label="Alumno" value={hijoId ?? ""} onChange={(e) => setHijoId(Number(e.target.value))}>
+            {hijos.map((h) => <option key={h.alumnoId} value={h.alumnoId}>{h.nombre}</option>)}
+          </Select>
+        ) : undefined}
       />
+
+      {hijos && <CargosPendientes key={versionCargos} onPagado={() => { if (hijoId !== null) cargarEstadoCuenta(hijoId); }} />}
 
       {mesPagado && (
         <AlertBanner type="success" title="Pago realizado exitosamente" message={`La colegiatura de ${mesPagado} quedó registrada como pagada.`} onClose={() => setMesPagado(null)} />
@@ -919,33 +917,10 @@ function PagosView() {
             <MetricCard
               label={`Pagado en ${anio}`}
               value={formatoQ(estadoCuenta.totalPagado)}
-              sub={`${estadoCuenta.mesesPagados} de 10 meses`}
+              sub={`${estadoCuenta.mesesPagados} de ${estadoCuenta.mesesACobrar} meses`}
               variant="success"
             />
           </div>
-
-          {siguiente && (
-            <div className={`relative overflow-hidden rounded-[20px] p-6 ${siguiente.ui === "vencido" ? "bg-danger-600 text-white" : "bg-subject-social text-stone-900"}`}>
-              <div className="absolute right-0 top-0 bottom-0 w-40 opacity-20 textile-pattern" aria-hidden="true" />
-              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-                <div>
-                  <p className="text-sm font-semibold opacity-85 flex items-center gap-1.5">
-                    {siguiente.ui === "vencido" ? <AlertCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-                    {siguiente.ui === "vencido" ? "Cuota vencida" : "Cuota del mes"}: {siguiente.nombreMes} {anio}
-                  </p>
-                  <p className="font-display font-bold text-5xl leading-none tabular-nums mt-3">{formatoQ(siguiente.montoAPagar)}</p>
-                </div>
-                <button
-                  onClick={() => pagar(siguiente.mes)}
-                  className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full font-bold text-[15px] transition-transform active:scale-[0.98] cursor-pointer
-                    ${siguiente.ui === "vencido" ? "bg-white text-danger-700 hover:bg-danger-50" : "bg-stone-900 text-white hover:bg-stone-800"}`}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Pagar ahora
-                </button>
-              </div>
-            </div>
-          )}
 
           <Card className="overflow-hidden">
             <div className="px-6 pt-5 pb-1">
@@ -958,6 +933,19 @@ function PagosView() {
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {meses.map((m) => {
+                    if (m.ui === "sincobro") {
+                      return (
+                        <tr key={m.mes} className="text-stone-400">
+                          <TD><span className="font-semibold">{m.nombreMes}</span></TD>
+                          <TD className="text-right">—</TD>
+                          <TD className="text-right">—</TD>
+                          <TD className="text-right">—</TD>
+                          <TD><Badge variant="neutral">No aplica</Badge></TD>
+                          <TD>—</TD>
+                          <TD>{null}</TD>
+                        </tr>
+                      );
+                    }
                     const total = m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar;
                     return (
                       <tr key={m.mes} className="hover:bg-sand-50 transition-colors">
@@ -982,39 +970,13 @@ function PagosView() {
                         </TD>
                         <TD className="text-right">
                           {m.ui === "pagado" || m.ui === "reembolsado" || m.ui === "becado" || m.ui === "procesando" || !hijo ? null : (
-                            <div className="flex items-center justify-end gap-1.5">
-                              {carrito.contiene(claveColegiatura(hijo.alumnoId, anio, m.mes)) ? (
-                                <Btn variant="ghost" size="sm" onClick={() => carrito.quitar(claveColegiatura(hijo.alumnoId, anio, m.mes))} aria-label={`Quitar ${m.nombreMes} del carrito`}>
-                                  <ShoppingCart className="w-4 h-4 text-primary-700" />Quitar
-                                </Btn>
-                              ) : (
-                                <Btn
-                                  variant="ghost"
-                                  size="sm"
-                                  aria-label={`Agregar ${m.nombreMes} al carrito`}
-                                  title="Agregar al carrito"
-                                  onClick={() => carrito.agregar({
-                                    clave: claveColegiatura(hijo.alumnoId, anio, m.mes),
-                                    tipo: "colegiatura",
-                                    alumnoId: hijo.alumnoId,
-                                    anioLectivo: anio,
-                                    mes: m.mes,
-                                    alumno: hijo.nombre,
-                                    descripcion: `Colegiatura ${m.nombreMes} ${anio}`,
-                                    monto: m.montoAPagar,
-                                  })}
-                                >
-                                  <ShoppingCart className="w-4 h-4" />
-                                </Btn>
-                              )}
-                              <Btn
-                                variant={m.ui === "vencido" ? "secondary" : "outline"}
-                                size="sm"
-                                onClick={() => pagar(m.mes)}
-                              >
-                                {m.mes > mesActual ? "Adelantar" : "Pagar"}
-                              </Btn>
-                            </div>
+                            <Btn
+                              variant={m.ui === "vencido" ? "secondary" : "outline"}
+                              size="sm"
+                              onClick={() => pagar(m.mes)}
+                            >
+                              {m.mes > mesActual ? "Adelantar" : "Pagar"}
+                            </Btn>
                           )}
                         </TD>
                       </tr>
@@ -1032,11 +994,11 @@ function PagosView() {
         onClose={() => setPeriodo(null)}
         onTerminado={(tipo) => {
           if (periodo && tipo === "exitoso") setMesPagado(`${MESES_NOMBRE[periodo.mes - 1]} ${periodo.anioLectivo}`);
-          if (periodo) carrito.quitar(claveColegiatura(periodo.alumnoId, periodo.anioLectivo, periodo.mes));
           if (periodo && tipo === "procesando") {
             setEnProceso((prev) => new Set(prev).add(claveMes(periodo.alumnoId, periodo.mes)));
           }
           if (hijoId !== null) cargarEstadoCuenta(hijoId);
+          setVersionCargos((v) => v + 1);
         }}
       />
     </div>
@@ -1048,6 +1010,7 @@ const MESES_NOMBRE = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Ju
 function EstadoMesBadge({ estado }: { estado: EstadoMesUi }) {
   if (estado === "reembolsado") return <Badge variant="info">Reembolsado</Badge>;
   if (estado === "becado") return <Badge variant="success">Cubierto por beca</Badge>;
+  if (estado === "sincobro") return <Badge variant="neutral">No aplica</Badge>;
   if (estado === "procesando") return <Badge variant="warning">En proceso</Badge>;
   return <PagoBadge estado={estado} />;
 }
@@ -1283,7 +1246,7 @@ export default function Padre({ view, user, onNavigate }: { view: View; user?: A
   if (view === "pad-matricula") return <MatriculaView user={user} />;
   if (view === "pad-notas") return <NotasHijo />;
   if (view === "pad-pagos") return <PagosView />;
-  if (view === "pad-eventos") return <EventosPadre />;
+  if (view === "pad-circulares") return <CircularesPadre onNavigate={onNavigate} />;
   if (view === "pad-becas") return <BecasPadre />;
   if (view === "pad-avisos") return <AvisosPadre />;
   if (view === "pad-asistencia") return <AsistenciaPadre />;

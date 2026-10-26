@@ -108,6 +108,7 @@ model Usuario {
   rolesAdicionales UsuarioRol[]
   bitacora         Bitacora[]
   ordenesPago      OrdenPago[]
+  respuestasCircular InscripcionEvento[] @relation("RespuestasCircular")
   justificacionesSolicitadas JustificacionAusencia[] @relation("JustificacionSolicitante")
   justificacionesRevisadas   JustificacionAusencia[] @relation("JustificacionRevisor")
 }
@@ -430,35 +431,44 @@ model Evento {
   tipoEvento             String    @db.VarChar(20)
   enviarRecordatorio     Boolean   @default(true)
   recordatorioEnviadoEn  DateTime?
-  // Eventos con cobro: los padres inscriben a sus hijos desde el carrito de pagos
-  requierePago           Boolean   @default(false)
+  // Circular: el encargado autoriza (o no) la participacion de cada hijo. Puede tener costo.
+  requiereAutorizacion   Boolean   @default(false)
+  requierePago           Boolean   @default(false) // siempre con requiereAutorizacion
   costo                  Decimal?  @db.Decimal(10, 2)
   cupoMaximo             Int? // null = sin limite
-  fechaLimiteInscripcion DateTime? @db.Date // null = hasta el dia anterior al evento
+  fechaLimiteInscripcion DateTime? @db.Date // para responder y pagar; null = hasta el dia anterior al evento
 
   sede          Sede?               @relation(fields: [sedeId], references: [sedeId])
   inscripciones InscripcionEvento[]
 }
 
-// Un alumno inscrito a un evento con cobro. Pendiente = en un carrito sin pagar todavia.
+// Respuesta del encargado a la circular de un evento, por alumno. Sin registro = sin respuesta.
+//  Autorizada   -> con costo, pendiente de pago (el cupo ya queda apartado)
+//  Confirmada   -> pagada, o autorizada si el evento es gratuito
+//  NoAutorizada -> el encargado no autorizo
+//  Cancelada    -> vencio la fecha limite sin pagar
+//  Reembolsada  -> se devolvio el pago
 model InscripcionEvento {
-  inscripcionId Int       @id @default(autoincrement())
-  eventoId      Int
-  alumnoId      Int
-  monto         Decimal   @db.Decimal(10, 2) // precio al momento de inscribir
-  estado        String    @default("Pendiente") @db.VarChar(20) // Pendiente, Confirmada, Cancelada, Reembolsada
-  ordenId       Int?
-  createdAt     DateTime  @default(now())
-  fechaPago     DateTime?
+  inscripcionId   Int       @id @default(autoincrement())
+  eventoId        Int
+  alumnoId        Int
+  monto           Decimal   @default(0) @db.Decimal(10, 2) // precio al momento de autorizar
+  estado          String    @default("Autorizada") @db.VarChar(20)
+  ordenId         Int? // pago en curso o ya hecho
+  respondidoPorId Int?
+  fechaRespuesta  DateTime?
+  createdAt       DateTime  @default(now())
+  fechaPago       DateTime?
 
-  evento Evento     @relation(fields: [eventoId], references: [eventoId], onDelete: Cascade)
-  alumno Alumno     @relation(fields: [alumnoId], references: [alumnoId])
-  orden  OrdenPago? @relation(fields: [ordenId], references: [ordenId])
+  evento        Evento     @relation(fields: [eventoId], references: [eventoId], onDelete: Cascade)
+  alumno        Alumno     @relation(fields: [alumnoId], references: [alumnoId])
+  orden         OrdenPago? @relation(fields: [ordenId], references: [ordenId])
+  respondidoPor Usuario?   @relation("RespuestasCircular", fields: [respondidoPorId], references: [usuarioId])
 
   @@unique([eventoId, alumnoId])
 }
 
-// Un cobro de Stripe que agrupa todo lo que el encargado pago junto (carrito)
+// Un cobro de Stripe que agrupa todo lo que el encargado eligio pagar junto (colegiaturas y eventos)
 model OrdenPago {
   ordenId         Int       @id @default(autoincrement())
   usuarioId       Int // quien paga

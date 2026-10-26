@@ -10,13 +10,15 @@ import {
 } from "../lib/solicitudes";
 import { generarConstanciaPdf, etiquetaGradoSolicitud } from "../lib/constanciaPdf";
 import axios from "axios";
-import { getInfoInicio, type InfoInicioDto, type DatosSaludDto } from "@/lib/api";
+import { getInfoInicio, getMisDatosSolicitud, crearSolicitudPropia, type InfoInicioDto, type DatosSaludDto } from "@/lib/api";
 import { CamposSalud, SALUD_VACIA } from "./InfoSalud";
 
 export type SolicitudInscripcionModo = "publico" | "presencial";
 
 interface SolicitudInscripcionProps {
   modo: SolicitudInscripcionModo;
+  /** Encargado con sesión iniciada que inscribe a otro hijo: la solicitud queda a nombre de su cuenta */
+  conCuenta?: boolean;
   onFinalizar?: () => void;
   onCancelar?: () => void;
 }
@@ -189,7 +191,7 @@ function ConstanciaImprimible({ solicitud }: { solicitud: SolicitudGuardada }) {
   );
 }
 
-export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: SolicitudInscripcionProps) {
+export default function SolicitudInscripcion({ modo, conCuenta = false, onFinalizar, onCancelar }: SolicitudInscripcionProps) {
   const [step, setStep] = useState(0);
   const [numeroSolicitud] = useState(generarNumeroSolicitud);
   const [fechaLimite] = useState(calcularFechaLimite);
@@ -197,6 +199,8 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   const [cargandoEmail, setCargandoEmail] = useState(false);
   const [info, setInfo] = useState<InfoInicioDto | null>(null);
   const [errorCarga, setErrorCarga] = useState("");
+  // Con cuenta: datos que ya tiene el encargado. Lo que falte (DPI, teléfono o parentesco) se le pide una vez
+  const [faltantes, setFaltantes] = useState<Set<keyof DatosEncargado> | null>(null);
 
   const [encargado, setEncargado] = useState<DatosEncargado>({
     nombres: "", apellidos: "", dpi: "", telefono: "", correo: "", parentesco: "",
@@ -239,7 +243,11 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
   }
 
   async function irSiguiente() {
-    if (step === 0) {
+    if (step === 0 && conCuenta) {
+      const errores = validarEncargado(encargado);
+      setErroresEncargado(errores);
+      if (Object.values(errores).some(Boolean)) return;
+    } else if (step === 0) {
 
       const errores = validarEncargado(encargado);
       setErroresEncargado(errores);
@@ -308,13 +316,27 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
       };
 
       try{
-        await guardarSolicitud(registro);
+        if (conCuenta) {
+          await crearSolicitudPropia({
+            numero: registro.numero,
+            alumno: { ...registro.alumno },
+            documentos: registro.documentos,
+            fechaSolicitud: registro.fechaSolicitud,
+            fechaLimite: registro.fechaLimite,
+            dpi: encargado.dpi,
+            telefono: encargado.telefono,
+            parentesco: encargado.parentesco,
+          });
+        } else {
+          await guardarSolicitud(registro);
+        }
         setSolicitudGuardada(registro);
         setStep((s) => Math.min(s+1, STEPS.length - 1))
         return;
       } catch (error) {
         console.error("Error al guardar la solicitud:", error);
-        setErrorDocumentos("Ocurrió un error al guardar la solicitud en el servidor. Vuelva a intentar.")
+        setErrorDocumentos(error instanceof Error ? error.message : "Ocurrió un error al guardar la solicitud en el servidor. Vuelva a intentar.")
+        return;
       }
     }
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
@@ -330,6 +352,26 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
       .catch(() => setErrorCarga("No se pudieron cargar las sedes y los grados. Recargue la página e intente de nuevo."));
   }, []);
 
+  useEffect(() => {
+    if (!conCuenta) return;
+    getMisDatosSolicitud()
+      .then((datos) => {
+        setEncargado(datos);
+        const falta = new Set<keyof DatosEncargado>(
+          (["dpi", "telefono", "parentesco"] as const).filter((campo) => !datos[campo]),
+        );
+        setFaltantes(falta);
+        // Si ya tiene todo, empieza directo con los datos del alumno
+        if (falta.size === 0) setStep(1);
+      })
+      .catch(() => setErrorCarga("No se pudieron cargar sus datos. Recargue la página e intente de nuevo."));
+  }, [conCuenta]);
+
+  // Con cuenta y sin datos faltantes, el paso "Encargado" no se muestra
+  const saltaEncargado = conCuenta && faltantes?.size === 0;
+  const pasos = saltaEncargado ? STEPS.slice(1) : STEPS;
+  const pasoVisible = saltaEncargado ? step - 1 : step;
+
   const fechaLimiteTexto = formatearFecha(fechaLimite);
 
   return (
@@ -343,9 +385,49 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
         </p>
       </div>
 
-      <Stepper steps={STEPS} current={step} />
+      <Stepper steps={pasos} current={pasoVisible} />
 
-      {step === 0 && (
+      {conCuenta && (
+        <div className="px-4 py-3 rounded-xl bg-sand-50 border border-stone-200 text-sm text-stone-600">
+          La solicitud queda a nombre de su cuenta: <span className="font-semibold text-stone-900">{encargado.nombres} {encargado.apellidos}</span> ({encargado.correo})
+          {encargado.parentesco && !faltantes?.has("parentesco") && <>, como <span className="font-semibold text-stone-900">{encargado.parentesco}</span></>}.
+          Al aprobarla, el alumno aparecerá junto a sus otros hijos.
+        </div>
+      )}
+
+      {step === 0 && conCuenta && (
+        faltantes === null ? (
+          errorCarga ? <AlertBanner type="error" message={errorCarga} /> : <p className="text-sm text-stone-500">Cargando sus datos…</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <p className="sm:col-span-2 text-sm text-stone-500">Complete estos datos una sola vez; se usarán en sus próximas solicitudes.</p>
+            {faltantes.has("dpi") && (
+              <Input
+                label="DPI" value={encargado.dpi} inputMode="numeric" placeholder="0000000000000"
+                onChange={(e) => actualizarEncargado("dpi", e.target.value.replace(/\D/g, "").slice(0, 13))}
+                error={erroresEncargado.dpi} hint={!erroresEncargado.dpi ? "13 dígitos, sin espacios ni guiones" : undefined}
+              />
+            )}
+            {faltantes.has("telefono") && (
+              <Input
+                label="Teléfono" value={encargado.telefono} inputMode="numeric" placeholder="00000000"
+                onChange={(e) => actualizarEncargado("telefono", e.target.value.replace(/\D/g, "").slice(0, 8))}
+                error={erroresEncargado.telefono}
+              />
+            )}
+            {faltantes.has("parentesco") && (
+              <div className="sm:col-span-2">
+                <Select label="Parentesco con el alumno" value={encargado.parentesco} onChange={(e) => actualizarEncargado("parentesco", e.target.value)} error={erroresEncargado.parentesco}>
+                  <option value="">Seleccione…</option>
+                  {PARENTESCOS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </Select>
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {step === 0 && !conCuenta && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Nombres" value={encargado.nombres} onChange={(e) => actualizarEncargado("nombres", e.target.value)} error={erroresEncargado.nombres} placeholder="Nombres del encargado" />
           <Input label="Apellidos" value={encargado.apellidos} onChange={(e) => actualizarEncargado("apellidos", e.target.value)} error={erroresEncargado.apellidos} placeholder="Apellidos del encargado" />
@@ -481,14 +563,18 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           <AlertBanner
             type="info"
             title="¿Qué sigue?"
-            message={`Le enviamos esta constancia a ${solicitudGuardada.encargado.correo}. El resultado de la solicitud se resuelve en un plazo de 5 días hábiles.`}
+            message={conCuenta
+              ? "El resultado de la solicitud se resuelve en un plazo de 5 días hábiles. Si es aprobada, el alumno aparecerá en su cuenta junto a sus otros hijos."
+              : `Le enviamos esta constancia a ${solicitudGuardada.encargado.correo}. El resultado de la solicitud se resuelve en un plazo de 5 días hábiles.`}
           />
 
-          <AlertBanner
-            type="warning"
-            title="Esto todavía no es un acceso al sistema"
-            message="Esta solicitud no le da acceso al portal. Si es aprobada, le enviaremos sus credenciales por ese mismo correo; mientras tanto, no podrá iniciar sesión."
-          />
+          {!conCuenta && (
+            <AlertBanner
+              type="warning"
+              title="Esto todavía no es un acceso al sistema"
+              message="Esta solicitud no le da acceso al portal. Si es aprobada, le enviaremos sus credenciales por ese mismo correo; mientras tanto, no podrá iniciar sesión."
+            />
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Btn variant="outline" size="md" className="justify-center" icon={<Download className="w-4 h-4" />} onClick={() => generarConstanciaPdf(solicitudGuardada)}>
@@ -500,21 +586,21 @@ export default function SolicitudInscripcion({ modo, onFinalizar, onCancelar }: 
           </div>
 
           <Btn variant="primary" size="lg" className="w-full justify-center" onClick={onFinalizar}>
-            {modo === "publico" ? "Volver al inicio de sesión" : "Finalizar"}
+            {conCuenta ? "Volver a matrícula" : modo === "publico" ? "Volver al inicio de sesión" : "Finalizar"}
           </Btn>
         </div>
       )}
 
       {step < 3 && (
         <div className="flex items-center justify-between pt-2">
-          {step === 0 ? (
+          {step === 0 || (saltaEncargado && step === 1) ? (
             <button type="button" onClick={onCancelar} className="text-sm text-stone-500 hover:text-stone-700 py-1">
               ← Cancelar
             </button>
           ) : (
             <Btn variant="outline" size="md" onClick={irAnterior}>Anterior</Btn>
           )}
-          <Btn variant="primary" size="md" onClick={irSiguiente} disabled={cargandoEmail}>
+          <Btn variant="primary" size="md" onClick={irSiguiente} disabled={cargandoEmail || (conCuenta && faltantes === null)}>
             { cargandoEmail ? "Verificando..." : step === 2 ? "Enviar solicitud" : "Siguiente"}
           </Btn>
         </div>

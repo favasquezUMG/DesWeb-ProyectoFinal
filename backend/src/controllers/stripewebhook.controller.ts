@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { stripe } from '../config/stripe.config.js';
 import type Stripe from 'stripe';
-import { confirmarOrden, reembolsarOrden } from '../services/carrito.service.js';
+import { confirmarOrden, reembolsarOrden } from '../services/ordenes.service.js';
 import { enviarComprobanteEnSegundoPlano, enviarComprobantePago } from '../services/comprobante.service.js';
 
 /**
@@ -37,7 +37,7 @@ export const stripeWebhook = async (req: Request, res: Response) => {
             case 'payment_intent.succeeded': {
                 const paymentIntent = evento.data.object as Stripe.PaymentIntent;
 
-                // Pago del carrito: confirma todo lo de la orden (colegiaturas e inscripciones)
+                // Pago de una orden: confirma todo lo que incluye (colegiaturas y eventos)
                 if (paymentIntent.metadata?.ordenId) {
                     const confirmada = await confirmarOrden(paymentIntent.id);
                     console.log(confirmada

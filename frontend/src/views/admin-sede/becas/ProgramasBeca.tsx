@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Edit, Users, GraduationCap, ShieldAlert, Inbox } from "../../../components/Iconos";
-import { Card, Btn, Badge, AlertBanner, Input, Select, Textarea, Toggle, EmptyState } from "../../../components/Ui";
+import { Card, Btn, Badge, AlertBanner, Input, Select, Textarea, Toggle, EmptyState, AlAparecer } from "../../../components/Ui";
 import {
   createProgramaBeca,
   updateProgramaBeca,
@@ -107,7 +107,7 @@ export default function ProgramasBeca({ programas, anioLectivo, colegiatura, onC
       </div>
 
       {editando && (
-        <Card className="p-5 border-2 border-primary-200">
+        <AlAparecer><Card className="p-5 border-2 border-primary-200">
           <h3 className="font-semibold text-stone-800 mb-4">{editando === "nuevo" ? `Nuevo programa — ciclo ${anioLectivo}` : `Editar "${editando.nombre}"`}</h3>
           {error && <div className="mb-4"><AlertBanner type="error" message={error} /></div>}
 
@@ -140,7 +140,7 @@ export default function ProgramasBeca({ programas, anioLectivo, colegiatura, onC
             <Btn variant="outline" size="sm" onClick={() => setEditando(null)} disabled={guardando}>Cancelar</Btn>
             <Btn variant="primary" size="sm" loading={guardando} onClick={guardar}>Guardar programa</Btn>
           </div>
-        </Card>
+        </Card></AlAparecer>
       )}
 
       {programas.length === 0 && !editando ? (

@@ -7,15 +7,16 @@ import JustificacionesView from "./Justificaciones";
 import NotificacionesView from "./Notificaciones";
 import CalendarioView from "./Calendario";
 import CatedraticosView from "./Catedraticos";
-import RolesView from "./Roles";
 import GradosView from "./Grados";
 import CursosView from "./Cursos";
 import UsuariosView from "./Usuarios";
 import SolicitudesView from "./Solicitudes";
+import PagosVentanillaView from "./PagosVentanilla";
 
+// Roles y permisos es solo del Administrador General (lo muestra AdminGeneral.tsx): crear, editar
+// y asignar permisos a roles solo lo permite el backend a ese rol.
 export default function AdminSede({ view }: { view: View }) {
   if (view === "as-usuarios") return <UsuariosView />;
-  if (view === "as-roles") return <RolesView />;
   if (view === "as-catedraticos") return <CatedraticosView />;
   if (view === "as-solicitudes") return <SolicitudesView />;
   if (view === "as-alumnos") return <AlumnosView />;
@@ -26,5 +27,6 @@ export default function AdminSede({ view }: { view: View }) {
   if (view === "as-justificaciones") return <JustificacionesView />;
   if (view === "as-notificaciones") return <NotificacionesView />;
   if (view === "as-calendario") return <CalendarioView />;
+  if (view === "as-pagos") return <PagosVentanillaView />;
   return <DashboardSede />;
 }
