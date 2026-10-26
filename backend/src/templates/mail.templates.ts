@@ -319,6 +319,42 @@ export const plantillaComprobantePago = (datos: {
     };
 };
 
+// Lleva directo a la circular: el frontend pide iniciar sesion si hace falta y luego la abre
+const botonCircular = (eventoId: number, conCosto: boolean): string =>
+    process.env.APP_URL
+        ? `<p style="margin-top:20px;"><a href="${process.env.APP_URL}/?circular=${eventoId}" style="background-color:#1d4ed8; color:#ffffff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:bold;">${conCosto ? "Autorizar y pagar" : "Responder circular"}</a></p>`
+        : "";
+
+export const plantillaNuevaCircular = (datos: {
+    eventoId: number;
+    nombreDestinatario: string;
+    nombreEvento: string;
+    fecha: Date | string;
+    descripcion?: string | null;
+    costo: number;
+    fechaLimite: Date | string;
+}): PlantillaResult => ({
+    subject: `Circular: ${datos.nombreEvento} - se requiere su autorización`,
+    html: baseTemplate(
+        "Nueva circular de autorización",
+        `
+        <p>Hola ${escapeHtml(datos.nombreDestinatario)},</p>
+        <p>El colegio organiza la siguiente actividad y necesita que autorice (o no) la participación de su hijo o hija:</p>
+        <p style="font-size:16px; font-weight:bold; color:#1d4ed8;">${escapeHtml(datos.nombreEvento)}</p>
+        ${datos.descripcion ? parrafos(datos.descripcion) : ""}
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px; margin:12px 0;">
+            <tr><td style="color:#6b7280;">Fecha de la actividad</td><td style="text-align:right;">${formatearFecha(datos.fecha)}</td></tr>
+            <tr><td style="color:#6b7280;">Costo por alumno</td><td style="text-align:right;">${datos.costo > 0 ? quetzales(datos.costo) : "Sin costo"}</td></tr>
+            <tr><td style="color:#6b7280;">Responder${datos.costo > 0 ? " y pagar" : ""} a más tardar</td><td style="text-align:right; font-weight:bold;">${formatearFecha(datos.fechaLimite)}</td></tr>
+        </table>
+        <p>${datos.costo > 0
+            ? "Con el botón puede autorizar y pagar en línea en un solo paso. Si autoriza y prefiere pagar después, el cargo queda en su estado de cuenta hasta la fecha límite."
+            : "Con el botón puede responder la circular directamente."} También la encuentra en la sección <strong>Circulares</strong> del sistema.</p>
+        ${botonCircular(datos.eventoId, datos.costo > 0)}
+        `
+    ),
+});
+
 export const plantillaRecuperarPassword = (datos: {
     nombreDestinatario: string;
     enlace: string;

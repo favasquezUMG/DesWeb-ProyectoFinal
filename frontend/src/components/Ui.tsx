@@ -1,4 +1,4 @@
-import { Children, isValidElement, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { Children, isValidElement, useEffect, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "./Iconos";
 
 // ─── Color por curso ─────────────────────────────────────────────────────────
@@ -254,10 +254,55 @@ const ALERT_CFG: Record<AlertType, { cls: string; icon: string; Icon: typeof Inf
   error: { cls: "bg-danger-50 text-danger-800", icon: "text-danger-600", Icon: AlertCircle },
 };
 
+// ¿Se ve el elemento completo? Cuenta lo que recortan la ventana y los contenedores con scroll
+// (el <main> de la página, el cuerpo de un Drawer o de un Modal).
+function estaVisible(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  let arriba = 0;
+  let abajo = window.innerHeight;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowY } = getComputedStyle(p);
+    if (overflowY === "auto" || overflowY === "scroll") {
+      const pr = p.getBoundingClientRect();
+      arriba = Math.max(arriba, pr.top);
+      abajo = Math.min(abajo, pr.bottom);
+    }
+  }
+  return r.top >= arriba && r.bottom <= abajo;
+}
+
+/**
+ * Lleva a la vista algo que acaba de aparecer fuera de lo que el usuario está viendo (un error
+ * arriba de la página, un formulario que se abrió arriba). Si ya se ve, no mueve nada.
+ */
+export function asegurarVisible(el: HTMLElement | null, bloque: ScrollLogicalPosition = "center") {
+  if (!el || estaVisible(el)) return;
+  el.scrollIntoView({ behavior: "smooth", block: bloque });
+}
+
+/** Lo que va dentro se muestra en pantalla al aparecer: para formularios que se abren dentro de la página */
+export function AlAparecer({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => asegurarVisible(ref.current, "start"));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return <div ref={ref} className={`scroll-mt-4 ${className}`}>{children}</div>;
+}
+
 export function AlertBanner({ type, title, message, onClose }: { type: AlertType; title?: string; message: string; onClose?: () => void }) {
   const { cls, icon, Icon } = ALERT_CFG[type];
+  const ref = useRef<HTMLDivElement>(null);
+  // Un error o una confirmación es la respuesta a lo que el usuario acaba de hacer: si salió fuera
+  // de la vista (arriba de la página o del formulario), se lleva a la vista para que lo lea.
+  // Los avisos e información suelen estar fijos en la página y no mueven nada.
+  useEffect(() => {
+    if (type !== "error" && type !== "success") return;
+    const id = requestAnimationFrame(() => asegurarVisible(ref.current));
+    return () => cancelAnimationFrame(id);
+  }, [type, message]);
   return (
-    <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl ${cls}`} role="alert">
+    <div ref={ref} className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl scroll-mt-4 ${cls}`} role="alert">
       <Icon className={`w-5 h-5 mt-px shrink-0 ${icon}`} aria-hidden="true" />
       <div className="flex-1 min-w-0">
         {title && <p className="font-bold text-sm">{title}</p>}

@@ -19,6 +19,18 @@ const htmlATextoPlano = (html: string): string =>
         .replace(/\s+/g, " ")
         .trim();
 
+// Con MAIL_DOMINIOS_PERMITIDOS (ej. "gmail.com") solo se envia a esos dominios: en desarrollo evita
+// gastar la cuota de Gmail en los correos ficticios del seed. Sin la variable se envia a todos.
+export const correoPermitido = (email: string): boolean => {
+    const permitidos = (process.env.MAIL_DOMINIOS_PERMITIDOS ?? "")
+        .split(",")
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean);
+    if (permitidos.length === 0) return true;
+    const dominio = email.split("@")[1]?.toLowerCase() ?? "";
+    return permitidos.includes(dominio);
+};
+
 interface SendMailParams {
     to: string;
     subject: string;
@@ -31,7 +43,10 @@ interface SendMailParams {
 export const sendMail = async ({ to, subject, html, usuarioId, mensaje, tipo }: SendMailParams): Promise<boolean> => {
     let enviado = false;
 
-    try {
+    // La notificacion dentro del sistema se registra igual aunque el correo se omita
+    if (!correoPermitido(to)) {
+        console.log(`↷ Correo omitido (dominio no permitido): ${to}`);
+    } else try {
         await transporter.sendMail({
             from: process.env.MAIL_FROM || `"${process.env.COLEGIO_NOMBRE || 'Colegio Vanguardia'}" <${process.env.MAIL_USER}>`,
             to,

@@ -2,8 +2,9 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { destinatariosDeEvento, enviarRecordatorioEvento } from "../services/recordatorios.service.js";
 import { enviarEnSegundoPlano } from "../services/notificacion.service.js";
-import { liberarOrdenesPendientes, OrdenEnProcesoError, RESERVA_MINUTOS } from "../services/carrito.service.js";
+import { ESTADO_AUTORIZACION, liberarOrdenesPendientes, OrdenEnProcesoError } from "../services/ordenes.service.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
+import { notificarNuevaCircular } from "../services/circulares.service.js";
 import { esAlcanceGlobal, obtenerNombreRol, ROL, sedeDelAlcance } from "../middlewares/role.middleware.js";
 
 // El personal de sede solo administra los eventos de su sede; los generales (sin sede) son del
@@ -96,12 +97,16 @@ export const getEventById = async (req: Request, res: Response) => {
     }
 };
 
-// Campos de cobro (carrito de pagos). Devuelve los datos a guardar o un mensaje de error.
-// Solo toma los campos que vienen en el body, para que el PUT pueda actualizar parcialmente.
+// Campos de la circular (autorizacion de los encargados, con o sin costo). Devuelve los datos a
+// guardar o un mensaje de error. Solo toma los campos que vienen en el body, para que el PUT pueda
+// actualizar parcialmente.
 const leerCobro = (body: any): { data: Record<string, unknown> } | { error: string } => {
     const data: Record<string, unknown> = {};
 
+    if (body.requiereAutorizacion !== undefined) data.requiereAutorizacion = Boolean(body.requiereAutorizacion);
     if (body.requierePago !== undefined) data.requierePago = Boolean(body.requierePago);
+    // Un evento con costo siempre se cobra a traves de la autorizacion
+    if (data.requierePago) data.requiereAutorizacion = true;
 
     if (body.costo !== undefined) {
         if (body.costo === null || body.costo === '') data.costo = null;
@@ -171,6 +176,10 @@ export const createEvent = async (req: AuthenticatedRequest, res: Response) => {
         }
         });
 
+        if (newEvent.requiereAutorizacion) {
+            enviarEnSegundoPlano(`Circular "${newEvent.nombre}"`, () => notificarNuevaCircular(newEvent));
+        }
+
         return res.status(201).json({ status: 'success', data: newEvent });
     } catch (error) {
         return res.status(500).json({ status: 'error', message: 'Error al crear el evento', error });
@@ -213,7 +222,13 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response) => {
 
         const actual = await prisma.evento.findUnique({
             where: { eventoId: Number(id) },
-            include: { _count: { select: { inscripciones: { where: { estado: 'Confirmada' } } } } },
+            include: {
+                _count: {
+                    select: {
+                        inscripciones: { where: { estado: { in: [ESTADO_AUTORIZACION.AUTORIZADA, ESTADO_AUTORIZACION.CONFIRMADA] } } },
+                    },
+                },
+            },
         });
         if (!actual) {
             return res.status(404).json({ status: 'error', message: `Evento con ID: ${id} no encontrado` });
@@ -226,13 +241,16 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response) => {
         if (final.fechaLimiteInscripcion && final.fechaLimiteInscripcion > final.fecha) {
             return res.status(400).json({ status: 'error', message: 'La fecha límite de inscripción no puede ser después del evento.' });
         }
-        // Lo que ya pagaron los padres no cambia: el precio no se toca una vez que hay inscritos
-        const pagados = actual._count.inscripciones;
-        if (pagados > 0 && 'costo' in cobro.data && Number(cobro.data.costo) !== Number(actual.costo)) {
-            return res.status(409).json({ status: 'error', message: 'No se puede cambiar el costo: ya hay alumnos inscritos que pagaron.' });
-        }
-        if (pagados > 0 && final.cupoMaximo !== null && final.cupoMaximo < pagados) {
-            return res.status(409).json({ status: 'error', message: `El cupo no puede ser menor a los ${pagados} alumnos ya inscritos.` });
+        // Lo que los padres ya autorizaron no cambia: ni el precio ni si se pide autorizacion
+        const autorizados = actual._count.inscripciones;
+        if (autorizados > 0) {
+            const cambiaCosto = final.requierePago !== actual.requierePago || Number(final.costo ?? 0) !== Number(actual.costo ?? 0);
+            if (cambiaCosto || !final.requiereAutorizacion) {
+                return res.status(409).json({ status: 'error', message: `No se puede cambiar el costo ni quitar la autorización: ${autorizados} alumno(s) ya fueron autorizados.` });
+            }
+            if (final.cupoMaximo !== null && final.cupoMaximo < autorizados) {
+                return res.status(409).json({ status: 'error', message: `El cupo no puede ser menor a los ${autorizados} alumnos ya autorizados.` });
+            }
         }
 
         const updatedEvento = await prisma.evento.update({
@@ -253,16 +271,18 @@ export const deleteEvent = async (req: AuthenticatedRequest, res: Response) => {
         const sinPermiso = await puedeEditarEvento(req, Number(id));
         if (sinPermiso) return res.status(sinPermiso.codigo).json({ status: 'error', message: sinPermiso.error });
 
-        // Con inscripciones pagadas, borrar el evento haria desaparecer el registro de esos cobros
-        const pagadas = await prisma.inscripcionEvento.count({ where: { eventoId: Number(id), estado: 'Confirmada' } });
+        // Con participaciones pagadas, borrar el evento haria desaparecer el registro de esos cobros
+        const pagadas = await prisma.inscripcionEvento.count({
+            where: { eventoId: Number(id), estado: ESTADO_AUTORIZACION.CONFIRMADA, monto: { gt: 0 } },
+        });
         if (pagadas > 0) {
             return res.status(409).json({
                 status: 'error',
-                message: `El evento tiene ${pagadas} inscripción(es) pagada(s). Reembolse los pagos antes de eliminarlo.`,
+                message: `El evento tiene ${pagadas} participación(es) pagada(s). Reembolse los pagos antes de eliminarlo.`,
             });
         }
 
-        // Carritos sin pagar que incluyen este evento: se cancelan para que no se pueda cobrar algo que ya no existe
+        // Pagos en curso de este evento: se cancelan para que no se pueda cobrar algo que ya no existe
         const pendientes = await prisma.inscripcionEvento.findMany({
             where: { eventoId: Number(id), ordenId: { not: null } },
             select: { ordenId: true },
@@ -309,58 +329,3 @@ export const enviarRecordatorioAhora = async (req: Request, res: Response) => {
     }
 };
 
-//Get: alumnos inscritos a un evento con cobro (pagados y con pago en curso)
-export const getInscritosEvento = async (req: Request, res: Response) => {
-    const { id } = req.params;
-
-    try {
-        const evento = await prisma.evento.findUnique({ where: { eventoId: Number(id) } });
-        if (!evento) {
-            return res.status(404).json({ status: 'error', message: `Evento con ID: ${id} no encontrado` });
-        }
-
-        // Las pendientes solo cuentan mientras su reserva sigue vigente; despues son carritos abandonados
-        const limiteReserva = new Date(Date.now() - RESERVA_MINUTOS * 60 * 1000);
-        const inscripciones = await prisma.inscripcionEvento.findMany({
-            where: {
-                eventoId: evento.eventoId,
-                OR: [
-                    { estado: { in: ['Confirmada', 'Reembolsada'] } },
-                    { estado: 'Pendiente', createdAt: { gte: limiteReserva } },
-                ],
-            },
-            include: {
-                alumno: {
-                    include: {
-                        usuario: { select: { nombres: true, apellidos: true } },
-                        seccion: { include: { grado: { select: { nombre: true } } } },
-                    },
-                },
-            },
-            orderBy: [{ estado: 'asc' }, { createdAt: 'asc' }],
-        });
-
-        const confirmadas = inscripciones.filter((i) => i.estado === 'Confirmada');
-        return res.json({
-            status: 'success',
-            data: {
-                eventoId: evento.eventoId,
-                nombre: evento.nombre,
-                cupoMaximo: evento.cupoMaximo,
-                inscritos: confirmadas.length,
-                recaudado: Number(confirmadas.reduce((suma, i) => suma + Number(i.monto), 0).toFixed(2)),
-                detalle: inscripciones.map((i) => ({
-                    inscripcionId: i.inscripcionId,
-                    alumnoId: i.alumnoId,
-                    alumno: `${i.alumno.usuario.nombres} ${i.alumno.usuario.apellidos}`,
-                    grado: `${i.alumno.seccion.grado.nombre} ${i.alumno.seccion.nombre}`,
-                    monto: Number(i.monto),
-                    estado: i.estado,
-                    fechaPago: i.fechaPago,
-                })),
-            },
-        });
-    } catch (error) {
-        return res.status(500).json({ status: 'error', message: `Error al obtener los inscritos del evento con ID: ${id}.`, error });
-    }
-};

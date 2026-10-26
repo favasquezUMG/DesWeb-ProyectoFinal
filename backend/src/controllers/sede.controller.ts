@@ -180,3 +180,145 @@ export const getSedesMetricas = async (_req: Request, res: Response) => {
     });
   }
 };
+
+// Todo lo que cuelga de una sede. Mientras tenga algo, solo se puede desactivar, nunca borrar
+// (se perderia el historial de alumnos, notas, pagos...).
+const conteoRelacionados = {
+  usuarios: true,
+  secciones: true,
+  eventos: true,
+  comunicados: true,
+  programasBeca: true,
+  politicasBeca: true,
+  solicitudes: true,
+} as const;
+
+const ETIQUETAS: Record<keyof typeof conteoRelacionados, string> = {
+  usuarios: "usuario(s)",
+  secciones: "sección(es)",
+  eventos: "evento(s)",
+  comunicados: "comunicado(s)",
+  programasBeca: "programa(s) de beca",
+  politicasBeca: "política(s) de beca",
+  solicitudes: "solicitud(es) de inscripción",
+};
+
+// "3 usuario(s), 2 sección(es)": lo que impide borrar la sede
+const resumirRelacionados = (conteo: Record<keyof typeof conteoRelacionados, number>) =>
+  (Object.keys(ETIQUETAS) as (keyof typeof ETIQUETAS)[])
+    .filter((k) => conteo[k] > 0)
+    .map((k) => `${conteo[k]} ${ETIQUETAS[k]}`)
+    .join(", ");
+
+const alumnosActivosDe = (sedeId: number) =>
+  prisma.usuario.count({ where: { sedeId, deletedAt: null, rol: { nombre: "Alumno" } } });
+
+// GET /api/sedes/admin — todas las sedes (activas y desactivadas) con lo que tienen registrado
+export const getSedesAdmin = async (_req: Request, res: Response) => {
+  try {
+    const sedes = await prisma.sede.findMany({
+      where: { deletedAt: null },
+      include: { _count: { select: conteoRelacionados } },
+      orderBy: { nombre: "asc" },
+    });
+    const alumnos = await prisma.usuario.groupBy({
+      by: ["sedeId"],
+      where: { deletedAt: null, rol: { nombre: "Alumno" }, sedeId: { in: sedes.map((s) => s.sedeId) } },
+      _count: { _all: true },
+    });
+    const alumnosDe = new Map(alumnos.map((a) => [a.sedeId, a._count._all]));
+
+    return res.json({
+      status: "success",
+      data: sedes.map(({ _count, ...sede }) => {
+        const relacionados = resumirRelacionados(_count);
+        return {
+          sedeId: sede.sedeId,
+          nombre: sede.nombre,
+          direccion: sede.direccion,
+          telefono: sede.telefono,
+          activo: sede.activo,
+          alumnosActivos: alumnosDe.get(sede.sedeId) ?? 0,
+          // Se puede borrar solo si esta desactivada y no tiene nada registrado
+          puedeEliminar: !sede.activo && relacionados === "",
+          relacionados,
+        };
+      }),
+    });
+  } catch (error) {
+    return res.status(500).json({ status: "error", message: "Error al obtener las sedes.", error });
+  }
+};
+
+// PATCH /api/sedes/:id/activo  { activo: boolean }
+// Una sede desactivada deja de aparecer en la inscripción en línea y en las listas de sedes.
+// No se puede desactivar mientras tenga alumnos activos: primero hay que trasladarlos o darlos de baja.
+export const cambiarEstadoSede = async (req: Request, res: Response) => {
+  const sedeId = Number(req.params.id);
+  const { activo } = req.body ?? {};
+
+  if (isNaN(sedeId)) {
+    return res.status(400).json({ status: "error", message: "El ID de la sede no es válido." });
+  }
+  if (typeof activo !== "boolean") {
+    return res.status(400).json({ status: "error", message: "Indique si la sede queda activa (true) o desactivada (false)." });
+  }
+
+  try {
+    const sede = await prisma.sede.findUnique({ where: { sedeId } });
+    if (!sede || sede.deletedAt) {
+      return res.status(404).json({ status: "error", message: "La sede especificada no existe." });
+    }
+
+    if (!activo) {
+      const alumnos = await alumnosActivosDe(sedeId);
+      if (alumnos > 0) {
+        return res.status(409).json({
+          status: "error",
+          message: `${sede.nombre} tiene ${alumnos} alumno(s) activo(s). Trasládelos a otra sede o délos de baja antes de desactivarla.`,
+        });
+      }
+    }
+
+    await prisma.sede.update({ where: { sedeId }, data: { activo } });
+    return res.json({
+      status: "success",
+      message: activo ? `${sede.nombre} quedó activa.` : `${sede.nombre} quedó desactivada.`,
+    });
+  } catch (error) {
+    return res.status(500).json({ status: "error", message: "Error al cambiar el estado de la sede.", error });
+  }
+};
+
+// DELETE /api/sedes/:id — solo una sede desactivada y sin nada registrado (una sede creada por error)
+export const eliminarSede = async (req: Request, res: Response) => {
+  const sedeId = Number(req.params.id);
+  if (isNaN(sedeId)) {
+    return res.status(400).json({ status: "error", message: "El ID de la sede no es válido." });
+  }
+
+  try {
+    const sede = await prisma.sede.findUnique({
+      where: { sedeId },
+      include: { _count: { select: conteoRelacionados } },
+    });
+    if (!sede || sede.deletedAt) {
+      return res.status(404).json({ status: "error", message: "La sede especificada no existe." });
+    }
+    if (sede.activo) {
+      return res.status(409).json({ status: "error", message: "Primero desactive la sede; solo se puede eliminar una sede desactivada." });
+    }
+    const relacionados = resumirRelacionados(sede._count);
+    if (relacionados) {
+      return res.status(409).json({
+        status: "error",
+        message: `No se puede eliminar ${sede.nombre} porque tiene ${relacionados}. Puede dejarla desactivada.`,
+      });
+    }
+
+    await prisma.sede.delete({ where: { sedeId } });
+    return res.json({ status: "success", message: `${sede.nombre} se eliminó.` });
+  } catch (error) {
+    return res.status(500).json({ status: "error", message: "Error al eliminar la sede.", error });
+  }
+};

@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { sedeDelAlcance } from "../middlewares/role.middleware.js";
 import { NOTA_APROBACION } from "../services/boletin.service.js";
 import { filtroVinculo } from "../services/vinculos.service.js";
+import { ESTADO_NO_APLICA } from "../services/colegiaturas.service.js";
 import { hoyUTC } from "../lib/fechas.js";
 
 // Meses de colegiatura del ciclo (enero a octubre), igual que el estado de cuenta
@@ -72,7 +73,7 @@ export const getDashboardSede = async (req: AuthenticatedRequest, res: Response)
                 JOIN "Seccion" s ON s."seccionId" = cs."seccionId" AND s."anioLectivo" = ${anioLectivo}
                 GROUP BY n."alumnoId", u."cursoSeccionId", u.numero`,
             prisma.pago.findMany({
-                where: { alumno: filtroAlumnos, anioLectivo, estado: { in: ["Pagado", "Exonerado"] } },
+                where: { alumno: filtroAlumnos, anioLectivo, estado: { in: ["Pagado", "Exonerado", ESTADO_NO_APLICA] } },
                 select: { alumnoId: true, mes: true },
             }),
             prisma.justificacionAusencia.count({ where: { estado: "Pendiente", alumno: filtroAlumnos } }),
@@ -98,7 +99,7 @@ export const getDashboardSede = async (req: AuthenticatedRequest, res: Response)
             cursosDe.set(alumnoId, [...(cursosDe.get(alumnoId) ?? []), promedio(unidades)!]);
         }
 
-        // Pagos: un mes vencido es uno ya pasado sin pago ni exoneración (beca del 100% cubre todo)
+        // Pagos: un mes vencido es uno ya pasado sin pago ni exoneración (beca del 100% cubre todo) y que sí se cobra
         const mesesVencidos = Math.min(new Date().getMonth(), MESES_COLEGIATURA); // meses anteriores al actual
         const pagados = new Set(pagos.map((p) => `${p.alumnoId}|${p.mes}`));
         const enMora = anioLectivo < anioActual || mesesVencidos > 0

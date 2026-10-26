@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { ReglaNegocioError } from '../lib/errores.js';
+import { seccionVigente } from '../lib/ciclo.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { ROL, ROLES_DE_COMUNIDAD, esAlcanceGlobal, sedeDelAlcance } from '../middlewares/role.middleware.js';
 import { registrarBitacora, obtenerBitacora } from '../services/bitacora.service.js';
@@ -237,11 +238,42 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
             cambios.push(`rol ${objetivo.rol.nombre} → ${nuevoRol.nombre}`);
         }
 
-        if (sedeId !== undefined && (sedeId ? Number(sedeId) : null) !== objetivo.sedeId) {
+        const nuevaSede = sedeId ? Number(sedeId) : null;
+        if (sedeId !== undefined && nuevaSede !== objetivo.sedeId) {
             if (esUnoMismo) throw new ReglaNegocioError('No puede cambiar su propia sede.', 403);
             if ((await sedeDelAlcance(req)) !== null) throw new ReglaNegocioError('Solo el Administrador General puede trasladar usuarios de sede.', 403);
-            data.sede = sedeId ? { connect: { sedeId: Number(sedeId) } } : { disconnect: true };
-            cambios.push('traslado de sede');
+
+            const rolesFinales = [
+                rolId !== undefined ? (await nombresDeRoles([Number(rolId)]))[0].nombre : objetivo.rol.nombre,
+                ...objetivo.rolesAdicionales.map((r) => r.rol.nombre),
+            ];
+            // La sede del alumno es la de su sección: se cambia trasladando la matrícula
+            if (rolesFinales.includes(ROL.ALUMNO)) {
+                throw new ReglaNegocioError('La sede de un alumno se cambia trasladando su matrícula a una sección de la otra sede.', 400);
+            }
+            if (!nuevaSede && requiereSede(rolesFinales[0])) {
+                throw new ReglaNegocioError(`El rol "${rolesFinales[0]}" necesita una sede.`, 400);
+            }
+
+            let nombreSede = 'sin sede';
+            if (nuevaSede) {
+                const sede = await prisma.sede.findUnique({ where: { sedeId: nuevaSede } });
+                if (!sede || sede.deletedAt || !sede.activo) throw new ReglaNegocioError('Seleccione una sede activa.', 400);
+                nombreSede = sede.nombre;
+            }
+
+            // Un catedrático no puede irse dejando cursos de este ciclo asignados en la sede anterior
+            if (objetivo.sedeId) {
+                const cursos = await prisma.cursoSeccion.count({
+                    where: { catedraticoId: id, seccion: { sedeId: objetivo.sedeId, ...seccionVigente() } },
+                });
+                if (cursos > 0) {
+                    throw new ReglaNegocioError(`Tiene ${cursos} curso(s) asignado(s) este ciclo en su sede actual. Reasígnelos a otro catedrático antes de trasladarlo.`);
+                }
+            }
+
+            data.sede = nuevaSede ? { connect: { sedeId: nuevaSede } } : { disconnect: true };
+            cambios.push(`sede → ${nombreSede}`);
         }
 
         const actualizado = await prisma.$transaction(async (tx) => {
