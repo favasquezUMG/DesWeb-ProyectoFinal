@@ -147,7 +147,7 @@ export default function Asistencia() {
                   <tr key={a.alumnoId} className="hover:bg-sand-50">
                     <TD>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full bg-sand-100 text-stone-700 flex items-center justify-center text-xs font-bold">
+                        <div className="w-9 h-9 rounded-full bg-sand-100 text-stone-700 hidden min-[360px]:flex items-center justify-center text-xs font-bold shrink-0">
                           {iniciales(a.nombres, a.apellidos)}
                         </div>
                         <div>
