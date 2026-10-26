@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Users, AlertOctagon, UserX, Heart } from "../../components/Iconos";
-import { Card, SectionHeader, Badge, Drawer, AlertBanner, TH, TD } from "../../components/Ui";
+import { Card, SectionHeader, Badge, Drawer, AlertBanner, TH, TD, TablaResponsiva } from "../../components/Ui";
 import { getAlumnos, setAccesoPortalAlumno, setSaludAlumno, type AlumnoDto, type DatosSaludDto } from "../../lib/api";
 import { IndicadorSalud, ModalSalud } from "../../components/InfoSalud";
 import { nombreDe } from "../../lib/becas";
@@ -101,7 +101,7 @@ export default function AlumnosView() {
           </label>
         </div>
 
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Alumno</TH><TH>Grado · Sección</TH><TH>Contacto principal</TH><TH>Encargados</TH><TH>Acceso al portal</TH><TH className="text-right">Acciones</TH></tr>
@@ -152,7 +152,7 @@ export default function AlumnosView() {
               )}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       </Card>
 
       <ModalSalud alumno={saludDe ? nombreDe(saludDe.usuario) : null} salud={saludDe ?? {}} onCerrar={() => setSaludDe(null)} onGuardar={guardarSalud} />

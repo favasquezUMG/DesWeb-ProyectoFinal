@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Download, Pencil, Plus, Trash2 } from "../../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, EmptyState, Modal, Tabs, TH, TD } from "../../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, EmptyState, Modal, Tabs, TH, TD, TablaResponsiva } from "../../components/Ui";
 import {
   deleteActividad, getLibreta, getResumenAsistencia,
   type ActividadDto, type LibretaDto, type ResumenAsistenciaDto, type TipoActividad,
@@ -127,7 +127,7 @@ export default function MisCursos() {
                   message={`${libreta.alumnos.filter(tieneSalud).length} alumno(s) tienen una condición de salud, alergia o necesidad de apoyo registrada. Toque la etiqueta "Salud" para ver el detalle.`} />
               )}
               <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
+                <TablaResponsiva>
                   <table className="w-full">
                     <thead>
                       <tr><TH>Alumno</TH><TH className="text-center">Nota final (promedio)</TH><TH className="text-center">Asistencia</TH><TH className="text-center">Estado académico</TH></tr>
@@ -160,7 +160,7 @@ export default function MisCursos() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                </TablaResponsiva>
               </Card>
               <ModalSalud alumno={saludDe ? `${saludDe.nombres} ${saludDe.apellidos}` : null} salud={saludDe ?? {}} onCerrar={() => setSaludDe(null)} />
               </>
@@ -169,7 +169,7 @@ export default function MisCursos() {
 
           {tab === "Notas" && (
             <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
+              <TablaResponsiva>
                 <table className="w-full">
                   <thead>
                     <tr>
@@ -212,7 +212,7 @@ export default function MisCursos() {
                     })}
                   </tbody>
                 </table>
-              </div>
+              </TablaResponsiva>
             </Card>
           )}
 
@@ -224,7 +224,7 @@ export default function MisCursos() {
                 <div className="px-4 py-3 border-b border-stone-100 text-sm text-stone-600">
                   Se ha pasado lista <strong>{resumen.diasRegistrados}</strong> {resumen.diasRegistrados === 1 ? "día" : "días"}.
                 </div>
-                <div className="overflow-x-auto">
+                <TablaResponsiva>
                   <table className="w-full">
                     <thead>
                       <tr>
@@ -247,7 +247,7 @@ export default function MisCursos() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </TablaResponsiva>
               </Card>
             )
           )}
