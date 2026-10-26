@@ -1430,6 +1430,27 @@ export const openapiSpec = {
         responses: { 200: dataResponse("Estado de cuenta", ref("EstadoCuenta")), ...commonErrors },
       },
     },
+    "/pagos/meses-cobro/{alumnoId}": {
+      put: {
+        tags: ["Pagos"],
+        summary: "Meses en que no se cobra colegiatura al alumno",
+        description:
+          "Recibe la lista completa de meses (1 a 10) que no se cobran; los demás quedan habilitados. " +
+          "Esos meses quedan como 'No aplica' (no generan mora). Un mes ya pagado no se puede deshabilitar. " +
+          "Solo el personal con permiso de pagos en la sede del alumno.",
+        security: bearer,
+        parameters: [idParam("alumnoId", "ID de alumno")],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["mesesSinCobro"],
+          properties: {
+            anioLectivo: { type: "integer", description: "Por defecto el año actual" },
+            mesesSinCobro: { type: "array", items: { type: "integer", minimum: 1, maximum: 10 } },
+          },
+        }),
+        responses: { 200: { description: "Meses de cobro actualizados" }, ...commonErrors },
+      },
+    },
     "/pagos/verificar/{sessionId}": {
       get: {
         tags: ["Pagos"],

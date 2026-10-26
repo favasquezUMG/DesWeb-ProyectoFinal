@@ -184,6 +184,11 @@ export default function UsuariosView() {
 
   const detalle = drawer && drawer !== "nuevo" ? drawer : null;
   const esUnoMismo = detalle?.usuarioId === miId;
+  const esAlumno = nombresElegidos.includes("Alumno");
+  // Si su sede actual está desactivada no viene en la lista, pero tiene que verse como seleccionada
+  const opcionesSede = detalle?.sede && !sedes.some((s) => s.sedeId === detalle.sede!.sedeId)
+    ? [...sedes, { sedeId: detalle.sede.sedeId, nombre: `${detalle.sede.nombre} (desactivada)`, direccion: null }]
+    : sedes;
 
   return (
     <div className="space-y-5">
@@ -289,13 +294,24 @@ export default function UsuariosView() {
             </div>
           </div>
 
-          {necesitaSede && (
-            <Select label="Sede" value={form.sedeId} disabled={esUnoMismo} onChange={(e) => setForm((f) => ({ ...f, sedeId: e.target.value }))}>
-              <option value="">Seleccionar…</option>
-              {sedes.map((s) => <option key={s.sedeId} value={s.sedeId}>{s.nombre}</option>)}
-            </Select>
+          {esAlumno ? (
+            <SedeFija sede={detalle?.sede?.nombre} nota="La sede del alumno es la de su sección; se cambia trasladando su matrícula." />
+          ) : necesitaSede ? (
+            <div>
+              <Select label="Sede" value={form.sedeId} disabled={esUnoMismo} onChange={(e) => setForm((f) => ({ ...f, sedeId: e.target.value }))}>
+                <option value="">Seleccionar…</option>
+                {opcionesSede.map((s) => <option key={s.sedeId} value={s.sedeId}>{s.nombre}</option>)}
+              </Select>
+              {esUnoMismo && <p className="text-xs text-stone-500 mt-1">No puede cambiar su propia sede.</p>}
+            </div>
+          ) : esGeneral ? (
+            <SedeFija sede={nombresElegidos.includes("Administrador General") ? "Todas las sedes" : "Sin sede"}
+              nota={nombresElegidos.includes("Administrador General") ? "El Administrador General trabaja con todas las sedes." : "Los encargados no pertenecen a una sede: ven a sus hijos en la sede donde estudien."} />
+          ) : detalle ? (
+            <SedeFija sede={detalle.sede?.nombre ?? "Sin sede"} nota="Solo el Administrador General puede cambiar la sede de un usuario." />
+          ) : (
+            <p className="text-xs text-stone-500">La cuenta queda en su sede.</p>
           )}
-          {!esGeneral && <p className="text-xs text-stone-500">La cuenta queda en su sede.</p>}
 
           {incluyeCatedratico && (
             <Input label="Especialidad" value={form.especialidad} onChange={(e) => setForm((f) => ({ ...f, especialidad: e.target.value }))} placeholder="Ej. Matemática" />
@@ -369,6 +385,17 @@ export default function UsuariosView() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+// Sede que se muestra pero no se puede cambiar desde aquí, con el motivo
+function SedeFija({ sede, nota }: { sede?: string; nota: string }) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-stone-700 mb-1">Sede</p>
+      <p className="px-3.5 py-2.5 text-[15px] rounded-xl border-[1.5px] border-stone-200 bg-stone-50 text-stone-600">{sede ?? "—"}</p>
+      <p className="text-xs text-stone-500 mt-1">{nota}</p>
     </div>
   );
 }

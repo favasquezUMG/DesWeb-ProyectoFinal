@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Send, Trash2, CheckCircle2, Clock, Mail } from "../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, EmptyState } from "../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, EmptyState, AlAparecer } from "../components/Ui";
 import { getSession } from "../lib/auth";
 import {
   getCursosDeCatedratico,
@@ -156,7 +156,7 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
       {successMessage && <AlertBanner type="success" message={successMessage} onClose={() => setSuccessMessage("")} />}
 
       {showForm && (
-        <Card className="p-5 border-2 border-primary-200">
+        <AlAparecer><Card className="p-5 border-2 border-primary-200">
           <h3 className="font-semibold text-stone-800 mb-1">Nuevo reporte de conducta</h3>
           <p className="text-xs text-stone-500 mb-4">Se enviará por correo a los encargados seleccionados y quedará pendiente de su revisión.</p>
 
@@ -238,7 +238,7 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
               Enviar reporte
             </Btn>
           </div>
-        </Card>
+        </Card></AlAparecer>
       )}
 
       {loading ? (

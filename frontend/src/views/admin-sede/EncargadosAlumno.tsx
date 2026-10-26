@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   AlertOctagon, Star, Wallet, Home, Car, CarFront, BookOpen, CreditCard, Bell, BellOff, Edit, UserMinus, Plus, Search, Clock, KeyRound,
 } from "../../components/Iconos";
-import { Btn, Badge, AlertBanner, Input, Select, Textarea, Toggle } from "../../components/Ui";
+import { Btn, Badge, AlertBanner, Input, Select, Textarea, Toggle, AlAparecer } from "../../components/Ui";
 import {
   getEncargadosDeAlumno,
   buscarEncargados,
@@ -308,7 +308,7 @@ export default function EncargadosAlumno({ alumnoId, onCambio }: { alumnoId: num
           <Btn variant="outline" size="sm" icon={<Plus className="w-4 h-4" />} onClick={abrirAgregar}>Agregar encargado</Btn>
         )
       ) : (
-        <div className="rounded-xl border-2 border-primary-200 p-4 space-y-3">
+        <AlAparecer><div className="rounded-xl border-2 border-primary-200 p-4 space-y-3">
           <p className="text-sm font-semibold text-stone-800">Agregar encargado</p>
           <div className="flex gap-1 p-1 rounded-lg bg-stone-100">
             {[{ id: false, label: "Ya tiene cuenta" }, { id: true, label: "Crear cuenta nueva" }].map((o) => (
@@ -363,7 +363,7 @@ export default function EncargadosAlumno({ alumnoId, onCambio }: { alumnoId: num
             <Btn variant="outline" size="sm" onClick={() => setAgregando(false)} disabled={guardando}>Cancelar</Btn>
             <Btn variant="primary" size="sm" loading={guardando} onClick={guardarNuevo}>Agregar</Btn>
           </div>
-        </div>
+        </div></AlAparecer>
       )}
 
       {quitando && (
