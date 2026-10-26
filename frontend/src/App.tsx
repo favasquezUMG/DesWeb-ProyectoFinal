@@ -10,6 +10,11 @@ import Alumno from "./views/Alumno";
 import Padre from "./views/Padre";
 import { buildAppUser, clearSession, getSession, saveSession } from "./lib/auth";
 import { cambiarRol } from "./lib/api";
+import { guardarCircularPendiente, hayCircularPendiente } from "./views/CircularesPadre";
+
+// Si el padre llegó desde el enlace de una circular, entra directo a Circulares (que la abre)
+const vistaInicial = (role: string): View =>
+  role === "padre" && hayCircularPendiente() ? "pad-circulares" : DEFAULT_VIEWS[role] as View;
 
 const DEFAULT_VIEWS: Record<string, View> = {
   "admin-general": "ag-dashboard",
@@ -29,11 +34,20 @@ export default function App() {
   const [resetToken, setResetToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // Enlace "Autorizar y pagar" del correo de una circular (?circular=<eventoId>)
+    const circular = Number(new URLSearchParams(window.location.search).get("circular"));
+    if (circular > 0) {
+      guardarCircularPendiente(circular);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
     const session = getSession();
     if (session) {
       setUser(session.user);
       setSede(session.user.sede);
-      setCurrentView(DEFAULT_VIEWS[session.user.role] as View);
+      setCurrentView(vistaInicial(session.user.role));
+    } else if (circular > 0) {
+      setAcceso({ portal: "estudiante", screen: "login" });
     }
 
     const token = new URLSearchParams(window.location.search).get("reset");
@@ -48,7 +62,7 @@ export default function App() {
   function handleLogin(loggedUser: AppUser, loggedSede?: string) {
     setUser(loggedUser);
     setSede(loggedSede || loggedUser.sede);
-    setCurrentView(DEFAULT_VIEWS[loggedUser.role] as View);
+    setCurrentView(vistaInicial(loggedUser.role));
   }
 
   // Una persona con varios roles (ej. catedrático y padre) cambia de rol sin cerrar sesión
@@ -59,7 +73,7 @@ export default function App() {
       saveSession(result.token, nuevo);
       setUser(nuevo);
       setSede(nuevo.sede);
-      setCurrentView(DEFAULT_VIEWS[nuevo.role] as View);
+      setCurrentView(vistaInicial(nuevo.role));
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "No se pudo cambiar de rol.");
     }

@@ -970,7 +970,7 @@ export function marcarTodasNotificacionesLeidas(): Promise<MessageResponse> {
 
 // ---------- Eventos ----------
 
-export type TipoEvento = "Festivo" | "Academico" | "Deportivo" | "Reunion";
+export type TipoEvento = "Festivo" | "Academico" | "Deportivo" | "Reunion" | "Excursion";
 
 export interface EventoDto {
   eventoId: number;

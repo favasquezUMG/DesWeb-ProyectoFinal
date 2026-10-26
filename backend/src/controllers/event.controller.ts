@@ -4,6 +4,7 @@ import { destinatariosDeEvento, enviarRecordatorioEvento } from "../services/rec
 import { enviarEnSegundoPlano } from "../services/notificacion.service.js";
 import { ESTADO_AUTORIZACION, liberarOrdenesPendientes, OrdenEnProcesoError } from "../services/ordenes.service.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
+import { notificarNuevaCircular } from "../services/circulares.service.js";
 import { esAlcanceGlobal, obtenerNombreRol, ROL, sedeDelAlcance } from "../middlewares/role.middleware.js";
 
 // El personal de sede solo administra los eventos de su sede; los generales (sin sede) son del
@@ -174,6 +175,10 @@ export const createEvent = async (req: AuthenticatedRequest, res: Response) => {
             ...cobro.data
         }
         });
+
+        if (newEvent.requiereAutorizacion) {
+            enviarEnSegundoPlano(`Circular "${newEvent.nombre}"`, () => notificarNuevaCircular(newEvent));
+        }
 
         return res.status(201).json({ status: 'success', data: newEvent });
     } catch (error) {

@@ -1,39 +1,16 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { FileSignature, Pencil, Plus, Trash2, Users } from "../../components/Iconos";
-import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Input, Modal, Select, TD, TH, Textarea, Toggle } from "../../components/Ui";
+import { FileSignature, Pencil, Trash2, Users } from "../../components/Iconos";
+import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Modal, TD, TH } from "../../components/Ui";
 import { formatoQ } from "../../components/PagoColegiatura";
 import {
-  actualizarEvento,
-  crearEvento,
   eliminarEvento,
   getEventos,
   getRespuestasCircular,
-  getSedes,
   type EstadoAutorizacion,
   type EventoDto,
   type RespuestasCircularDto,
-  type SedeDto,
 } from "../../lib/api";
 
-const TIPOS = ["Actividad", "Excursion", "Deportivo", "Cultural", "Academico", "Festivo"];
-
-interface Formulario {
-  nombre: string;
-  descripcion: string;
-  fecha: string;
-  tipoEvento: string;
-  sedeId: string;
-  conCosto: boolean;
-  costo: string;
-  cupoMaximo: string;
-  fechaLimiteInscripcion: string;
-}
-
-const VACIO: Formulario = {
-  nombre: "", descripcion: "", fecha: "", tipoEvento: TIPOS[0], sedeId: "", conCosto: false, costo: "", cupoMaximo: "", fechaLimiteInscripcion: "",
-};
-
-const soloFecha = (iso: string | null) => (iso ? iso.slice(0, 10) : "");
 const formatoFecha = (iso: string) => new Date(iso).toLocaleDateString("es-GT", { timeZone: "UTC" });
 
 /**
@@ -42,16 +19,17 @@ const formatoFecha = (iso: string) => new Date(iso).toLocaleDateString("es-GT", 
  * si no paga antes de la fecha límite, la participación se cancela. Los eventos informativos del
  * calendario no aparecen aquí.
  */
-export default function Circulares() {
+export default function Circulares({ version, onEditar, onCambio }: {
+  /** Cambia cuando el calendario guarda o borra un evento: se vuelve a cargar la lista. */
+  version: number;
+  /** Las circulares se editan en el mismo formulario del calendario. */
+  onEditar: (evento: EventoDto) => void;
+  onCambio: () => void;
+}) {
   const [eventos, setEventos] = useState<EventoDto[] | null>(null);
-  const [sedes, setSedes] = useState<SedeDto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
 
-  const [editando, setEditando] = useState<EventoDto | "nuevo" | null>(null);
-  const [form, setForm] = useState<Formulario>(VACIO);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
 
   const [respuestas, setRespuestas] = useState<RespuestasCircularDto | null>(null);
   const [eliminando, setEliminando] = useState<EventoDto | null>(null);
@@ -66,58 +44,7 @@ export default function Circulares() {
     }
   }, []);
 
-  useEffect(() => {
-    cargar();
-    getSedes().then(setSedes).catch(() => setSedes([]));
-  }, [cargar]);
-
-  function abrir(evento: EventoDto | "nuevo") {
-    setFormError(null);
-    setEditando(evento);
-    setForm(evento === "nuevo" ? VACIO : {
-      nombre: evento.nombre,
-      descripcion: evento.descripcion ?? "",
-      fecha: soloFecha(evento.fecha),
-      tipoEvento: evento.tipoEvento,
-      sedeId: evento.sedeId ? String(evento.sedeId) : "",
-      conCosto: evento.requierePago,
-      costo: evento.costo ? String(Number(evento.costo)) : "",
-      cupoMaximo: evento.cupoMaximo ? String(evento.cupoMaximo) : "",
-      fechaLimiteInscripcion: soloFecha(evento.fechaLimiteInscripcion),
-    });
-  }
-
-  async function guardar() {
-    if (!form.nombre.trim() || !form.fecha || (form.conCosto && !form.costo)) {
-      setFormError(form.conCosto ? "Nombre, fecha y costo son obligatorios." : "Nombre y fecha son obligatorios.");
-      return;
-    }
-    setGuardando(true);
-    setFormError(null);
-    const datos = {
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion.trim() || null,
-      fecha: form.fecha,
-      tipoEvento: form.tipoEvento,
-      sedeId: form.sedeId ? Number(form.sedeId) : null,
-      requiereAutorizacion: true,
-      requierePago: form.conCosto,
-      costo: form.conCosto ? Number(form.costo) : null,
-      cupoMaximo: form.cupoMaximo ? Number(form.cupoMaximo) : null,
-      fechaLimiteInscripcion: form.fechaLimiteInscripcion || null,
-    };
-    try {
-      if (editando === "nuevo") await crearEvento(datos);
-      else if (editando) await actualizarEvento(editando.eventoId, datos);
-      setExito(editando === "nuevo" ? `La circular "${datos.nombre}" quedó enviada a los encargados.` : "Cambios guardados.");
-      setEditando(null);
-      await cargar();
-    } catch (e) {
-      setFormError((e as Error).message);
-    } finally {
-      setGuardando(false);
-    }
-  }
+  useEffect(() => { cargar(); }, [cargar, version]);
 
   async function confirmarEliminar() {
     if (!eliminando) return;
@@ -125,6 +52,7 @@ export default function Circulares() {
       await eliminarEvento(eliminando.eventoId);
       setExito(`"${eliminando.nombre}" fue eliminado.`);
       await cargar();
+      onCambio();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -147,7 +75,6 @@ export default function Circulares() {
           <h3 className="font-display font-bold text-stone-900 flex items-center gap-2"><FileSignature className="w-4 h-4 text-primary-700" />Circulares de autorización</h3>
           <p className="text-xs text-stone-500 mt-0.5">Los encargados autorizan la participación de cada hijo. Si tiene costo, lo pagan desde su estado de cuenta; la beca no aplica.</p>
         </div>
-        <Btn variant="primary" size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => abrir("nuevo")}>Nueva circular</Btn>
       </div>
 
       <div className="px-5 pt-4 space-y-3 empty:hidden">
@@ -159,7 +86,7 @@ export default function Circulares() {
         <div className="p-5"><div className="h-24 rounded-lg bg-stone-100 animate-pulse" /></div>
       ) : eventos.length === 0 ? (
         <div className="p-5">
-          <EmptyState icon={<FileSignature className="w-10 h-10" />} title="Sin circulares" description="Cree una para pedir a los encargados que autoricen una excursión o actividad." />
+          <EmptyState icon={<FileSignature className="w-10 h-10" />} title="Sin circulares" description="Use “Crear evento” y active “Requiere autorización de los padres” para pedir permiso para una excursión o actividad." />
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -183,7 +110,7 @@ export default function Circulares() {
                   <TD className="text-right">
                     <div className="flex justify-end gap-1">
                       <Btn variant="ghost" size="sm" icon={<Users className="w-4 h-4" />} onClick={() => verRespuestas(e)}>Respuestas</Btn>
-                      <Btn variant="ghost" size="sm" onClick={() => abrir(e)} aria-label={`Editar ${e.nombre}`}><Pencil className="w-4 h-4" /></Btn>
+                      <Btn variant="ghost" size="sm" onClick={() => onEditar(e)} aria-label={`Editar ${e.nombre}`}><Pencil className="w-4 h-4" /></Btn>
                       <Btn variant="ghost" size="sm" onClick={() => setEliminando(e)} aria-label={`Eliminar ${e.nombre}`}><Trash2 className="w-4 h-4 text-danger-700" /></Btn>
                     </div>
                   </TD>
@@ -193,45 +120,6 @@ export default function Circulares() {
           </table>
         </div>
       )}
-
-      <Modal
-        open={editando !== null}
-        onClose={() => setEditando(null)}
-        title={editando === "nuevo" ? "Nueva circular" : "Editar circular"}
-        footer={<>
-          <Btn variant="outline" onClick={() => setEditando(null)}>Cancelar</Btn>
-          <Btn variant="primary" loading={guardando} onClick={guardar}>Guardar</Btn>
-        </>}
-      >
-        <div className="space-y-4">
-          {formError && <AlertBanner type="error" message={formError} />}
-          <Input label="Nombre" value={form.nombre} placeholder="Ej. Excursión al Museo Popol Vuh" onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-          <Textarea label="Descripción (opcional)" rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Fecha del evento" type="date" value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
-            <Select label="Tipo" value={form.tipoEvento} onChange={(e) => setForm({ ...form, tipoEvento: e.target.value })}>
-              {TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </Select>
-            <Input
-              label="Responder hasta"
-              type="date"
-              max={form.fecha || undefined}
-              hint={form.conCosto ? "También es el límite para pagar. Vacío = día anterior" : "Vacío = hasta el día anterior"}
-              value={form.fechaLimiteInscripcion}
-              onChange={(e) => setForm({ ...form, fechaLimiteInscripcion: e.target.value })}
-            />
-            <Select label="Sede" value={form.sedeId} onChange={(e) => setForm({ ...form, sedeId: e.target.value })}>
-              <option value="">Todas las sedes</option>
-              {sedes.map((s) => <option key={s.sedeId} value={s.sedeId}>{s.nombre}</option>)}
-            </Select>
-            <Input label="Cupo máximo" type="number" min="1" placeholder="Sin límite" value={form.cupoMaximo} onChange={(e) => setForm({ ...form, cupoMaximo: e.target.value })} />
-          </div>
-          <Toggle checked={form.conCosto} onChange={(v) => setForm({ ...form, conCosto: v })} label="La actividad tiene costo" />
-          {form.conCosto && (
-            <Input label="Costo por alumno (Q)" type="number" min="1" step="0.01" value={form.costo} onChange={(e) => setForm({ ...form, costo: e.target.value })} />
-          )}
-        </div>
-      </Modal>
 
       <Modal
         open={eliminando !== null}
