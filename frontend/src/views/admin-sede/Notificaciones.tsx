@@ -217,8 +217,8 @@ export default function NotificacionesView() {
                   <Bell className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <p className="font-semibold text-stone-900 text-sm">{n.titulo}</p>
+                  <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1 mb-1">
+                    <p className="font-semibold text-stone-900 text-sm min-w-0">{n.titulo}</p>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant={tipo?.variant ?? "neutral"}>{tipo?.label ?? n.tipo}</Badge>
                       <span className="text-xs text-stone-400">{formatFecha(n.fechaEnvio)}</span>

@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { Children, isValidElement, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "./Iconos";
 
 // ─── Color por curso ─────────────────────────────────────────────────────────
@@ -236,7 +236,9 @@ export function MetricCard({ label, value, sub, icon, variant = "default" }: {
         <p className="text-sm font-semibold text-stone-600 leading-tight">{label}</p>
       </div>
       <div>
-        <p className={`font-display text-[clamp(1.7rem,2.6vw,2.4rem)] leading-none break-words font-bold tabular-nums tracking-tight ${c.num}`}>{value}</p>
+        {/* Un monto no se parte a la mitad: solo se corta en los espacios, y los valores largos
+            (ej. "Q2,550.00 / Q2,500.00") van con letra más chica para caber en media pantalla */}
+        <p className={`font-display font-bold tabular-nums tracking-tight ${String(value).length > 9 ? "text-[clamp(1.25rem,2vw,1.9rem)] leading-tight" : "text-[clamp(1.7rem,2.6vw,2.4rem)] leading-none"} ${c.num}`}>{value}</p>
         {sub && <p className="text-[13px] text-stone-500 mt-2 leading-snug">{sub}</p>}
       </div>
     </Card>
@@ -299,7 +301,8 @@ export function Drawer({ open, onClose, title, children, footer }: {
   return (
     <>
       <div className={`fixed inset-0 z-40 bg-primary-900/40 transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={onClose} />
-      <div className={`fixed right-0 top-0 h-full z-50 w-full max-w-md bg-white shadow-2xl sm:rounded-l-[28px] transition-transform duration-300 flex flex-col ${open ? "translate-x-0" : "translate-x-full"}`} aria-modal="true" role="dialog">
+      {/* Cerrado queda fuera de la pantalla: sin sombra (asomaba por el borde) e inerte (no recibe foco) */}
+      <div inert={!open} className={`fixed right-0 top-0 h-full z-50 w-full max-w-md bg-white sm:rounded-l-[28px] transition-transform duration-300 flex flex-col ${open ? "translate-x-0 shadow-2xl" : "translate-x-full"}`} aria-modal="true" role="dialog">
         <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-4 shrink-0">
           <h2 className="font-display font-bold text-stone-900 text-[1.35rem] leading-tight">{title}</h2>
           <CerrarBtn onClose={onClose} />
@@ -356,21 +359,22 @@ export function EmptyState({ icon, title, description, action }: {
 
 export function Stepper({ steps, current }: { steps: string[]; current: number }) {
   return (
-    <div className="flex items-center gap-0">
+    <div className="flex items-start gap-0">
       {steps.map((step, i) => {
         const done = i < current;
         const active = i === current;
         return (
-          <div key={step} className="flex items-center flex-1 min-w-0">
+          <div key={step} className="flex items-start flex-1 min-w-0">
             <div className="flex flex-col items-center shrink-0">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-display font-bold transition-colors
                 ${done ? "bg-primary-700 text-white" : active ? "bg-action-500 text-white" : "bg-white border-[1.5px] border-stone-300 text-stone-400"}`}>
                 {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
               </div>
-              <span className={`text-xs mt-1.5 font-semibold whitespace-nowrap ${active ? "text-stone-900" : done ? "text-primary-700" : "text-stone-400"}`}>{step}</span>
+              {/* En pantallas angostas solo se lee el nombre del paso actual: los cuatro no caben */}
+              <span className={`text-xs mt-1.5 font-semibold whitespace-nowrap ${active ? "text-stone-900" : `sr-only sm:not-sr-only ${done ? "text-primary-700" : "text-stone-400"}`}`}>{step}</span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`flex-1 h-[3px] mx-2 mb-5 rounded-full transition-colors ${done ? "bg-primary-700" : "bg-stone-200"}`} />
+              <div className={`flex-1 h-[3px] mx-2 mt-[16.5px] rounded-full transition-colors ${done ? "bg-primary-700" : "bg-stone-200"}`} />
             )}
           </div>
         );
@@ -414,6 +418,56 @@ export function TH({ children, className = "" }: { children: ReactNode; classNam
 
 export function TD({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <td className={`px-4 py-3.5 text-sm text-stone-800 ${className}`}>{children}</td>;
+}
+
+// Con el contenedor por debajo de este ancho, una tabla que no cabe se muestra en tarjetas;
+// por encima se deja la tabla con scroll horizontal (en escritorio se lee mejor así)
+const ANCHO_MAX_TARJETAS = 1000;
+
+/**
+ * Tabla que, cuando no cabe a lo ancho (teléfonos, tabletas), muestra cada fila como una
+ * tarjeta (ver .tabla-movil.tarjetas en index.css). Cada celda toma como etiqueta el texto
+ * de su encabezado, así no hay que repetirlo en cada TD.
+ */
+export function TablaResponsiva({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const etiquetar = () => {
+      const encabezados = [...el.querySelectorAll("thead th")].map((th) => th.textContent?.trim() ?? "");
+      el.querySelectorAll("tbody tr").forEach((tr) => {
+        let columna = 0;
+        for (const celda of tr.children as HTMLCollectionOf<HTMLTableCellElement>) {
+          if (celda.colSpan > 1) celda.removeAttribute("data-label");
+          else celda.setAttribute("data-label", encabezados[columna] ?? "");
+          columna += celda.colSpan || 1;
+        }
+      });
+    };
+    // Se mide en modo tabla y se decide; corre antes de pintar, así no hay parpadeo
+    const decidir = () => {
+      el.classList.remove("tarjetas");
+      const noCabe = el.scrollWidth > el.clientWidth + 1;
+      el.classList.toggle("tarjetas", el.clientWidth < 640 || (noCabe && el.clientWidth < ANCHO_MAX_TARJETAS));
+    };
+    etiquetar();
+    decidir();
+    const observador = new MutationObserver(() => { etiquetar(); decidir(); });
+    observador.observe(el, { childList: true, subtree: true });
+    // Solo importa el ancho: pasar a tarjetas cambia la altura y no debe volver a decidir
+    let ultimoAncho = el.clientWidth;
+    const redimension = new ResizeObserver(() => {
+      if (el.clientWidth === ultimoAncho) return;
+      ultimoAncho = el.clientWidth;
+      decidir();
+    });
+    redimension.observe(el);
+    return () => { observador.disconnect(); redimension.disconnect(); };
+  }, []);
+
+  return <div ref={ref} className="overflow-x-auto tabla-movil">{children}</div>;
 }
 
 // ─── Piezas pequeñas reutilizables ───────────────────────────────────────────

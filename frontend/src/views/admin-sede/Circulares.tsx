@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { FileSignature, Pencil, Trash2, Users } from "../../components/Iconos";
-import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Modal, TD, TH } from "../../components/Ui";
+import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Modal, TablaResponsiva, TD, TH } from "../../components/Ui";
 import { formatoQ } from "../../components/PagoColegiatura";
 import {
   eliminarEvento,
@@ -89,7 +89,7 @@ export default function Circulares({ version, onEditar, onCambio }: {
           <EmptyState icon={<FileSignature className="w-10 h-10" />} title="Sin circulares" description="Use “Crear evento” y active “Requiere autorización de los padres” para pedir permiso para una excursión o actividad." />
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Evento</TH><TH>Fecha</TH><TH>Sede</TH><TH className="text-right">Costo</TH><TH>Cupo</TH><TH>Responder hasta</TH><TH className="text-right">Acciones</TH></tr>
@@ -118,7 +118,7 @@ export default function Circulares({ version, onEditar, onCambio }: {
               ))}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       )}
 
       <Modal

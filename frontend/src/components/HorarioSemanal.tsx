@@ -80,7 +80,7 @@ export default function HorarioSemanal({ clases, asuetos = new Map(), mostrarJor
       )}
 
       {/* Mobile: lista por día */}
-      <div className="md:hidden space-y-4">
+      <div className="2xl:hidden space-y-4">
         {dias.map((dia) => {
           const delDia = clases.filter((c) => c.diaSemana === dia);
           if (delDia.length === 0) return null;
@@ -105,7 +105,7 @@ export default function HorarioSemanal({ clases, asuetos = new Map(), mostrarJor
       </div>
 
       {/* Desktop: cuadrícula */}
-      <Card className="hidden md:block overflow-hidden pb-3">
+      <Card className="hidden 2xl:block overflow-hidden pb-3">
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-separate border-spacing-0">
             <thead>

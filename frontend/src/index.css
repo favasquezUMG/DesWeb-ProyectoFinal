@@ -203,6 +203,9 @@ h1, h2, h3 { text-wrap: balance; }
     background-position: right 12px center;
     background-size: 16px;
     padding-right: 2.25rem !important;
+    /* Una opción con texto largo no debe ensanchar el select más allá de la pantalla */
+    max-width: 100%;
+    text-overflow: ellipsis;
   }
   input[type="checkbox"], input[type="radio"] { accent-color: #2b3a8c; }
 }
@@ -223,6 +226,42 @@ h1, h2, h3 { text-wrap: balance; }
 
 /* Recharts tooltip */
 .recharts-tooltip-wrapper { outline: none !important; }
+
+/* Tablas que no caben a lo ancho: cada fila es una tarjeta y cada celda lleva su encabezado
+   como etiqueta. TablaResponsiva pone data-label y la clase "tarjetas" cuando la tabla no
+   cabe en su contenedor. La primera celda hace de título. */
+.tabla-movil.tarjetas table, .tabla-movil.tarjetas tr { display: block; width: 100%; }
+.tabla-movil.tarjetas thead { display: none; }
+/* En teléfono una columna de tarjetas; en tableta se acomodan dos o más por fila */
+.tabla-movil.tarjetas tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.tabla-movil.tarjetas tr { padding: 14px 16px; border-style: solid; border-color: var(--color-stone-100); border-width: 0 0 1px 0; }
+.tabla-movil.tarjetas td {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 5px 0;
+  text-align: right;
+  border: 0;
+}
+.tabla-movil.tarjetas td > * { min-width: 0; }
+.tabla-movil.tarjetas td::before {
+  content: attr(data-label);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-stone-500);
+  text-align: left;
+}
+.tabla-movil.tarjetas td:first-child { display: block; text-align: left; padding-top: 0; }
+.tabla-movil.tarjetas td:first-child::before,
+.tabla-movil.tarjetas td[data-label=""]::before,
+.tabla-movil.tarjetas td:not([data-label])::before { display: none; }
+.tabla-movil.tarjetas td[data-label=""] { justify-content: flex-end; }
+.tabla-movil.tarjetas td:not([data-label]) { display: block; text-align: center; }
+/* Filas de "Cargando…" o "Sin resultados" (una celda con colSpan): ocupan todo el ancho */
+.tabla-movil.tarjetas tr:has(> td:not([data-label])) { grid-column: 1 / -1; }
+.tabla-movil.tarjetas td:empty { display: none; }
 
 #constancia-imprimible { display: none; }
 
