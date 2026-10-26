@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Bell, Edit, Trash2, ChevronLeft, ChevronRight, CalendarDays } from "../../components/Iconos";
+import { Plus, Bell, Edit, Trash2, ChevronLeft, ChevronRight, CalendarDays, FileSignature } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Modal, Input, Select, Textarea, AlertBanner, Badge, Toggle } from "../../components/Ui";
 import {
-  getEventos, crearEvento, actualizarEvento, eliminarEvento, enviarRecordatorioEvento,
-  type EventoDto, type TipoEvento,
+  getEventos, crearEvento, actualizarEvento, eliminarEvento, enviarRecordatorioEvento, getSedes,
+  type EventoDto, type TipoEvento, type SedeDto,
 } from "../../lib/api";
+import { formatoQ } from "../../components/PagoColegiatura";
 import Circulares from "./Circulares";
 
 const TIPOS: { id: TipoEvento; label: string; dot: string; badge: string }[] = [
@@ -12,6 +13,7 @@ const TIPOS: { id: TipoEvento; label: string; dot: string; badge: string }[] = [
   { id: "Academico", label: "Académico (exámenes, entregas)", dot: "bg-primary-600", badge: "bg-primary-50 text-primary-800 border-primary-200" },
   { id: "Deportivo", label: "Deportivo / Cultural", dot: "bg-action-500", badge: "bg-action-50 text-action-800 border-action-200" },
   { id: "Reunion", label: "Reunión de padres", dot: "bg-info-600", badge: "bg-info-50 text-info-800 border-info-200" },
+  { id: "Excursion", label: "Excursión / Salida", dot: "bg-warning-500", badge: "bg-warning-50 text-warning-800 border-warning-200" },
 ];
 const cfg = (t: string) => TIPOS.find((x) => x.id === t) ?? { id: t, label: t, dot: "bg-stone-400", badge: "bg-stone-50 text-stone-700 border-stone-200" };
 
@@ -25,8 +27,22 @@ const formatoLargo = (iso: string) => {
   return new Date(y, m - 1, d).toLocaleDateString("es-GT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 };
 
-interface Form { eventoId?: number; nombre: string; descripcion: string; fecha: string; tipoEvento: TipoEvento; enviarRecordatorio: boolean; general: boolean }
-const vacio = (fecha = hoyISO()): Form => ({ nombre: "", descripcion: "", fecha, tipoEvento: "Academico", enviarRecordatorio: true, general: false });
+// Un evento es informativo; con "requiereAutorizacion" es además una circular que los encargados
+// responden por cada hijo (y pagan, si tiene costo)
+interface Form {
+  eventoId?: number; nombre: string; descripcion: string; fecha: string; tipoEvento: TipoEvento; enviarRecordatorio: boolean;
+  sedeId: string; requiereAutorizacion: boolean; conCosto: boolean; costo: string; cupoMaximo: string; fechaLimiteInscripcion: string;
+}
+const vacio = (fecha = hoyISO()): Form => ({
+  nombre: "", descripcion: "", fecha, tipoEvento: "Academico", enviarRecordatorio: true,
+  sedeId: "", requiereAutorizacion: false, conCosto: false, costo: "", cupoMaximo: "", fechaLimiteInscripcion: "",
+});
+const formDe = (e: EventoDto): Form => ({
+  eventoId: e.eventoId, nombre: e.nombre, descripcion: e.descripcion ?? "", fecha: diaISO(e.fecha), tipoEvento: e.tipoEvento as TipoEvento,
+  enviarRecordatorio: e.enviarRecordatorio ?? true, sedeId: e.sedeId ? String(e.sedeId) : "",
+  requiereAutorizacion: e.requiereAutorizacion, conCosto: e.requierePago, costo: e.costo ? String(Number(e.costo)) : "",
+  cupoMaximo: e.cupoMaximo ? String(e.cupoMaximo) : "", fechaLimiteInscripcion: e.fechaLimiteInscripcion ? diaISO(e.fechaLimiteInscripcion) : "",
+});
 
 export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolean }) {
   const [anio, setAnio] = useState(new Date().getFullYear());
@@ -39,6 +55,9 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
   const [aEliminar, setAEliminar] = useState<EventoDto | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState("");
+  const [sedes, setSedes] = useState<SedeDto[]>([]);
+  // Cambia cada vez que se guarda o borra algo, para que la lista de circulares se recargue
+  const [version, setVersion] = useState(0);
 
   const cargar = useCallback(async () => {
     try {
@@ -51,6 +70,12 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { if (esGlobal) getSedes().then(setSedes).catch(() => setSedes([])); }, [esGlobal]);
+
+  function abrirEdicion(e: EventoDto) {
+    setErrorForm("");
+    setForm(formDe(e));
+  }
 
   const porDia = useMemo(() => {
     const m = new Map<string, EventoDto[]>();
@@ -65,6 +90,9 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
   async function guardar() {
     if (!form) return;
     if (!form.nombre.trim() || !form.fecha) return setErrorForm("Indique el nombre y la fecha.");
+    const circular = form.requiereAutorizacion;
+    const conCosto = circular && form.conCosto;
+    if (conCosto && !(Number(form.costo) > 0)) return setErrorForm("Indique el costo por alumno.");
     setGuardando(true);
     setErrorForm("");
     const input = {
@@ -73,13 +101,22 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
       fecha: form.fecha,
       tipoEvento: form.tipoEvento,
       enviarRecordatorio: form.enviarRecordatorio,
-      ...(esGlobal ? { sedeId: null } : {}),
+      // El personal de sede siempre publica en su sede (lo fija el servidor)
+      ...(esGlobal ? { sedeId: form.sedeId ? Number(form.sedeId) : null } : {}),
+      requiereAutorizacion: circular,
+      requierePago: conCosto,
+      costo: conCosto ? Number(form.costo) : null,
+      cupoMaximo: circular && form.cupoMaximo ? Number(form.cupoMaximo) : null,
+      fechaLimiteInscripcion: circular && form.fechaLimiteInscripcion ? form.fechaLimiteInscripcion : null,
     };
     try {
       if (form.eventoId) await actualizarEvento(form.eventoId, input);
       else await crearEvento(input);
-      setAviso(form.eventoId ? "Evento actualizado." : "Evento creado.");
+      setAviso(form.eventoId ? "Evento actualizado."
+        : circular ? "Circular creada. Los encargados la reciben por correo con el botón para autorizar" + (conCosto ? " y pagar." : ".")
+        : "Evento creado.");
       setForm(null);
+      setVersion((v) => v + 1);
       await cargar();
     } catch (e) {
       setErrorForm(e instanceof Error ? e.message : "No se pudo guardar el evento.");
@@ -95,6 +132,7 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
       await eliminarEvento(aEliminar.eventoId);
       setAEliminar(null);
       setAviso("Evento eliminado.");
+      setVersion((v) => v + 1);
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo eliminar el evento.");
@@ -121,7 +159,11 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
     <div key={e.eventoId} className={`px-3 py-2.5 rounded-xl border text-sm ${cfg(e.tipoEvento).badge}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold">{e.nombre}</p>
+          <p className="font-semibold flex items-center gap-1.5">
+            {e.requiereAutorizacion && <FileSignature className="w-3.5 h-3.5 shrink-0" aria-label="Circular" />}
+            {e.nombre}
+            {e.requierePago && <span className="font-mono-data text-[11px] opacity-80">{formatoQ(Number(e.costo ?? 0))}</span>}
+          </p>
           <p className="text-[11px] opacity-75">
             {conFecha && `${formatoLargo(diaISO(e.fecha))} · `}{cfg(e.tipoEvento).label} · {e.sede ? e.sede.nombre : "Todas las sedes"}
           </p>
@@ -132,7 +174,7 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
             {diaISO(e.fecha) >= hoy && (
               <button onClick={() => recordar(e)} aria-label="Enviar recordatorio ahora" title="Enviar recordatorio ahora" className="p-1 rounded hover:bg-white/60 cursor-pointer"><Bell className="w-3.5 h-3.5" /></button>
             )}
-            <button onClick={() => { setErrorForm(""); setForm({ eventoId: e.eventoId, nombre: e.nombre, descripcion: e.descripcion ?? "", fecha: diaISO(e.fecha), tipoEvento: e.tipoEvento as TipoEvento, enviarRecordatorio: e.enviarRecordatorio ?? true, general: e.sedeId === null }); }}
+            <button onClick={() => abrirEdicion(e)}
               aria-label="Editar evento" className="p-1 rounded hover:bg-white/60 cursor-pointer"><Edit className="w-3.5 h-3.5" /></button>
             <button onClick={() => setAEliminar(e)} aria-label="Eliminar evento" className="p-1 rounded hover:bg-white/60 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
@@ -149,7 +191,7 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
       {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
       {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
 
-      <Circulares />
+      <Circulares version={version} onEditar={abrirEdicion} onCambio={cargar} />
 
       <div className="flex flex-wrap gap-2">
         {TIPOS.map((t) => (
@@ -219,7 +261,8 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
         </div>
       </div>
 
-      <Modal open={!!form} onClose={() => !guardando && setForm(null)} title={form?.eventoId ? "Editar evento" : "Crear evento"}
+      <Modal open={!!form} onClose={() => !guardando && setForm(null)}
+        title={form?.eventoId ? (form.requiereAutorizacion ? "Editar circular" : "Editar evento") : "Crear evento"}
         footer={<>
           <Btn variant="ghost" onClick={() => setForm(null)} disabled={guardando}>Cancelar</Btn>
           <Btn variant="primary" loading={guardando} onClick={guardar}>Guardar</Btn>
@@ -236,7 +279,37 @@ export default function CalendarioView({ esGlobal = false }: { esGlobal?: boolea
             <Textarea label="Descripción (opcional)" rows={3} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
             <Toggle checked={form.enviarRecordatorio} onChange={(v) => setForm({ ...form, enviarRecordatorio: v })} label="Enviar recordatorio a los encargados el día anterior" />
             {form.tipoEvento === "Festivo" && <p className="text-xs text-stone-500">Los días festivos aparecen como “sin clases” en el horario de alumnos y encargados.</p>}
-            {esGlobal ? <Badge variant="info">Evento general: aplica a todas las sedes</Badge> : <Badge variant="neutral">Se publica para la sede</Badge>}
+
+            <div className="rounded-xl border border-stone-200 p-3 space-y-3">
+              <Toggle checked={form.requiereAutorizacion} onChange={(v) => setForm({ ...form, requiereAutorizacion: v })}
+                label="Requiere autorización de los padres (circular)" />
+              {form.requiereAutorizacion && (
+                <>
+                  <p className="text-xs text-stone-500">
+                    Los encargados autorizan o no la participación de cada hijo. Al crearla se les envía por correo con un botón para responder{form.conCosto ? " y pagar" : ""}.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Responder hasta" type="date" max={form.fecha || undefined}
+                      hint={form.conCosto ? "También es el límite para pagar. Vacío = día anterior" : "Vacío = hasta el día anterior"}
+                      value={form.fechaLimiteInscripcion} onChange={(e) => setForm({ ...form, fechaLimiteInscripcion: e.target.value })} />
+                    <Input label="Cupo máximo" type="number" min="1" placeholder="Sin límite" value={form.cupoMaximo}
+                      onChange={(e) => setForm({ ...form, cupoMaximo: e.target.value })} />
+                  </div>
+                  <Toggle checked={form.conCosto} onChange={(v) => setForm({ ...form, conCosto: v })} label="La actividad tiene costo" />
+                  {form.conCosto && (
+                    <Input label="Costo por alumno (Q)" type="number" min="1" step="0.01" value={form.costo}
+                      hint="Se paga en línea; la beca no aplica." onChange={(e) => setForm({ ...form, costo: e.target.value })} />
+                  )}
+                </>
+              )}
+            </div>
+
+            {esGlobal ? (
+              <Select label="Sede" value={form.sedeId} onChange={(e) => setForm({ ...form, sedeId: e.target.value })}>
+                <option value="">Todas las sedes (evento general)</option>
+                {sedes.map((s) => <option key={s.sedeId} value={s.sedeId}>{s.nombre}</option>)}
+              </Select>
+            ) : <Badge variant="neutral">Se publica para la sede</Badge>}
             {errorForm && <AlertBanner type="error" message={errorForm} />}
           </div>
         )}

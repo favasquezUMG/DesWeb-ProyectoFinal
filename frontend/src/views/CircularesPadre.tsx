@@ -1,14 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Check, Clock, CreditCard, FileSignature, Users, X } from "../components/Iconos";
 import { AlertBanner, Badge, Btn, Card, EmptyState, SectionHeader } from "../components/Ui";
-import { formatoQ } from "../components/PagoColegiatura";
-import { getCirculares, responderCircular, type CircularDto, type EstadoAutorizacion } from "../lib/api";
+import { PagoStripeModal, formatoQ } from "../components/PagoColegiatura";
+import { ResumenOrden } from "../components/CargosPendientes";
+import { crearIntentOrden, getCirculares, responderCircular, verificarOrden, type CircularDto, type EstadoAutorizacion } from "../lib/api";
 import type { View } from "../types";
 
 const formatoFecha = (iso: string) =>
   new Date(iso).toLocaleDateString("es-GT", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 type AlumnoCircular = CircularDto["alumnos"][number];
+
+// Circular que el encargado abrió desde el enlace del correo; sobrevive al inicio de sesión
+const CLAVE_CIRCULAR_PENDIENTE = "circularPendiente";
+
+export function guardarCircularPendiente(eventoId: number) {
+  try { sessionStorage.setItem(CLAVE_CIRCULAR_PENDIENTE, String(eventoId)); } catch { /* sin storage: solo no se abre sola */ }
+}
+
+function leerCircularPendiente(): number | null {
+  try { return Number(sessionStorage.getItem(CLAVE_CIRCULAR_PENDIENTE)) || null; } catch { return null; }
+}
+
+export const hayCircularPendiente = () => leerCircularPendiente() !== null;
+
+function limpiarCircularPendiente() {
+  try { sessionStorage.removeItem(CLAVE_CIRCULAR_PENDIENTE); } catch { /* nada que limpiar */ }
+}
+
+// Participaciones autorizadas que este encargado puede pagar ya
+const pagables = (c: CircularDto) =>
+  c.plazoAbierto ? c.alumnos.filter((a) => a.estado === "Autorizada" && a.puedePagar && a.inscripcionId !== null) : [];
+
+type Cobro = { clave: string; circular: string; inscripciones: number[] };
 
 /**
  * Circulares de autorización: el colegio pide permiso para que cada hijo participe en un evento
@@ -21,17 +45,40 @@ export default function CircularesPadre({ onNavigate }: { onNavigate?: (v: View)
   const [aviso, setAviso] = useState<string | null>(null);
   // "eventoId-alumnoId-autoriza" de la respuesta que se está enviando
   const [enviando, setEnviando] = useState<string | null>(null);
+  const [cobro, setCobro] = useState<Cobro | null>(null);
+  // Circular del enlace del correo: se resalta y se lleva a la vista
+  const [enfocada] = useState(leerCircularPendiente);
+  const enfocadaVista = useRef(false);
 
-  const cargar = useCallback(async () => {
+  const cargar = useCallback(async (): Promise<CircularDto[] | null> => {
     try {
-      setCirculares(await getCirculares());
+      const data = await getCirculares();
+      setCirculares(data);
+      return data;
     } catch (e) {
       setError((e as Error).message);
       setCirculares((prev) => prev ?? []);
+      return null;
     }
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (enfocada === null || circulares === null || enfocadaVista.current) return;
+    enfocadaVista.current = true;
+    limpiarCircularPendiente();
+    if (circulares.some((c) => c.eventoId === enfocada)) {
+      document.getElementById(`circular-${enfocada}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      setError("La circular del enlace ya no está disponible o no corresponde a sus hijos.");
+    }
+  }, [enfocada, circulares]);
+
+  function pagar(circular: CircularDto, inscripciones: number[]) {
+    setAviso(null);
+    setCobro({ clave: `circular-${Date.now()}`, circular: circular.nombre, inscripciones });
+  }
 
   async function responder(circular: CircularDto, alumno: AlumnoCircular, autoriza: boolean) {
     setEnviando(`${circular.eventoId}-${alumno.alumnoId}-${autoriza}`);
@@ -40,7 +87,14 @@ export default function CircularesPadre({ onNavigate }: { onNavigate?: (v: View)
     try {
       const { message } = await responderCircular(circular.eventoId, alumno.alumnoId, autoriza);
       setAviso(`${alumno.nombre.split(" ")[0]} — ${circular.nombre}: ${message}`);
-      await cargar();
+      const data = await cargar();
+      // Autorizar una actividad con costo lleva de una vez al pago de esa participación
+      if (autoriza && circular.costo > 0) {
+        const nueva = data?.find((c) => c.eventoId === circular.eventoId)?.alumnos.find((a) => a.alumnoId === alumno.alumnoId);
+        if (nueva?.estado === "Autorizada" && nueva.puedePagar && nueva.inscripcionId !== null) {
+          pagar(circular, [nueva.inscripcionId]);
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -96,24 +150,50 @@ export default function CircularesPadre({ onNavigate }: { onNavigate?: (v: View)
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {circulares.map((c) => (
-              <TarjetaCircular key={c.eventoId} circular={c} enviando={enviando} onResponder={responder} />
+              <TarjetaCircular key={c.eventoId} circular={c} enviando={enviando} resaltada={c.eventoId === enfocada}
+                onResponder={responder} onPagar={pagar} />
             ))}
           </div>
         </>
       )}
+
+      <PagoStripeModal
+        clave={cobro?.clave ?? null}
+        tituloInicial={cobro ? `Pago: ${cobro.circular}` : "Pago de la actividad"}
+        preparar={async () => {
+          const intent = await crearIntentOrden((cobro?.inscripciones ?? []).map((inscripcionId) => ({ tipo: "evento", inscripcionId })));
+          return {
+            clientSecret: intent.clientSecret,
+            monto: intent.total,
+            titulo: `Pago: ${cobro?.circular ?? "actividad"}`,
+            resumen: <ResumenOrden intent={intent} />,
+          };
+        }}
+        verificar={verificarOrden}
+        onClose={() => setCobro(null)}
+        onTerminado={(tipo) => {
+          if (tipo === "exitoso") setAviso("Pago realizado. La participación quedó confirmada y recibirá el comprobante por correo.");
+          if (tipo === "procesando") setAviso("Su banco está procesando el pago. La participación se confirmará en cuanto se acredite.");
+          cargar();
+        }}
+      />
     </div>
   );
 }
 
-function TarjetaCircular({ circular, enviando, onResponder }: {
+function TarjetaCircular({ circular, enviando, resaltada, onResponder, onPagar }: {
   circular: CircularDto;
   enviando: string | null;
+  resaltada: boolean;
   onResponder: (c: CircularDto, a: AlumnoCircular, autoriza: boolean) => void;
+  onPagar: (c: CircularDto, inscripciones: number[]) => void;
 }) {
   const sinCupo = circular.cuposDisponibles === 0;
+  const porPagar = pagables(circular);
 
   return (
-    <Card className="p-5 flex flex-col gap-4">
+    <div id={`circular-${circular.eventoId}`} className={`scroll-mt-24 rounded-xl ${resaltada ? "ring-2 ring-primary-500 ring-offset-2" : ""}`}>
+    <Card className="p-5 flex flex-col gap-4 h-full">
       <div>
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-display font-semibold text-stone-900">{circular.nombre}</h3>
@@ -145,6 +225,7 @@ function TarjetaCircular({ circular, enviando, onResponder }: {
           // Autorizar de nuevo necesita cupo; quien ya lo tiene apartado no cuenta
           const ofreceAutorizar = puedeCambiar && a.estado !== "Autorizada" && a.estado !== "Confirmada" && !sinCupo;
           const ofreceNoAutorizar = puedeCambiar && a.estado !== "NoAutorizada";
+          const ofrecePagar = porPagar.some((p) => p.alumnoId === a.alumnoId);
 
           return (
             <li key={a.alumnoId} className="px-3 py-2.5 space-y-2">
@@ -152,12 +233,18 @@ function TarjetaCircular({ circular, enviando, onResponder }: {
                 <span className="text-sm font-medium text-stone-900">{a.nombre}</span>
                 <EstadoBadge estado={a.estado} pagada={pagada} />
               </div>
-              {(ofreceAutorizar || ofreceNoAutorizar) && (
+              {(ofreceAutorizar || ofreceNoAutorizar || ofrecePagar) && (
                 <div className="flex flex-wrap gap-2">
                   {ofreceAutorizar && (
                     <Btn size="sm" variant="primary" icon={<Check className="w-4 h-4" />} loading={enviando === `${clave}-true`} disabled={enviando !== null}
                       onClick={() => onResponder(circular, a, true)}>
-                      Autorizo{circular.costo > 0 ? ` (${formatoQ(circular.costo)})` : ""}
+                      {circular.costo > 0 ? `Autorizar y pagar (${formatoQ(circular.costo)})` : "Autorizo"}
+                    </Btn>
+                  )}
+                  {ofrecePagar && (
+                    <Btn size="sm" variant="primary" icon={<CreditCard className="w-4 h-4" />} disabled={enviando !== null}
+                      onClick={() => onPagar(circular, [a.inscripcionId as number])}>
+                      Pagar ahora ({formatoQ(a.monto ?? circular.costo)})
                     </Btn>
                   )}
                   {ofreceNoAutorizar && (
@@ -178,7 +265,15 @@ function TarjetaCircular({ circular, enviando, onResponder }: {
           );
         })}
       </ul>
+
+      {porPagar.length > 1 && (
+        <Btn variant="primary" icon={<CreditCard className="w-4 h-4" />} disabled={enviando !== null}
+          onClick={() => onPagar(circular, porPagar.map((p) => p.inscripcionId as number))}>
+          Pagar las {porPagar.length} participaciones ({formatoQ(porPagar.reduce((suma, p) => suma + (p.monto ?? circular.costo), 0))})
+        </Btn>
+      )}
     </Card>
+    </div>
   );
 }
 

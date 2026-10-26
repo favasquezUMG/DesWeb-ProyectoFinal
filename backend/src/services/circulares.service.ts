@@ -4,6 +4,9 @@ import { hoyUTC } from '../lib/fechas.js';
 import { ReglaNegocioError } from '../lib/errores.js';
 import { esResponsableDe } from './vinculos.service.js';
 import { ESTADO_AUTORIZACION, OrdenEnProcesoError, liberarOrdenesPendientes } from './ordenes.service.js';
+import { enviarADestinatarios } from './notificacion.service.js';
+import { destinatariosDeEvento } from './recordatorios.service.js';
+import { plantillaNuevaCircular } from '../templates/mail.templates.js';
 
 // Circulares de eventos: el encargado autoriza (o no) que su hijo participe. Si el evento tiene
 // costo, al autorizar se aparta el cupo y queda un cargo pendiente hasta la fecha limite; si no
@@ -103,6 +106,23 @@ export const responderCircular = async (
         throw error;
     }
 };
+
+// Aviso por correo a los encargados de la sede (o de todas, si es general) de que hay una circular por responder
+export const notificarNuevaCircular = async (evento: Evento) =>
+    enviarADestinatarios(
+        await destinatariosDeEvento(evento),
+        (d) =>
+            plantillaNuevaCircular({
+                eventoId: evento.eventoId,
+                nombreDestinatario: d.nombre,
+                nombreEvento: evento.nombre,
+                fecha: evento.fecha,
+                descripcion: evento.descripcion,
+                costo: costoDe(evento),
+                fechaLimite: fechaLimiteDe(evento),
+            }),
+        'Circular'
+    );
 
 // Autorizaciones con costo cuyo plazo vencio sin pago: se cancelan y liberan el cupo
 export const cancelarVencidas = async () => {

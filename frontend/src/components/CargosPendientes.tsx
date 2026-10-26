@@ -170,7 +170,7 @@ export default function CargosPendientes({ onPagado }: { onPagado?: () => void }
   );
 }
 
-function ResumenOrden({ intent }: { intent: IntentOrdenDto }) {
+export function ResumenOrden({ intent }: { intent: IntentOrdenDto }) {
   return (
     <div className="rounded-lg bg-sand-50 border border-sand-200 p-4 space-y-2 text-sm">
       {intent.lineas.map((linea, i) => (
