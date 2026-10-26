@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { GraduationCap, Search } from "../../components/Iconos";
-import { Card, SectionHeader, Badge, TH, TD, AlertBanner, EmptyState, colorDeCurso } from "../../components/Ui";
+import { Card, SectionHeader, Badge, TH, TD, AlertBanner, EmptyState, colorDeCurso, TablaResponsiva } from "../../components/Ui";
 import { horasSemanales, useCatedraticos } from "./academico";
 
 // Jornada semanal a partir de la cual se marca como sobrecarga
@@ -36,7 +36,7 @@ export default function CatedraticosView() {
               className="w-full pl-10 pr-3.5 py-2.5 text-[15px] border-[1.5px] border-stone-200 hover:border-stone-300 rounded-xl focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10 bg-white" />
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Nombre</TH><TH>Correo</TH><TH>Cursos asignados</TH><TH>Carga semanal</TH></tr>
@@ -50,7 +50,7 @@ export default function CatedraticosView() {
                 <tr key={c.catedraticoId} className="hover:bg-sand-50 transition-colors">
                   <TD>
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-action-100 text-action-800 flex items-center justify-center text-xs font-bold">
+                      <div className="w-7 h-7 rounded-full shrink-0 bg-action-100 text-action-800 flex items-center justify-center text-xs font-bold">
                         {c.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                       </div>
                       <div>
@@ -76,7 +76,7 @@ export default function CatedraticosView() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       </Card>
     </div>
   );

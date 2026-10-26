@@ -271,7 +271,7 @@ export default function LibretaNotas() {
                       <th colSpan={3} />
                     </tr>
                     <tr>
-                      <th className="px-4 py-3 text-left text-[13px] font-semibold text-stone-500 sticky left-0 bg-stone-50 z-10 min-w-52">Alumno</th>
+                      <th className="px-3 sm:px-4 py-3 text-left text-[13px] font-semibold text-stone-500 sticky left-0 bg-stone-50 z-10 min-w-36 sm:min-w-52">Alumno</th>
                       {zona.map(encabezadoActividad)}
                       {zona.length > 0 && (
                         <th className="px-3 py-2 text-center text-xs font-semibold text-primary-800 bg-primary-50">
@@ -299,12 +299,12 @@ export default function LibretaNotas() {
                       const final = t ? redondear(t.total) : 0;
                       return (
                         <tr key={al.alumnoId} className="hover:bg-sand-50 transition-colors">
-                          <td className="px-4 py-3 sticky left-0 bg-white z-10">
+                          <td className="px-3 sm:px-4 py-3 sticky left-0 bg-white z-10">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-sand-100 text-stone-700 flex items-center justify-center text-[11px] font-bold shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-sand-100 text-stone-700 hidden sm:flex items-center justify-center text-[11px] font-bold shrink-0">
                                 {iniciales(al.nombres, al.apellidos)}
                               </div>
-                              <span className="font-semibold text-stone-900 whitespace-nowrap">{al.apellidos}, {al.nombres}</span>
+                              <span className="font-semibold text-stone-900 block w-28 sm:w-auto leading-tight sm:whitespace-nowrap">{al.apellidos}, {al.nombres}</span>
                             </div>
                           </td>
                           {zona.map((act) => celdaNota(act, al.alumnoId, nombreAlumno))}

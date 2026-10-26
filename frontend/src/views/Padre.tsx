@@ -21,7 +21,7 @@ import HorarioSemanal, { asuetosDeLaSemana, diaSemanaHoy, jornadaPorDia } from "
 import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
   AlertBanner, Stepper, TH, TD, Select, EmptyState, Input, Toggle, Modal,
-  CursoMarca, Anillo, CardTitulo, LinkAccion,
+  CursoMarca, Anillo, CardTitulo, LinkAccion, TablaResponsiva,
 } from "../components/Ui";
 import AvisosPadre from "./AvisosPadre";
 import AsistenciaPadre from "./AsistenciaPadre";
@@ -57,7 +57,7 @@ function SelectorHijo({ hijos, value, onChange }: { hijos: HijoEncargadoDto[]; v
           <button key={h.alumnoId} onClick={() => onChange(h.alumnoId)} aria-pressed={on}
             className={`flex items-center gap-2 pl-1 pr-3.5 py-1 rounded-full text-sm font-semibold transition-colors cursor-pointer
               ${on ? "bg-primary-800 text-white" : "text-stone-600 hover:text-stone-900 hover:bg-stone-100"}`}>
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${on ? "bg-subject-social text-stone-900" : "bg-stone-100 text-stone-600"}`}>
+            <span className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${on ? "bg-subject-social text-stone-900" : "bg-stone-100 text-stone-600"}`}>
               {h.nombre.charAt(0)}
             </span>
             {h.nombre.split(" ").slice(0, 2).join(" ")}{h.retirado ? " (retirado)" : ""}
@@ -288,7 +288,7 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
           ) : (
             <ol className="relative">
               {recientes.map((m, i) => (
-                <li key={m.mes} className="flex items-center gap-3.5 py-2">
+                <li key={m.mes} className="flex flex-wrap items-center gap-x-3.5 gap-y-1 py-2">
                   <span className="relative flex flex-col items-center self-stretch">
                     <span className={`w-3.5 h-3.5 rounded-full mt-1.5 ring-4 ring-white z-10 ${m.ui === "pagado" ? "bg-success-600" : m.ui === "vencido" ? "bg-danger-600" : "bg-warning-600"}`} />
                     {i < recientes.length - 1 && <span className="absolute top-4 -bottom-4 w-0.5 bg-stone-200" />}
@@ -951,7 +951,7 @@ function PagosView() {
             <div className="px-6 pt-5 pb-1">
               <h3 className="font-display font-bold text-lg text-stone-900">Colegiaturas del ciclo {anio}</h3>
             </div>
-            <div className="overflow-x-auto">
+            <TablaResponsiva>
               <table className="w-full">
                 <thead>
                   <tr><TH>Mes</TH><TH className="text-right">Mensualidad</TH><TH className="text-right">Beca</TH><TH className="text-right">Total</TH><TH>Estado</TH><TH>Fecha de pago</TH><TH className="text-right">Acciones</TH></tr>
@@ -1022,7 +1022,7 @@ function PagosView() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </TablaResponsiva>
           </Card>
         </>
       )}

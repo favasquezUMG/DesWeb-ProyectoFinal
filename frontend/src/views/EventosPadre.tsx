@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, Check, Clock, ShoppingCart, Ticket, Users } from "../components/Iconos";
-import { AlertBanner, Badge, Btn, Card, EmptyState, SectionHeader, TD, TH, FechaBloque } from "../components/Ui";
+import { AlertBanner, Badge, Btn, Card, EmptyState, SectionHeader, TD, TH, FechaBloque, TablaResponsiva } from "../components/Ui";
 import { CarritoBoton, claveColegiatura, claveEvento, useCarrito, type ItemCarrito } from "../components/Carrito";
 import { formatoQ } from "../components/PagoColegiatura";
 import {
@@ -97,7 +97,7 @@ export default function EventosPadre() {
           <div className="px-6 pt-5 pb-1">
             <h3 className="font-display font-bold text-lg text-stone-900">Inscripciones pagadas</h3>
           </div>
-          <div className="overflow-x-auto">
+          <TablaResponsiva>
             <table className="w-full">
               <thead>
                 <tr><TH>Evento</TH><TH>Fecha</TH><TH>Alumno</TH><TH className="text-right">Monto</TH><TH>Estado</TH></tr>
@@ -114,7 +114,7 @@ export default function EventosPadre() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TablaResponsiva>
         </Card>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Edit, UserX, UserCheck, KeyRound, BookOpen, Users } from "../../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, Drawer, Modal, AlertBanner, Input, Select, Textarea, TH, TD } from "../../components/Ui";
+import { Card, SectionHeader, Btn, Badge, Drawer, Modal, AlertBanner, Input, Select, Textarea, TH, TD, TablaResponsiva } from "../../components/Ui";
 import {
   getUsuarios,
   getUsuario,
@@ -213,7 +213,7 @@ export default function UsuariosView() {
             <option value="todos">Todos</option>
           </select>
         </div>
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Usuario</TH><TH>Roles</TH><TH>Sede</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
@@ -254,7 +254,7 @@ export default function UsuariosView() {
               )}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       </Card>
 
       <Drawer open={!!drawer} onClose={() => { if (!guardando) setDrawer(null); }} title={drawer === "nuevo" ? "Nuevo usuario" : "Editar usuario"}
