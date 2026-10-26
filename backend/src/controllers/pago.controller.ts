@@ -7,17 +7,19 @@ import { descuentoColegiatura } from '../services/becas.service.js';
 import { puedeVerAlumno } from '../services/acceso.service.js';
 import { hijosDe } from '../services/vinculos.service.js';
 import { sedeDelAlcance } from '../middlewares/role.middleware.js';
-import { OrdenEnProcesoError, liberarOrdenesPendientes } from '../services/ordenes.service.js';
+import { OrdenEnProcesoError, cancelarIntent, liberarOrdenesPendientes } from '../services/ordenes.service.js';
 import { enviarComprobanteEnSegundoPlano, enviarComprobantePago } from '../services/comprobante.service.js';
+import { CONCEPTO_COLEGIATURA, ESTADO_NO_APLICA, MESES_CICLO } from '../services/colegiaturas.service.js';
+import { registrarBitacora } from '../services/bitacora.service.js';
+import { ReglaNegocioError } from '../lib/errores.js';
 
 const sinAcceso = (res: Response) =>
     res.status(403).json({ status: 'error', message: 'No tiene permisos para ver la información de pagos de este alumno.' });
 
-const CONCEPTO_COLEGIATURA = 'Colegiatura';
-
 // Mes cubierto al 100% por beca (y/o descuento por hermanos): no se cobra, pero queda registrado
 const ESTADO_EXONERADO = 'Exonerado';
-const ESTADOS_AL_DIA = ['Pagado', ESTADO_EXONERADO];
+// "No aplica": mes en que el alumno no estaba en el colegio (o que la sede decidió no cobrar)
+const ESTADOS_AL_DIA = ['Pagado', ESTADO_EXONERADO, ESTADO_NO_APLICA];
 
 const calcularMonto = (descuento: number) => Number((COLEGIATURA_MENSUAL * (1 - descuento / 100)).toFixed(2));
 
@@ -169,9 +171,12 @@ export const crearIntentPago = async (req: AuthenticatedRequest, res: Response) 
         const pagoExistente = await prisma.pago.findUnique({ where: periodo });
 
         if (pagoExistente && ESTADOS_AL_DIA.includes(pagoExistente.estado)) {
+            const motivo = pagoExistente.estado === 'Pagado' ? 'ya está pagada'
+                : pagoExistente.estado === ESTADO_NO_APLICA ? 'no se le cobra a este alumno'
+                : 'ya está exonerada';
             return res.status(409).json({
                 status: 'error',
-                message: `La colegiatura de ${MESES[mesNum - 1]} ${anio} ya está ${pagoExistente.estado === 'Pagado' ? 'pagada' : 'exonerada'}.`,
+                message: `La colegiatura de ${MESES[mesNum - 1]} ${anio} ${motivo}.`,
             });
         }
 
@@ -341,7 +346,7 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
         // El ciclo escolar va de enero a octubre. La beca puede tener vigencia
         // parcial, por eso el descuento se calcula mes por mes.
         const meses = await Promise.all(
-            Array.from({ length: 10 }, async (_, i) => {
+            Array.from({ length: MESES_CICLO }, async (_, i) => {
                 const mes = i + 1;
                 const pago = porMes.get(mes);
                 const descuento = (await descuentoColegiatura(Number(alumnoId), new Date(Date.UTC(anio, i, 1)))).total;
@@ -362,6 +367,7 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
         );
 
         const pagados = meses.filter((m) => m.estado === 'Pagado');
+        const sinCobro = meses.filter((m) => m.estado === ESTADO_NO_APLICA);
         const alDia = meses.filter((m) => ESTADOS_AL_DIA.includes(m.estado));
         const totalPagado = pagados.reduce((suma, m) => suma + (m.monto ?? 0), 0);
 
@@ -373,14 +379,106 @@ export const getEstadoCuenta = async (req: AuthenticatedRequest, res: Response) 
                 seccion: alumno.seccion.nombre,
                 anioLectivo: anio,
                 mesesPagados: pagados.length,
-                mesesExonerados: alDia.length - pagados.length,
-                mesesPendientes: 10 - alDia.length,
+                mesesExonerados: alDia.length - pagados.length - sinCobro.length,
+                mesesSinCobro: sinCobro.length,
+                mesesACobrar: MESES_CICLO - sinCobro.length,
+                mesesPendientes: MESES_CICLO - alDia.length,
                 totalPagado: Number(totalPagado.toFixed(2)),
                 detalle: meses,
             },
         });
     } catch (error) {
         return res.status(500).json({ status: 'error', message: 'Error al obtener el estado de cuenta.', error });
+    }
+};
+
+/**
+ * Habilita o deshabilita el cobro de colegiatura de un alumno, mes por mes. Para el alumno que
+ * llega con el ciclo empezado, o casos especiales que decide la sede. Recibe la lista completa
+ * de meses que NO se cobran: los demás quedan habilitados.
+ * PUT /api/pagos/meses-cobro/:alumnoId  { anioLectivo, mesesSinCobro: [1, 2, 3] }
+ */
+export const setMesesCobro = async (req: AuthenticatedRequest, res: Response) => {
+    const alumnoId = Number(req.params.alumnoId);
+    const anio = Number(req.body?.anioLectivo) || new Date().getUTCFullYear();
+    const lista = req.body?.mesesSinCobro;
+
+    if (!Array.isArray(lista) || lista.some((m) => !Number.isInteger(m) || m < 1 || m > MESES_CICLO)) {
+        return res.status(400).json({ status: 'error', message: `mesesSinCobro debe ser una lista de meses del 1 al ${MESES_CICLO}.` });
+    }
+    const sinCobro = new Set<number>(lista);
+
+    try {
+        if (!(await puedeVerAlumno(req, alumnoId, 'pagos', 'pagos'))) return sinAcceso(res);
+
+        const alumno = await prisma.alumno.findUnique({
+            where: { alumnoId },
+            include: { usuario: { select: { nombres: true, apellidos: true } } },
+        });
+        if (!alumno) return res.status(404).json({ status: 'error', message: `Alumno con ID: ${alumnoId} no encontrado` });
+
+        const pagos = await prisma.pago.findMany({ where: { alumnoId, anioLectivo: anio, concepto: CONCEPTO_COLEGIATURA } });
+        const porMes = new Map(pagos.map((p) => [p.mes, p]));
+
+        const deshabilitar: number[] = [];
+        const habilitar: number[] = [];
+        for (let mes = 1; mes <= MESES_CICLO; mes++) {
+            const estado = porMes.get(mes)?.estado;
+            if (sinCobro.has(mes) && estado !== ESTADO_NO_APLICA) {
+                // Lo que ya se cobró no se puede quitar: primero hay que reembolsarlo
+                if (estado === 'Pagado') {
+                    throw new ReglaNegocioError(`${MESES[mes - 1]} ya está pagado; para no cobrarlo hay que reembolsarlo.`);
+                }
+                deshabilitar.push(mes);
+            } else if (!sinCobro.has(mes) && estado === ESTADO_NO_APLICA) {
+                habilitar.push(mes);
+            }
+        }
+
+        // Un mes que el padre empezó a pagar se cancela en Stripe para que ya no se pueda cobrar
+        const enCurso = deshabilitar.flatMap((mes) => {
+            const pago = porMes.get(mes);
+            return pago?.estado === 'Pendiente' ? [pago] : [];
+        });
+        await liberarOrdenesPendientes(enCurso.flatMap((p) => (p.ordenId ? [p.ordenId] : [])));
+        for (const p of enCurso) if (p.stripePaymentId) await cancelarIntent(p.stripePaymentId);
+
+        await prisma.$transaction([
+            ...deshabilitar.map((mes) => prisma.pago.upsert({
+                where: periodoColegiatura(alumnoId, anio, mes),
+                update: { monto: 0, estado: ESTADO_NO_APLICA, ordenId: null, stripePaymentId: null, stripeSessionId: null, fechaPago: null },
+                create: { alumnoId, monto: 0, concepto: CONCEPTO_COLEGIATURA, anioLectivo: anio, mes, estado: ESTADO_NO_APLICA },
+            })),
+            prisma.pago.deleteMany({
+                where: { alumnoId, anioLectivo: anio, concepto: CONCEPTO_COLEGIATURA, mes: { in: habilitar }, estado: ESTADO_NO_APLICA },
+            }),
+        ]);
+
+        const nombres = (meses: number[]) => meses.map((m) => MESES[m - 1]).join(', ');
+        const huboCambios = deshabilitar.length > 0 || habilitar.length > 0;
+        if (huboCambios) {
+            await registrarBitacora(
+                Number(req.user?.id),
+                'Cobro de colegiatura modificado',
+                'Alumno',
+                alumnoId,
+                [
+                    deshabilitar.length ? `Sin cobro: ${nombres(deshabilitar)}` : '',
+                    habilitar.length ? `Cobro habilitado: ${nombres(habilitar)}` : '',
+                ].filter(Boolean).join('. ') + ` (${anio}).`,
+            );
+        }
+
+        return res.json({
+            status: 'success',
+            message: huboCambios
+                ? `Se actualizaron los meses de cobro de ${alumno.usuario.nombres} ${alumno.usuario.apellidos}.`
+                : 'No hubo cambios.',
+            data: { anioLectivo: anio, mesesSinCobro: [...sinCobro].sort((a, b) => a - b) },
+        });
+    } catch (error: any) {
+        if (error instanceof ReglaNegocioError) return res.status(error.status).json({ status: 'error', message: error.message });
+        return res.status(500).json({ status: 'error', message: 'Error al actualizar los meses de cobro.', error: error?.message ?? error });
     }
 };
 

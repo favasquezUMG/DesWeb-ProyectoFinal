@@ -54,8 +54,10 @@ export async function guardarSolicitud(solicitud: SolicitudGuardada): Promise<So
   try {
     const response = await axios.post(`${API_URL}/api/solicitudes`, solicitud);
     return response.data.data;
-  } catch (error){
-    return solicitud;
+  } catch (error) {
+    // Si no se guardó, el formulario no debe mostrar la constancia como si se hubiera enviado
+    const mensaje = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(mensaje || "No se pudo enviar la solicitud. Vuelva a intentar.");
   }
 }
 

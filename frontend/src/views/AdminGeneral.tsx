@@ -6,6 +6,7 @@ import { Card, MetricCard, SectionHeader, Btn, Badge, TH, TD, EmptyState } from 
 import UsuariosView from "./admin-sede/Usuarios";
 import RolesView from "./admin-sede/Roles";
 import SolicitudesView from "./admin-sede/Solicitudes";
+import PagosVentanillaView from "./admin-sede/PagosVentanilla";
 import SedesView from "./admin-general/Sedes";
 import MallaCurricular from "./admin-general/Malla";
 import Reporteria from "./admin-general/Reporteria";
@@ -278,6 +279,7 @@ export default function AdminGeneral({ view }: { view: View }) {
   if (view === "as-roles") return <RolesView />;
   if (view === "as-solicitudes") return <SolicitudesView />;
   if (view === "as-calendario") return <CalendarioView esGlobal />;
+  if (view === "as-pagos") return <PagosVentanillaView />;
   if (view === "ag-malla") return <MallaCurricular />;
   if (view === "ag-reporteria") return <Reporteria />;
   return <DashboardConsolidado />;

@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { puedeOperarSede, ROL } from '../middlewares/role.middleware.js';
 import { esResponsableDe } from '../services/vinculos.service.js';
 import { filtroAlumnosVisibles, puedeVerAlumno } from '../services/acceso.service.js';
+import { quitarCobroAntesDeIngresar } from '../services/colegiaturas.service.js';
 
 const ESTADOS = ['Activa', 'Retirada'] as const;
 type Estado = (typeof ESTADOS)[number];
@@ -172,6 +173,9 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
             });
         }
 
+        // Un reingreso en el mismo ciclo (retirado que vuelve) no borra lo que debía: eso lo decide la sede
+        const yaEstuvoEnElCiclo = (await prisma.matricula.count({ where: { alumnoId: Number(alumnoId), anioLectivo: anio } })) > 0;
+
         const matricula = await prisma.$transaction(async (tx) => {
             const nueva = await tx.matricula.create({
                 data: {
@@ -182,6 +186,9 @@ export const createMatricula = async (req: AuthenticatedRequest, res: Response) 
                     estado: 'Activa',
                 },
             });
+
+            // Si entra con el ciclo ya empezado, solo paga desde el mes en que se matricula
+            if (!yaEstuvoEnElCiclo) await quitarCobroAntesDeIngresar(tx, Number(alumnoId), anio);
 
             await tx.alumno.update({
                 where: { alumnoId: Number(alumnoId) },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Bell, Send, FileText } from "../../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal } from "../../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, AlAparecer } from "../../components/Ui";
 import {
   getComunicados,
   enviarComunicado,
@@ -137,7 +137,7 @@ export default function NotificacionesView() {
       {successMessage && <AlertBanner type="success" message={successMessage} onClose={() => setSuccessMessage("")} />}
 
       {showForm && (
-        <Card className="p-5 border-2 border-primary-200">
+        <AlAparecer><Card className="p-5 border-2 border-primary-200">
           <h3 className="font-semibold text-stone-800 mb-4">Nueva notificación</h3>
           {formError && <div className="mb-4"><AlertBanner type="error" message={formError} /></div>}
           <div className="space-y-4">
@@ -179,7 +179,7 @@ export default function NotificacionesView() {
               <Btn variant="secondary" size="sm" loading={sending} icon={<Send className="w-4 h-4" />} onClick={handleEnviar}>Enviar notificación</Btn>
             </div>
           </div>
-        </Card>
+        </Card></AlAparecer>
       )}
 
       <Card className="p-5">
