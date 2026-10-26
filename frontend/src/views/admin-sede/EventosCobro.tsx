@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, Ticket, Trash2, Users } from "../../components/Iconos";
-import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Input, Modal, Select, TD, TH, Textarea } from "../../components/Ui";
+import { AlertBanner, Badge, Btn, Card, Drawer, EmptyState, Input, Modal, Select, TD, TH, Textarea, TablaResponsiva } from "../../components/Ui";
 import { formatoQ } from "../../components/PagoColegiatura";
 import {
   actualizarEvento,
@@ -156,7 +156,7 @@ export default function EventosCobro() {
           <EmptyState icon={<Ticket className="w-10 h-10" />} title="Sin eventos con cobro" description="Cree uno para que los padres puedan inscribir y pagar en línea." />
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Evento</TH><TH>Fecha</TH><TH>Sede</TH><TH className="text-right">Costo</TH><TH>Cupo</TH><TH>Inscripción hasta</TH><TH className="text-right">Acciones</TH></tr>
@@ -181,7 +181,7 @@ export default function EventosCobro() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       )}
 
       <Modal

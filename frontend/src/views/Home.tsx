@@ -402,25 +402,25 @@ function EstadoCarga({ cargando, error, vacio, textoVacio }: { cargando: boolean
 function PortalButton({ Icon, titulo, texto, onClick, destacado = false }: { Icon: typeof GraduationCap; titulo: string; texto: string; onClick: () => void; destacado?: boolean }) {
   return (
     <button type="button" onClick={onClick}
-      className={`w-full flex items-center gap-4 p-5 sm:p-6 rounded-[24px] text-left transition-colors cursor-pointer
+      className={`w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-6 rounded-[24px] text-left transition-colors cursor-pointer
         ${destacado ? "bg-anil-800 text-white hover:bg-anil-900" : "bg-white border-[1.5px] border-stone-200 hover:border-stone-900"}`}>
-      <span className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${destacado ? "bg-subject-social text-stone-900" : "bg-sand-100 text-primary-700"}`}><Icon className="w-6 h-6" /></span>
+      <span className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${destacado ? "bg-subject-social text-stone-900" : "bg-sand-100 text-primary-700"}`}><Icon className="w-6 h-6" /></span>
       <span className="flex-1 min-w-0">
-        <span className="block font-display text-xl font-bold">{titulo}</span>
+        <span className="block font-display text-lg sm:text-xl font-bold leading-tight">{titulo}</span>
         <span className={`block text-sm mt-0.5 ${destacado ? "text-white/70" : "text-stone-500"}`}>{texto}</span>
       </span>
-      <span className={`text-sm font-bold ${destacado ? "text-subject-social" : "text-primary-700"}`}>Entrar</span>
+      <span className={`text-sm font-bold shrink-0 ${destacado ? "text-subject-social" : "text-primary-700"}`}>Entrar</span>
     </button>
   );
 }
 
 function ContactItem({ Icon, titulo, texto }: { Icon: typeof Phone; titulo: string; texto: string }) {
   return (
-    <div className="rounded-[22px] bg-white border border-stone-200/80 p-5 flex items-center gap-4">
+    <div className="rounded-[22px] bg-white border border-stone-200/80 p-4 sm:p-5 flex items-center gap-3 sm:gap-4 min-w-0">
       <span className="w-11 h-11 rounded-full bg-sand-100 text-action-500 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
       <div className="min-w-0">
         <p className="text-[13px] font-semibold text-stone-500">{titulo}</p>
-        <p className="text-[15px] text-stone-900 font-semibold break-words">{texto}</p>
+        <p className="text-[15px] text-stone-900 font-semibold [overflow-wrap:anywhere]">{texto}</p>
       </div>
     </div>
   );

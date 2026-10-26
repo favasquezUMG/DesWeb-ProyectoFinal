@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Search, FileText, CheckCircle2, XCircle, Clock, AlertTriangle, UserCheck, Copy, Printer, Heart } from "../../components/Iconos";
 import { DetalleSalud, tieneSalud } from "../../components/InfoSalud";
-import { Card, SectionHeader, Badge, Btn, Drawer, Modal, AlertBanner, Select, Textarea, TH, TD, EmptyState } from "../../components/Ui";
+import { Card, SectionHeader, Badge, Btn, Drawer, Modal, AlertBanner, Select, Textarea, TH, TD, EmptyState, TablaResponsiva } from "../../components/Ui";
 import {
   getSolicitudesAdmin, getOpcionesAprobacion, marcarSolicitud, aprobarSolicitud, rechazarSolicitud,
   type SolicitudDto, type EstadoSolicitudDto, type OpcionesAprobacionDto, type AprobacionDto,
@@ -107,7 +107,7 @@ export default function SolicitudesView() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Solicitud</TH><TH>Alumno</TH><TH>Grado solicitado</TH><TH>Encargado</TH><TH>Fecha límite</TH><TH>Estado</TH><TH className="text-right">Acciones</TH></tr>
@@ -140,7 +140,7 @@ export default function SolicitudesView() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       </Card>
 
       <Drawer open={!!abierta} onClose={() => setAbierta(null)} title={abierta ? `Solicitud ${abierta.numero}` : ""}>

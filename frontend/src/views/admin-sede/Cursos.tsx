@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Edit, Trash2, BookOpen } from "../../components/Iconos";
-import { Card, SectionHeader, Btn, TH, TD, Modal, Select, AlertBanner, EmptyState, Badge, CursoMarca } from "../../components/Ui";
+import { Card, SectionHeader, Btn, TH, TD, Modal, Select, AlertBanner, EmptyState, Badge, CursoMarca, TablaResponsiva } from "../../components/Ui";
 import {
   getGrados, getSeccionesAdmin, getCursosSeccionAdmin, asignarCursoSeccion, cambiarCatedraticoCurso, quitarCursoSeccion,
   type GradoDto, type SeccionAdminDto, type CursoSeccionAdminDto,
@@ -115,7 +115,7 @@ export default function CursosView() {
             {secciones.map((s) => <option key={s.seccionId} value={s.seccionId}>{etiquetaSeccion(s)}</option>)}
           </Select>
         </div>
-        <div className="overflow-x-auto">
+        <TablaResponsiva>
           <table className="w-full">
             <thead>
               <tr><TH>Curso</TH><TH>Grado · Sección</TH><TH>Catedrático</TH><TH>Horario</TH><TH className="text-right">Acciones</TH></tr>
@@ -150,7 +150,7 @@ export default function CursosView() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TablaResponsiva>
       </Card>
 
       <Modal open={!!dialogo} onClose={() => !guardando && setDialogo(null)}
