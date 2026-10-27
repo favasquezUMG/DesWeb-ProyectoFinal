@@ -144,7 +144,7 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
   const vencidos = meses.filter((m) => m.ui === "vencido");
   const saldoVencido = vencidos.reduce((s, m) => s + m.montoAPagar, 0);
   const proximo = vencidos[0] ?? meses.find((m) => m.ui === "pendiente" && m.mes >= mesActual) ?? null;
-  const recientes = meses.filter((m) => m.mes <= Math.max(mesActual, meses[0]?.mes ?? 1)).slice(-5);
+  const recientes = meses.filter((m) => m.ui !== "sincobro" && m.mes <= Math.max(mesActual, meses[0]?.mes ?? 1)).slice(-5);
   const asistenciaHijo = hijo ? asistencia.get(hijo.alumnoId) : undefined;
   const porcentajeAsistencia = asistenciaHijo?.resumen.porcentaje;
   const primerNombre = hijo?.nombre.split(" ")[0] ?? "";
@@ -416,7 +416,7 @@ function MatriculaView({ user }: { user?: AppUser }) {
       <div className="space-y-5">
         <SectionHeader title="Inscribir a un alumno nuevo" subtitle="La solicitud la revisa la administración de la sede antes de crear la cuenta del alumno."
           action={<Btn variant="ghost" size="sm" onClick={() => setModoNuevo(false)}>← Volver a matrícula</Btn>} />
-        <SolicitudInscripcion modo="publico" onFinalizar={() => setModoNuevo(false)} onCancelar={() => setModoNuevo(false)} />
+        <SolicitudInscripcion modo="publico" conCuenta onFinalizar={() => setModoNuevo(false)} onCancelar={() => setModoNuevo(false)} />
       </div>
     );
   }
@@ -813,16 +813,18 @@ function NotasHijo() {
 
 // ─── Pagos ────────────────────────────────────────────────────────────────────
 
-type EstadoMesUi = "pagado" | "pendiente" | "vencido" | "reembolsado" | "becado" | "procesando";
+type EstadoMesUi = "pagado" | "pendiente" | "vencido" | "reembolsado" | "becado" | "procesando" | "sincobro";
 
 /**
  * El backend solo sabe si hay pago o no; "vencido" se calcula aquí: un mes
  * sin pagar cuyo periodo ya pasó. "becado" es un mes que la beca cubre al
  * 100%: no hay nada que cobrar (el backend rechaza un pago de Q0.00).
+ * "sincobro" es un mes que no se le cobra (entró con el ciclo empezado).
  */
 function estadoMesUi(m: MesEstadoCuentaDto, anio: number): EstadoMesUi {
   if (m.estado === "Pagado") return "pagado";
   if (m.estado === "Reembolsado") return "reembolsado";
+  if (m.estado === "No aplica") return "sincobro";
   if (m.estado === "Exonerado" || m.montoAPagar <= 0) return "becado";
   const hoy = new Date();
   const mesActual = anio < hoy.getFullYear() ? 13 : anio > hoy.getFullYear() ? 0 : hoy.getMonth() + 1;
@@ -945,7 +947,7 @@ function PagosView() {
             <MetricCard
               label={`Pagado en ${anio}`}
               value={formatoQ(estadoCuenta.totalPagado)}
-              sub={`${estadoCuenta.mesesPagados} de 10 meses`}
+              sub={`${estadoCuenta.mesesPagados} de ${estadoCuenta.mesesACobrar} meses`}
               variant="success"
             />
           </div>
@@ -961,6 +963,19 @@ function PagosView() {
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {meses.map((m) => {
+                    if (m.ui === "sincobro") {
+                      return (
+                        <tr key={m.mes} className="text-stone-400">
+                          <TD><span className="font-semibold">{m.nombreMes}</span></TD>
+                          <TD className="text-right">—</TD>
+                          <TD className="text-right">—</TD>
+                          <TD className="text-right">—</TD>
+                          <TD><Badge variant="neutral">No aplica</Badge></TD>
+                          <TD>—</TD>
+                          <TD>{null}</TD>
+                        </tr>
+                      );
+                    }
                     const total = m.ui === "pagado" && m.monto !== null ? m.monto : m.montoAPagar;
                     return (
                       <tr key={m.mes} className="hover:bg-sand-50 transition-colors">
@@ -1025,6 +1040,7 @@ const MESES_NOMBRE = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Ju
 function EstadoMesBadge({ estado }: { estado: EstadoMesUi }) {
   if (estado === "reembolsado") return <Badge variant="info">Reembolsado</Badge>;
   if (estado === "becado") return <Badge variant="success">Cubierto por beca</Badge>;
+  if (estado === "sincobro") return <Badge variant="neutral">No aplica</Badge>;
   if (estado === "procesando") return <Badge variant="warning">En proceso</Badge>;
   return <PagoBadge estado={estado} />;
 }

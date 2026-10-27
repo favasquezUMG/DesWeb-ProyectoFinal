@@ -2,19 +2,17 @@ import type { Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { ReglaNegocioError } from '../lib/errores.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
-import { stripe, aCentavos, MONEDA, COLEGIATURA_MENSUAL, MESES } from '../config/stripe.config.js';
-import { descuentoColegiatura } from '../services/becas.service.js';
+import { stripe, aCentavos, MONEDA, MESES } from '../config/stripe.config.js';
 import { puedeVerAlumno } from '../services/acceso.service.js';
 import { hijosDe } from '../services/vinculos.service.js';
 import { ESTADO_AUTORIZACION, cancelarIntent, confirmarOrden, liberarOrdenesPendientes } from '../services/ordenes.service.js';
 import { fechaLimiteDe, plazoAbierto } from '../services/circulares.service.js';
+import { CONCEPTO_COLEGIATURA, ESTADO_NO_APLICA, MESES_CICLO, montoColegiatura } from '../services/colegiaturas.service.js';
 
 // Cobros del encargado: lo que tiene pendiente (colegiaturas y eventos que autorizo) y el pago de
 // varios de esos conceptos juntos en una sola orden (un solo PaymentIntent de Stripe).
 
-const CONCEPTO_COLEGIATURA = 'Colegiatura';
-const ESTADOS_AL_DIA = ['Pagado', 'Exonerado'];
-const MESES_CICLO = 10; // enero a octubre
+const ESTADOS_AL_DIA = ['Pagado', 'Exonerado', ESTADO_NO_APLICA];
 const MAX_ITEMS = 20;
 
 type ItemOrden =
@@ -25,11 +23,6 @@ type ItemOrden =
 type LineaCobro = { item: ItemOrden; alumnoId: number; monto: number; descripcion: string; alumno: string };
 
 const nombreDe = (u: { nombres: string; apellidos: string }) => `${u.nombres} ${u.apellidos}`;
-
-const montoColegiatura = async (alumnoId: number, anioLectivo: number, mes: number) => {
-    const descuento = await descuentoColegiatura(alumnoId, new Date(Date.UTC(anioLectivo, mes - 1, 1)));
-    return Number((COLEGIATURA_MENSUAL * (1 - descuento.total / 100)).toFixed(2));
-};
 
 /**
  * Todo lo que el encargado tiene por pagar de sus hijos: colegiaturas vencidas y del mes, y los
@@ -180,6 +173,9 @@ const prepararLineas = async (req: AuthenticatedRequest, items: ItemOrden[]) => 
                 },
             });
             const periodo = `${MESES[item.mes - 1]} ${item.anioLectivo}`;
+            if (pago?.estado === ESTADO_NO_APLICA) {
+                throw new ReglaNegocioError(`A ${nombreAlumno} no se le cobra la colegiatura de ${periodo}.`);
+            }
             if (pago && ESTADOS_AL_DIA.includes(pago.estado)) {
                 throw new ReglaNegocioError(`La colegiatura de ${periodo} de ${nombreAlumno} ya está al día.`);
             }

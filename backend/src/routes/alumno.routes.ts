@@ -9,7 +9,8 @@ import {
     getConteoAlumnos,
     getTasaAprobacion,
     setAccesoPortal,
-    setSaludAlumno
+    setSaludAlumno,
+    trasladarAlumno
 } from '../controllers/alumno.controller.js'
 import { authenticateToken } from "../middlewares/auth.middleware.js";
 import { permitir, ROL, verificarRol } from "../middlewares/role.middleware.js";
@@ -30,5 +31,6 @@ router.put('/:id/encargados/:encargadoId', permitir('alumnos'), actualizarVincul
 router.delete('/:id/encargados/:encargadoId', permitir('alumnos'), quitarEncargado);
 router.patch('/:id/acceso-portal', permitir('alumnos'), setAccesoPortal);
 router.put('/:id/salud', permitir('alumnos'), setSaludAlumno);
+router.put('/:id/seccion', permitir('alumnos'), trasladarAlumno);
 
 export default router;

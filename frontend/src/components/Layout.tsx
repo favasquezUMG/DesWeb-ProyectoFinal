@@ -12,7 +12,9 @@ import {
 } from "./Iconos";
 
 // modulo: permiso que necesita el personal de sede para ver la opción del menú
-type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard; modulo?: string };
+// modulo: permiso que necesita el personal de sede para ver la pestaña.
+// soloDirector: pestaña del Administrador de Sede que no depende de un permiso (ej. el Dashboard).
+type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard; modulo?: string; soloDirector?: boolean };
 
 const NAV: Record<Role, NavItem[]> = {
   "admin-general": [
@@ -23,12 +25,12 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Solicitudes", view: "as-solicitudes", Icon: FileText },
     { label: "Calendario", view: "as-calendario", Icon: CalendarDays },
     { label: "Usuarios", view: "as-usuarios", Icon: Users },
+    { label: "Pagos en ventanilla", view: "as-pagos", Icon: CreditCard },
     { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck },
   ],
   "admin-sede": [
-    { label: "Dashboard", view: "as-dashboard", Icon: LayoutDashboard },
+    { label: "Dashboard", view: "as-dashboard", Icon: LayoutDashboard, soloDirector: true },
     { label: "Usuarios", view: "as-usuarios", Icon: Users, modulo: "usuarios" },
-    { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck, modulo: "usuarios" },
     { label: "Catedráticos", view: "as-catedraticos", Icon: GraduationCap, modulo: "usuarios" },
     { label: "Solicitudes", view: "as-solicitudes", Icon: FileText, modulo: "matriculas" },
     { label: "Alumnos y Encargados", view: "as-alumnos", Icon: UserCheck, modulo: "alumnos" },
@@ -36,6 +38,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Cursos", view: "as-cursos", Icon: BookMarked, modulo: "horarios" },
     { label: "Horarios", view: "as-horarios", Icon: Clock, modulo: "horarios" },
     { label: "Becas", view: "as-becas", Icon: Award, modulo: "becas" },
+    { label: "Pagos en ventanilla", view: "as-pagos", Icon: CreditCard, modulo: "pagos" },
     { label: "Justificaciones", view: "as-justificaciones", Icon: FileCheck2, modulo: "asistencia" },
     { label: "Notificaciones", view: "as-notificaciones", Icon: Bell, modulo: "comunicados" },
     { label: "Calendario", view: "as-calendario", Icon: CalendarDays, modulo: "calendario" },
@@ -100,8 +103,18 @@ function etiquetaDe(user: AppUser): string {
 
 // El personal de sede solo ve los módulos para los que su rol tiene permiso.
 // (Sesiones guardadas antes de los permisos no traen la lista: se muestra todo.)
+// El personal de sede (Administrador de Sede y los roles que crea el colegio, ej. Secretaría) solo ve
+// las pestañas de los módulos que tiene permitidos.
 function navDe(user: AppUser): NavItem[] {
-  return NAV[user.role].filter(item => !item.modulo || user.role !== "admin-sede" || user.permisos === undefined || user.permisos.includes(item.modulo));
+  if (user.role !== "admin-sede") return NAV[user.role];
+  return NAV[user.role].filter((item) =>
+    item.soloDirector ? user.roleName === "Administrador de Sede"
+      : !item.modulo || user.permisos === undefined || user.permisos.includes(item.modulo));
+}
+
+/** Pantallas que el usuario puede abrir (las de su menú) */
+export function vistasPermitidas(user: AppUser): View[] {
+  return navDe(user).map((item) => item.view);
 }
 
 function Logo({ compact = false }: { compact?: boolean }) {

@@ -5,6 +5,7 @@ import { ROL } from "../middlewares/role.middleware.js";
 import { correoEnUso, generarPasswordTemporal, asegurarRegistrosDeRol } from "./usuarios.service.js";
 import { PARENTESCOS } from "./vinculos.service.js";
 import { tieneAccesoPortal } from "./accesoPortal.service.js";
+import { quitarCobroAntesDeIngresar } from "./colegiaturas.service.js";
 
 // Aprobar una solicitud de inscripción convierte los datos del formulario en cuentas reales:
 // el encargado (o se reutiliza la suya si ya tenía), el alumno, el vínculo entre ambos y la matrícula.
@@ -173,6 +174,8 @@ export const aprobarSolicitud = async (solicitudId: number, opciones: OpcionesAp
         await tx.matricula.create({
             data: { alumnoId, seccionId: seccion.seccionId, encargadoId, anioLectivo: seccion.anioLectivo, estado: "Activa" },
         });
+        // Si entra con el ciclo ya empezado, solo paga desde el mes en que se inscribe
+        await quitarCobroAntesDeIngresar(tx, alumnoId, seccion.anioLectivo);
 
         await tx.solicitud.update({
             where: { solicitudId },

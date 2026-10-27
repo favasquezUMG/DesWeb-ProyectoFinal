@@ -3,7 +3,7 @@ import {
   Plus, Edit, Ban, History, PauseCircle, PlayCircle, RefreshCw, ClipboardCheck, Check, X, Award, Inbox, Wallet, Receipt,
 } from "../../components/Iconos";
 import {
-  Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea, TablaResponsiva,
+  Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea, TablaResponsiva, AlAparecer,
 } from "../../components/Ui";
 import HistorialBeca from "../../components/HistorialBeca";
 import ProgramasBeca from "./becas/ProgramasBeca";
@@ -311,7 +311,7 @@ export default function BecasView() {
       )}
 
       {(asignando || editando) && (
-        <Card className="p-5 border-2 border-primary-200">
+        <AlAparecer><Card className="p-5 border-2 border-primary-200">
           <h3 className="font-semibold text-stone-800 mb-4">
             {editando ? `Editar beca de ${nombreDe(editando.alumno.usuario)}` : `Asignar beca — ciclo ${anio}`}
           </h3>
@@ -376,7 +376,7 @@ export default function BecasView() {
               </Btn>
             )}
           </div>
-        </Card>
+        </Card></AlAparecer>
       )}
 
       <Tabs tabs={tabs} active={tabActiva} onChange={(t) => setTab(t.startsWith("Solicitudes") ? "Solicitudes" : t)} />
