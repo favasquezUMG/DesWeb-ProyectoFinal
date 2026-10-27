@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import {
-  GraduationCap, Users2, ShieldCheck, MapPin, Phone, Menu, X, FileSearch, ClipboardEdit, Avanzar,
+  MapPin, Phone, Menu, X, FileSearch, ClipboardEdit, Avanzar,
 } from "../components/iconos/publicos";
 import { Btn, Skeleton } from "../components/Ui";
 import { getInfoInicio, type InfoInicioDto } from "../lib/api";
@@ -22,12 +22,6 @@ const NAV_LINKS = [
   { label: "Sedes", href: "#sedes" },
   { label: "Admisiones", href: "#admisiones" },
   { label: "Contacto", href: "#contacto" },
-];
-
-const VALORES = [
-  { titulo: "Excelencia", texto: "Exigencia académica acompañada de seguimiento cercano a cada alumno." },
-  { titulo: "Formación integral", texto: "Valores, deporte, arte y convivencia como parte del día a día." },
-  { titulo: "Innovación", texto: "Tecnología al servicio del aprendizaje y de la comunicación con las familias." },
 ];
 
 // Textos descriptivos por nivel; los niveles y grados vienen de la base de datos
@@ -67,10 +61,10 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 
   const sedes = info?.sedes ?? [];
   const niveles = info?.niveles ?? [];
+  const totalGrados = niveles.reduce((total, n) => total + n.grados.length, 0);
   const rangoNiveles = niveles.length > 1
     ? `de ${niveles[0].nivel} a ${niveles[niveles.length - 1].nivel}`
     : niveles.length === 1 ? `de ${niveles[0].nivel}` : "";
-  const telefonoContacto = formatearTelefono(sedes.find(s => s.telefono)?.telefono ?? null);
 
   // Agrega las sedes a los datos estructurados de index.html (las sedes viven en la base de datos)
   useEffect(() => {
@@ -163,54 +157,28 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                   </div>
                 ))}
               </div>
-              <div className="relative mt-9 mx-4 rounded-[22px] bg-anil-800 text-white px-5 py-4 flex items-center gap-4 rotate-[-1.5deg]">
-                <GraduationCap className="w-7 h-7 text-subject-social shrink-0" />
-                <p className="text-sm font-semibold leading-snug">Notas, horario, asistencia y pagos en un solo lugar para toda la familia.</p>
-              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Accesos al portal */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16">
-        <div className="grid md:grid-cols-2 gap-4">
-          <PortalButton
-            Icon={GraduationCap}
-            titulo="Estudiantes y familias"
-            texto="Notas, horario, pagos y avisos"
-            onClick={() => onLogin("estudiante")}
-            destacado
-          />
-          <PortalButton
-            Icon={ShieldCheck}
-            titulo="Catedráticos y administración"
-            texto="Gestión académica y de sede"
-            onClick={() => onLogin("personal")}
-          />
         </div>
       </section>
 
       {/* Nosotros */}
       <section id="nosotros" className="scroll-mt-20 bg-white relative">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-end">
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start">
             <div className="lg:col-span-7">
-              <SectionTitle titulo="Una institución con visión de futuro" texto="Acompañamos a cada alumno desde sus primeros años hasta la universidad, de la mano de su familia y de docentes que lo conocen por su nombre." />
+              <SectionTitle titulo="Quiénes somos" texto="Acompañamos a cada alumno desde sus primeros años hasta la universidad, de la mano de su familia y de docentes que lo conocen por su nombre." />
             </div>
             {(sedes.length > 0 || niveles.length > 0) && (
-              <dl className="lg:col-span-5 grid grid-cols-2 gap-3">
+              <dl className="lg:col-span-5 grid grid-cols-3 gap-3">
                 {sedes.length > 0 && (
-                  <div className="rounded-[22px] bg-sand-100 px-5 py-4">
-                    <dd className="font-display font-extrabold text-5xl leading-none tabular-nums text-primary-800">{sedes.length}</dd>
-                    <dt className="text-sm font-semibold text-stone-600 mt-2">{sedes.length === 1 ? "sede en el país" : "sedes en el país"}</dt>
-                  </div>
+                  <Dato valor={sedes.length} texto={sedes.length === 1 ? "sede" : "sedes"} />
                 )}
                 {niveles.length > 0 && (
-                  <div className="rounded-[22px] bg-sand-100 px-5 py-4">
-                    <dd className="font-display font-extrabold text-5xl leading-none tabular-nums text-action-600">{niveles.length}</dd>
-                    <dt className="text-sm font-semibold text-stone-600 mt-2">{niveles.length === 1 ? "nivel educativo" : "niveles educativos"}</dt>
-                  </div>
+                  <Dato valor={niveles.length} texto={niveles.length === 1 ? "nivel" : "niveles"} />
+                )}
+                {totalGrados > 0 && (
+                  <Dato valor={totalGrados} texto={totalGrados === 1 ? "grado" : "grados"} />
                 )}
               </dl>
             )}
@@ -233,17 +201,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
             </article>
           </div>
 
-          <div className="mt-14">
-            <h3 className="font-display text-2xl font-bold">Lo que nos mueve</h3>
-            <ul className="grid sm:grid-cols-3 gap-x-8 gap-y-8 mt-6">
-              {VALORES.map(({ titulo, texto }) => (
-                <li key={titulo}>
-                  <p className="font-display text-xl font-bold leading-tight">{titulo}</p>
-                  <p className="text-[15px] text-stone-600 mt-1.5 leading-relaxed">{texto}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </section>
 
@@ -358,29 +315,42 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
         </div>
       </section>
 
-      {/* Contacto */}
-      <section id="contacto" className="scroll-mt-20 max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-        <SectionTitle titulo="Estamos para servirle" />
-        <div className="grid sm:grid-cols-3 gap-4 mt-8">
-          {telefonoContacto && <ContactItem titulo="Teléfono" texto={telefonoContacto} />}
-          <ContactItem titulo="Correo" texto="info@colegiovanguardia.edu.gt" />
-          <ContactItem titulo="Horario de atención" texto="Lunes a viernes, de 7:00 a 15:00" />
-        </div>
-      </section>
-
-      <footer className="bg-stone-900 text-white/70">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="w-9 h-9 rounded-xl bg-action-500 text-white flex items-center justify-center font-display font-extrabold rotate-[-4deg]">V</span>
-            <div>
-              <p className="font-display font-bold text-white">Colegio Vanguardia</p>
-              <p className="text-xs text-white/50 mt-0.5">© {new Date().getFullYear()} Colegio Vanguardia. Todos los derechos reservados.</p>
+      {/* Pie con el contacto: es donde se busca la dirección y el teléfono */}
+      <footer id="contacto" className="scroll-mt-20 bg-stone-900 text-white/70">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid gap-10 md:grid-cols-12">
+          <div className="md:col-span-4">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-action-500 text-white flex items-center justify-center font-display font-extrabold rotate-[-4deg]">V</span>
+              <p className="font-display font-bold text-white text-lg">Colegio Vanguardia</p>
             </div>
+            <dl className="mt-6 space-y-3 text-[15px]">
+              <div>
+                <dt className="text-xs font-semibold text-white/50">Correo</dt>
+                <dd><a href="mailto:info@colegiovanguardia.edu.gt" className="text-white font-semibold hover:underline [overflow-wrap:anywhere]">info@colegiovanguardia.edu.gt</a></dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-white/50">Horario de atención</dt>
+                <dd className="text-white">Lunes a viernes, de 7:00 a 15:00</dd>
+              </div>
+            </dl>
           </div>
-          <div className="flex items-center gap-5 text-sm font-semibold">
-            <button type="button" onClick={() => onLogin("estudiante")} className="hover:text-white flex items-center gap-1.5 cursor-pointer"><Users2 className="w-4 h-4" />Estudiantes</button>
-            <button type="button" onClick={() => onLogin("personal")} className="hover:text-white flex items-center gap-1.5 cursor-pointer"><ShieldCheck className="w-4 h-4" />Personal</button>
-          </div>
+          {sedes.length > 0 && (
+            <div className="md:col-span-8">
+              <h2 className="text-xs font-semibold text-white/50">Sedes</h2>
+              <ul className="mt-3 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-[15px]">
+                {sedes.map((s) => (
+                  <li key={s.sedeId}>
+                    <p className="font-semibold text-white">{s.nombre}</p>
+                    {s.direccion && <p className="leading-snug">{s.direccion}</p>}
+                    {s.telefono && <a href={`tel:${internacional(s.telefono).replace(/\s/g, "")}`} className="tabular-nums hover:text-white">{formatearTelefono(s.telefono)}</a>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-white/10">
+          <p className="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-white/50">© {new Date().getFullYear()} Colegio Vanguardia</p>
         </div>
       </footer>
     </div>
@@ -436,28 +406,12 @@ function EstadoCarga({ cargando, error, vacio, textoVacio }: { cargando: boolean
   return null;
 }
 
-function PortalButton({ Icon, titulo, texto, onClick, destacado = false }: { Icon: typeof GraduationCap; titulo: string; texto: string; onClick: () => void; destacado?: boolean }) {
+function Dato({ valor, texto }: { valor: number | string; texto: string }) {
   return (
-    <button type="button" onClick={onClick}
-      className={`w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-6 rounded-[24px] text-left transition-colors cursor-pointer
-        ${destacado ? "bg-anil-800 text-white hover:bg-anil-900" : "bg-white border-[1.5px] border-stone-200 hover:border-stone-900"}`}>
-      <span className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${destacado ? "bg-subject-social text-stone-900" : "bg-sand-100 text-primary-700"}`}><Icon className="w-6 h-6" /></span>
-      <span className="flex-1 min-w-0">
-        <span className="block font-display text-lg sm:text-xl font-bold leading-tight">{titulo}</span>
-        <span className={`block text-sm mt-0.5 ${destacado ? "text-white/70" : "text-stone-500"}`}>{texto}</span>
-      </span>
-      <span className={`text-sm font-bold shrink-0 ${destacado ? "text-subject-social" : "text-primary-700"}`}>Entrar</span>
-    </button>
-  );
-}
-
-function ContactItem({ titulo, texto }: { titulo: string; texto: string }) {
-  return (
-    <div className="rounded-[22px] bg-white border border-stone-200/80 p-4 sm:p-5 min-w-0">
-      <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-stone-500">{titulo}</p>
-        <p className="text-[15px] text-stone-900 font-semibold [overflow-wrap:anywhere]">{texto}</p>
-      </div>
+    // El número se ve arriba, pero el lector de pantalla lee primero la etiqueta (dt antes de dd)
+    <div className="rounded-[22px] bg-sand-100 px-5 py-4 flex flex-col-reverse">
+      <dt className="text-sm font-semibold text-stone-600 mt-2 leading-snug">{texto}</dt>
+      <dd className="font-display font-extrabold text-5xl leading-none tabular-nums text-primary-800">{valor}</dd>
     </div>
   );
 }
