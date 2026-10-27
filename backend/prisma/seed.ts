@@ -17,9 +17,17 @@ const SEDES: { nombre: string; direccion: string; telefono: string | null }[] = 
     { nombre: 'Sede Petén', direccion: 'Flores, Petén', telefono: null },
 ];
 
-// Solo la primera sede y algunos grados reciben alumnos, cursos y notas, para que el
-// volumen de datos académicos se mantenga manejable. El resto queda con secciones vacías.
-const SEDES_CON_ALUMNOS = 1;
+// Todas las sedes reciben alumnos, pero solo algunos grados, para que el volumen de datos
+// académicos se mantenga manejable. El resto queda con secciones vacías.
+const SEDES_CON_ALUMNOS = 3;
+// Cada sede tiene su propio perfil para que el dashboard y las gráficas se distingan:
+// peso = proporción de alumnos, ajuste = puntos que suma o resta al desempeño de sus alumnos,
+// morososCada = 1 de cada N alumnos debe colegiaturas
+const PERFIL_SEDE = [
+    { peso: 3, ajuste: 0, morososCada: 5 },
+    { peso: 2, ajuste: 6, morososCada: 8 },
+    { peso: 2, ajuste: -7, morososCada: 3 },
+];
 // Grados (índice en GRADOS) que reciben alumnos: mezcla de Primaria, Básico y Diversificado
 // para probar el acceso al portal (Primaria no entra por defecto; Básico y Diversificado sí)
 const GRADOS_CON_ALUMNOS = [0, 2, 4, 6, 7, 9];
@@ -67,27 +75,165 @@ const CURSOS_PREPRIMARIA = [
 const CURSOS_POR_GRADO = 6;
 
 const ANIO_LECTIVO = 2026;
-const DEFAULT_PASSWORD = 'Password123!';
+const DEFAULT_PASSWORD = '12345678';
+const DOMINIO_CORREO = 'vanguardia.edu.gt';
 const USUARIOS_POR_ROL = 10;
-const TOTAL_CATEDRATICOS = 20;
-const TOTAL_ENCARGADOS = 35;
-const TOTAL_ALUMNOS = 60;
+const TOTAL_CATEDRATICOS = 30;
+const TOTAL_ENCARGADOS = 90;
+const TOTAL_ALUMNOS = 150;
 
 const ESPECIALIDADES = ['Matemática', 'Comunicación y Lenguaje', 'Ciencias Naturales', 'Ciencias Sociales', 'Educación Física'];
 const PARENTESCOS = ['Madre', 'Padre', 'Tutor Legal'];
 
-const NOMBRES = [
-    'María José', 'Juan Pablo', 'Ana Lucía', 'Carlos Andrés', 'Sofía', 'Diego Alejandro', 'Valeria', 'José Manuel',
-    'Camila', 'Luis Fernando', 'Isabella', 'Pedro Antonio', 'Gabriela', 'Javier', 'Daniela', 'Andrés',
-    'Mariana', 'Kevin', 'Fernanda', 'Emilio',
+const NOMBRES_HOMBRE = [
+    'José', 'Juan', 'Luis', 'Carlos', 'Jorge', 'Mario', 'Pedro', 'Manuel', 'Francisco', 'Miguel', 'Ángel', 'Antonio',
+    'Fernando', 'Ricardo', 'Roberto', 'Sergio', 'Óscar', 'Edgar', 'Erick', 'Byron', 'Marvin', 'Walter', 'Otto', 'Rodrigo',
+    'Diego', 'Andrés', 'Javier', 'Daniel', 'David', 'Pablo', 'Alejandro', 'Sebastián', 'Mateo', 'Santiago', 'Emilio',
+    'Gabriel', 'Rafael', 'Raúl', 'Hugo', 'Julio', 'César', 'Estuardo', 'Esteban', 'Gustavo', 'Héctor', 'Iván', 'Kevin',
+    'Brandon', 'Bryan', 'Cristian', 'Josué', 'Samuel', 'Isaac', 'Elías', 'Rubén', 'Rolando', 'Gerardo', 'Alfredo',
+    'Armando', 'Arturo', 'Eduardo', 'Enrique', 'Felipe', 'Ernesto', 'Leonel', 'Mynor', 'Wilson', 'Henry', 'Alexander',
+    'Tomás', 'Joaquín', 'Nicolás', 'Adrián', 'Fabián', 'Marco', 'Abner', 'Otoniel', 'Selvin', 'Elmer', 'Rudy',
+];
+const NOMBRES_MUJER = [
+    'María', 'Ana', 'Lucía', 'Sofía', 'Valeria', 'Camila', 'Isabella', 'Gabriela', 'Daniela', 'Mariana', 'Fernanda',
+    'Andrea', 'Paola', 'Alejandra', 'Carolina', 'Claudia', 'Patricia', 'Rosa', 'Carmen', 'Gloria', 'Silvia', 'Mónica',
+    'Verónica', 'Karla', 'Lourdes', 'Ingrid', 'Brenda', 'Sandra', 'Wendy', 'Heidy', 'Evelyn', 'Jessica', 'Marisol',
+    'Leticia', 'Beatriz', 'Elena', 'Julia', 'Natalia', 'Regina', 'Ximena', 'Renata', 'Victoria', 'Valentina', 'Paula',
+    'Abigail', 'Emily', 'Allison', 'Dulce', 'Esther', 'Raquel', 'Rebeca', 'Sara', 'Débora', 'Noemí', 'Olga', 'Irma',
+    'Marta', 'Elisa', 'Josefina', 'Cristina', 'Lorena', 'Mayra', 'Yesenia', 'Astrid', 'Lesly', 'Nancy', 'Julissa',
+    'Ruth', 'Miriam', 'Alba', 'Teresa', 'Inés', 'Luisa', 'Adriana', 'Melissa', 'Fátima', 'Guadalupe', 'Estefanía',
 ];
 const APELLIDOS = [
-    'García López', 'Hernández Pérez', 'Morales Castillo', 'Rodríguez Méndez', 'Castillo Ramírez', 'Pérez Juárez',
-    'López Cifuentes', 'Méndez Orellana', 'Ramírez Fuentes', 'Juárez Estrada', 'Cifuentes Barrios', 'Orellana Solís',
-    'Fuentes Aguilar', 'Estrada Velásquez', 'Barrios Monterroso',
+    'García', 'López', 'Hernández', 'Pérez', 'Morales', 'Castillo', 'Rodríguez', 'Méndez', 'Ramírez', 'Juárez',
+    'Cifuentes', 'Orellana', 'Fuentes', 'Estrada', 'Barrios', 'Monterroso', 'Aguilar', 'Velásquez', 'Solís', 'González',
+    'Martínez', 'Gómez', 'Díaz', 'Reyes', 'Cruz', 'Ortiz', 'Ramos', 'Flores', 'Chávez', 'Mejía', 'Sánchez', 'Rivera',
+    'Vásquez', 'Castro', 'Herrera', 'Medina', 'Alvarado', 'Guzmán', 'Mazariegos', 'Ajú', 'Tzul', 'Xicará', 'Cuxil',
+    'Chamalé', 'Coyoy', 'Boror', 'Sical', 'Choc', 'Caal', 'Pop', 'Tun', 'Ixcot', 'Batz', 'Quiñónez', 'Recinos',
+    'Arévalo', 'Paredes', 'Samayoa', 'Sandoval', 'Carrillo', 'Contreras', 'Del Cid', 'De León', 'Girón', 'Lemus',
+    'Marroquín', 'Monzón', 'Najarro', 'Ordóñez', 'Palacios', 'Pineda', 'Portillo', 'Salazar', 'Santizo', 'Soto',
+    'Toledo', 'Urízar', 'Valdez', 'Villatoro', 'Zamora', 'Zepeda', 'Escobar', 'Figueroa', 'Galindo', 'Godoy', 'Lima',
+    'Lucero', 'Maldonado', 'Montenegro', 'Muñoz', 'Nájera', 'Ochoa', 'Polanco', 'Rosales', 'Rivas', 'Sagastume',
+    'Tobar', 'Barrera', 'Cabrera', 'Coronado', 'Dardón', 'Echeverría', 'Franco', 'Gálvez', 'Hidalgo', 'Jerez',
+    'Linares', 'Mendoza', 'Navas', 'Oliva', 'Pacheco',
 ];
-const nombreDe = (i: number) => NOMBRES[(i * 7) % NOMBRES.length];
-const apellidoDe = (i: number) => APELLIDOS[(i * 3) % APELLIDOS.length];
+
+// Generador pseudoaleatorio con semilla fija (mulberry32): cada ejecución produce las mismas personas
+let semillaAzar = 2026;
+function azar() {
+    semillaAzar = (semillaAzar + 0x6d2b79f5) | 0;
+    let t = Math.imul(semillaAzar ^ (semillaAzar >>> 15), 1 | semillaAzar);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+// Saca elementos de la lista barajada y solo vuelve a barajar cuando se agota,
+// así los nombres y apellidos se repiten lo menos posible
+function baraja<T>(lista: readonly T[]) {
+    let pila: T[] = [];
+    return () => {
+        if (pila.length === 0) {
+            pila = [...lista];
+            for (let i = pila.length - 1; i > 0; i--) {
+                const j = Math.floor(azar() * (i + 1));
+                [pila[i], pila[j]] = [pila[j], pila[i]];
+            }
+        }
+        return pila.pop()!;
+    };
+}
+
+type Genero = 'H' | 'M';
+interface Persona { nombres: string; apellido1: string; apellido2: string; apellidos: string; email: string; genero: Genero }
+
+const siguienteNombre = { H: baraja(NOMBRES_HOMBRE), M: baraja(NOMBRES_MUJER) };
+const siguienteApellido = baraja(APELLIDOS);
+const correosUsados = new Set<string>();
+const nombresUsados = new Set<string>();
+const paraCorreo = (texto: string) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+
+// Correo nombre.apellido@dominio; si ya existe se agrega el segundo apellido y luego un número
+function correoPara(nombres: string, apellido1: string, apellido2: string) {
+    const nombre = paraCorreo(nombres.split(' ')[0]);
+    const base = `${nombre}.${paraCorreo(apellido1)}`;
+    let usuario = [base, `${base}.${paraCorreo(apellido2)}`].find((c) => !correosUsados.has(c));
+    for (let n = 2; !usuario; n++) {
+        if (!correosUsados.has(`${base}${n}`)) usuario = `${base}${n}`;
+    }
+    correosUsados.add(usuario);
+    return `${usuario}@${DOMINIO_CORREO}`;
+}
+
+function nuevaPersona(opciones: { genero?: Genero; apellido1?: string; apellido2?: string; probCompuesto?: number } = {}): Persona {
+    const genero = opciones.genero ?? (azar() < 0.5 ? 'H' : 'M');
+    for (;;) {
+        const primero = siguienteNombre[genero]();
+        let nombres = primero;
+        if (azar() < (opciones.probCompuesto ?? 0.4)) {
+            let segundo = siguienteNombre[genero]();
+            while (segundo === primero) segundo = siguienteNombre[genero]();
+            nombres = `${primero} ${segundo}`;
+        }
+        const apellido1 = opciones.apellido1 ?? siguienteApellido();
+        let apellido2 = opciones.apellido2 ?? siguienteApellido();
+        while (apellido2 === apellido1) apellido2 = siguienteApellido();
+        const apellidos = `${apellido1} ${apellido2}`;
+        if (nombresUsados.has(`${nombres} ${apellidos}`)) continue;
+        nombresUsados.add(`${nombres} ${apellidos}`);
+        return { nombres, apellido1, apellido2, apellidos, email: correoPara(nombres, apellido1, apellido2), genero };
+    }
+}
+
+// Vínculo alumno-encargado. Los primeros 10 alumnos tienen al encargado del mismo número;
+// del 11 en adelante se reparten entre los encargados, así varios encargados tienen 2 hijos.
+const encargadoPrincipalDe = (i: number) => (i <= USUARIOS_POR_ROL ? i : ((i - 1) % TOTAL_ENCARGADOS) + 1);
+
+// Todas las personas del seed se generan de antemano (índice 0 = número 1) para que los
+// hijos lleven el apellido de su padre o madre y los hermanos compartan apellidos
+function generarPersonas() {
+    const lista = (total: number, crear: (i: number) => Persona) => Array.from({ length: total }, (_, k) => crear(k + 1));
+    const adminsGenerales = lista(USUARIOS_POR_ROL, () => nuevaPersona());
+    const adminsSede = lista(USUARIOS_POR_ROL, () => nuevaPersona());
+    // catedratico1 es también madre de alumno8 (ver sembrarCasosDeEncargados)
+    const catedraticos = lista(TOTAL_CATEDRATICOS, (i) => nuevaPersona({ genero: i === 1 ? 'M' : undefined }));
+    const encargados = lista(TOTAL_ENCARGADOS, (i) => {
+        const parentesco = PARENTESCOS[(i - 1) % PARENTESCOS.length];
+        // encargado3 pasa a ser la madre de alumno3 en el caso de padres divorciados
+        const genero = parentesco === 'Madre' || i === 3 ? 'M' : parentesco === 'Padre' ? 'H' : undefined;
+        return nuevaPersona({ genero });
+    });
+
+    const apellidosDeHijos = new Map<number, { apellido1?: string; apellido2?: string }>();
+    const alumnos = lista(TOTAL_ALUMNOS, (i) => {
+        const e = encargadoPrincipalDe(i);
+        const encargado = encargados[e - 1];
+        const parentesco = PARENTESCOS[(e - 1) % PARENTESCOS.length];
+        if (!apellidosDeHijos.has(e)) {
+            apellidosDeHijos.set(e, parentesco === 'Padre'
+                ? { apellido1: encargado.apellido1 }
+                : parentesco === 'Madre' || e === 3
+                    ? { apellido1: siguienteApellido(), apellido2: encargado.apellido1 }
+                    : {});
+        }
+        const apellidos = i === 8 ? { apellido1: apellidosDeHijos.get(e)!.apellido1, apellido2: catedraticos[0].apellido1 } : apellidosDeHijos.get(e)!;
+        const persona = nuevaPersona({ ...apellidos, probCompuesto: 0.55 });
+        // Hermanos: comparten ambos apellidos con el primer hijo del mismo encargado
+        apellidosDeHijos.set(e, { apellido1: persona.apellido1, apellido2: persona.apellido2 });
+        return persona;
+    });
+
+    return {
+        adminsGenerales,
+        adminsSede,
+        catedraticos,
+        encargados,
+        alumnos,
+        secretaria: nuevaPersona({ genero: 'M' }),
+        padreAlumno3: nuevaPersona({ genero: 'H', apellido1: alumnos[2].apellido1 }),
+        padreAlumno6: nuevaPersona({ genero: 'H', apellido1: alumnos[5].apellido1 }),
+        abuelaAlumno7: nuevaPersona({ genero: 'M', probCompuesto: 0.2 }),
+    };
+}
+type Personas = ReturnType<typeof generarPersonas>;
 
 // Sede, Grado y Curso no tienen un campo @unique en el schema, así que no admiten
 // upsert nativo: se busca por nombre y solo se crea si no existe.
@@ -216,19 +362,39 @@ async function main() {
         return iSede < SEDES_CON_ALUMNOS && GRADOS_CON_ALUMNOS.includes(iGrado);
     });
     const sedesConAlumnos = sedes.slice(0, SEDES_CON_ALUMNOS);
+    const indiceSede = (sedeId: number) => sedes.findIndex((s) => s.sedeId === sedeId);
+
+    // Sede de cada alumno según el peso de la sede; los hermanos (alumnos que comparten
+    // encargado principal) estudian en la misma sede que el hermano mayor
+    const turnosSede = PERFIL_SEDE.slice(0, SEDES_CON_ALUMNOS).flatMap((p, s) => Array<number>(p.peso).fill(s));
+    const sedeDeAlumno: number[] = [];
+    for (let i = 1; i <= TOTAL_ALUMNOS; i++) {
+        sedeDeAlumno[i] = i > TOTAL_ENCARGADOS ? sedeDeAlumno[encargadoPrincipalDe(i)] : turnosSede[(i - 1) % turnosSede.length];
+    }
+    // Dentro de cada sede los alumnos se reparten entre sus secciones por turnos
+    const turnoSeccion = new Map<number, number>();
+    const seccionDeAlumno = (i: number) => {
+        const sede = sedesConAlumnos[sedeDeAlumno[i]];
+        const delaSede = seccionesConAlumnos.filter((s) => s.sedeId === sede.sedeId);
+        const turno = turnoSeccion.get(sede.sedeId) ?? 0;
+        turnoSeccion.set(sede.sedeId, turno + 1);
+        return delaSede[turno % delaSede.length];
+    };
 
     // 5. Usuarios, con contraseña hasheada compartida para pruebas
     const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+    const personas = generarPersonas();
 
     // Administrador General: sin sede fija, supervisa toda la red
     for (let i = 1; i <= USUARIOS_POR_ROL; i++) {
+        const { nombres, apellidos, email } = personas.adminsGenerales[i - 1];
         await prisma.usuario.upsert({
-            where: { email: `admin.general${i}@dercas.edu.gt` },
+            where: { email },
             update: {},
             create: {
-                nombres: `AdminGeneral${i}`,
-                apellidos: 'Prueba',
-                email: `admin.general${i}@dercas.edu.gt`,
+                nombres,
+                apellidos,
+                email,
                 passwordHash,
                 rolId: roles.get('Administrador General')!,
                 sedeId: null,
@@ -239,13 +405,14 @@ async function main() {
     // Administrador de Sede: repartidos entre las sedes con alumnos
     for (let i = 1; i <= USUARIOS_POR_ROL; i++) {
         const sede = sedesConAlumnos[(i - 1) % sedesConAlumnos.length];
+        const { nombres, apellidos, email } = personas.adminsSede[i - 1];
         await prisma.usuario.upsert({
-            where: { email: `admin.sede${i}@dercas.edu.gt` },
+            where: { email },
             update: {},
             create: {
-                nombres: `AdminSede${i}`,
-                apellidos: 'Prueba',
-                email: `admin.sede${i}@dercas.edu.gt`,
+                nombres,
+                apellidos,
+                email,
                 passwordHash,
                 rolId: roles.get('Administrador de Sede')!,
                 sedeId: sede.sedeId,
@@ -256,13 +423,13 @@ async function main() {
     // Catedraticos: usuario base + registro de extensión Catedratico
     for (let i = 1; i <= TOTAL_CATEDRATICOS; i++) {
         const sede = sedesConAlumnos[(i - 1) % sedesConAlumnos.length];
-        const email = `catedratico${i}@dercas.edu.gt`;
+        const { nombres, apellidos, email } = personas.catedraticos[i - 1];
         const usuario = await prisma.usuario.upsert({
             where: { email },
             update: {},
             create: {
-                nombres: i <= USUARIOS_POR_ROL ? `Catedratico${i}` : nombreDe(i),
-                apellidos: i <= USUARIOS_POR_ROL ? 'Prueba' : apellidoDe(i),
+                nombres,
+                apellidos,
                 email,
                 passwordHash,
                 rolId: roles.get('Catedratico')!,
@@ -283,13 +450,13 @@ async function main() {
     // Encargados: usuario base + registro de extensión Encargado.
     // El update corrige el rol si el registro del rol fue renombrado o reemplazado.
     for (let i = 1; i <= TOTAL_ENCARGADOS; i++) {
-        const email = `encargado${i}@dercas.edu.gt`;
+        const { nombres, apellidos, email } = personas.encargados[i - 1];
         const usuario = await prisma.usuario.upsert({
             where: { email },
             update: { rolId: roles.get('Encargado')! },
             create: {
-                nombres: i <= USUARIOS_POR_ROL ? `Encargado${i}` : nombreDe(i + 3),
-                apellidos: i <= USUARIOS_POR_ROL ? 'Prueba' : apellidoDe(i),
+                nombres,
+                apellidos,
                 email,
                 passwordHash,
                 rolId: roles.get('Encargado')!,
@@ -309,14 +476,14 @@ async function main() {
 
     // Alumnos: usuario base + registro de extensión Alumno, asignados a una sección
     for (let i = 1; i <= TOTAL_ALUMNOS; i++) {
-        const seccion = seccionesConAlumnos[(i - 1) % seccionesConAlumnos.length];
-        const email = `alumno${i}@dercas.edu.gt`;
+        const seccion = seccionDeAlumno(i);
+        const { nombres, apellidos, email } = personas.alumnos[i - 1];
         const usuario = await prisma.usuario.upsert({
             where: { email },
             update: {},
             create: {
-                nombres: i <= USUARIOS_POR_ROL ? `Alumno${i}` : nombreDe(i + 11),
-                apellidos: i <= USUARIOS_POR_ROL ? 'Prueba' : apellidoDe(Math.ceil(i / 2)),
+                nombres,
+                apellidos,
                 email,
                 passwordHash,
                 rolId: roles.get('Alumno')!,
@@ -336,13 +503,11 @@ async function main() {
         });
     }
 
-    // Vínculo alumno-encargado. Los primeros 10 alumnos siguen con su encargado del mismo número;
-    // del 11 en adelante se reparten entre los encargados, así varios encargados tienen 2 hijos.
+    // Vínculo alumno-encargado (ver encargadoPrincipalDe).
     // Cada 4 alumnos se agrega además un encargado secundario.
-    const encargadoPrincipalDe = (i: number) => (i <= USUARIOS_POR_ROL ? i : ((i - 1) % TOTAL_ENCARGADOS) + 1);
     for (let i = 1; i <= TOTAL_ALUMNOS; i++) {
-        const alumno = await prisma.usuario.findUnique({ where: { email: `alumno${i}@dercas.edu.gt` }, include: { alumno: true } });
-        const encargado = await prisma.usuario.findUnique({ where: { email: `encargado${encargadoPrincipalDe(i)}@dercas.edu.gt` } });
+        const alumno = await prisma.usuario.findUnique({ where: { email: personas.alumnos[i - 1].email }, include: { alumno: true } });
+        const encargado = await prisma.usuario.findUnique({ where: { email: personas.encargados[encargadoPrincipalDe(i) - 1].email } });
         if (!alumno?.alumno || !encargado) continue;
 
         await prisma.alumnoEncargado.upsert({
@@ -359,7 +524,7 @@ async function main() {
 
         if (i % 4 === 0) {
             const secundario = await prisma.usuario.findUnique({
-                where: { email: `encargado${((encargadoPrincipalDe(i) + 16) % TOTAL_ENCARGADOS) + 1}@dercas.edu.gt` },
+                where: { email: personas.encargados[(encargadoPrincipalDe(i) + 16) % TOTAL_ENCARGADOS].email },
             });
             if (secundario && secundario.usuarioId !== encargado.usuarioId) {
                 await prisma.alumnoEncargado.upsert({
@@ -474,8 +639,10 @@ async function main() {
         { nombre: 'Proyecto', puntosMaximos: 30, tipo: 'Zona' as const },
         { nombre: 'Examen de unidad', puntosMaximos: 40, tipo: 'Examen' as const },
     ];
-    // Mes de referencia de cada unidad dentro del ciclo escolar (0 = enero)
-    const MES_POR_UNIDAD = [1, 3, 6, 9];
+    // Mes en que empieza cada unidad (0 = enero). Las actividades de una unidad se reparten en tres
+    // meses (mes de inicio + [meses, día]), así el ciclo tiene notas de febrero a octubre
+    const MES_POR_UNIDAD = [1, 3, 5, 7];
+    const FECHA_ACTIVIDAD = [[0, 12], [1, 2], [1, 20], [2, 5]];
 
     // Seeds anteriores creaban 'Actividad 1/2/3' de 10 + 10 + 5 puntos (unidades de 25).
     // Se convierten a la escala nueva y sus notas se escalan en la misma proporción.
@@ -510,7 +677,8 @@ async function main() {
     const actividadesNuevas = unidades.flatMap((unidad) =>
         ACTIVIDADES_UNIDAD.flatMap(({ nombre, puntosMaximos, tipo }, idx) => {
             if (unidad.actividades.some((a) => a.nombre === nombre)) return [];
-            const fecha = new Date(ANIO_LECTIVO, MES_POR_UNIDAD[(unidad.numero - 1) % 4], 10 + idx * 7);
+            const [meses, dia] = FECHA_ACTIVIDAD[idx % FECHA_ACTIVIDAD.length];
+            const fecha = new Date(Date.UTC(ANIO_LECTIVO, MES_POR_UNIDAD[(unidad.numero - 1) % 4] + meses, dia));
             return [{ unidadId: unidad.unidadId, nombre, puntosMaximos, fecha, tipo }];
         })
     );
@@ -519,18 +687,21 @@ async function main() {
 
     // 9. Notas: distribución controlada (no aleatoria) para que ~30% de los alumnos
     // termine con promedio por debajo de 61 y el resto por encima. El "desempeño" de
-    // cada alumno es fijo según su posición global y se reparte proporcionalmente
-    // entre las actividades de cada unidad, para que cada unidad (sobre 100)
-    // y por lo tanto el promedio del curso quede cerca de ese porcentaje.
+    // cada alumno es fijo según su posición global; cada actividad se califica cerca de ese
+    // porcentaje, con una variación por unidad, por tipo (el examen sale algo más bajo) y un
+    // poco de azar, para que el rendimiento promedio suba y baje a lo largo del año.
+    // La nota se registra unos días después de la actividad.
     // Solo se crean las notas que falten; las ya registradas no se modifican.
-    const alumnosOrdenados = await prisma.alumno.findMany({ orderBy: { alumnoId: 'asc' } });
+    // El ajuste de la sede sube o baja ese porcentaje, así cada sede tiene su propio nivel de aprobación.
+    const alumnosOrdenados = await prisma.alumno.findMany({ orderBy: { alumnoId: 'asc' }, include: { seccion: true } });
     const desempenoPorAlumno = new Map<number, number>();
     alumnosOrdenados.forEach((alumno, indice) => {
         const esBajo = indice % 10 < 3; // 3 de cada 10 alumnos => ~30%
         const desempeno = esBajo
             ? 35 + (indice % 4) * 6 // banda reprobada: 35, 41, 47, 53
             : 65 + (indice % 5) * 6; // banda aprobada: 65, 71, 77, 83, 89
-        desempenoPorAlumno.set(alumno.alumnoId, desempeno);
+        const ajuste = PERFIL_SEDE[indiceSede(alumno.seccion.sedeId)]?.ajuste ?? 0;
+        desempenoPorAlumno.set(alumno.alumnoId, Math.max(20, Math.min(98, desempeno + ajuste)));
     });
 
     const alumnosPorSeccion = new Map<number, number[]>();
@@ -543,31 +714,33 @@ async function main() {
     const unidadesConActividades = await prisma.unidad.findMany({
         select: {
             unidadId: true,
+            numero: true,
             cursoSeccion: { select: { seccionId: true } },
             actividades: { orderBy: { actividadId: 'asc' } },
         },
         orderBy: { unidadId: 'asc' },
     });
 
+    // La segunda unidad suele ser la más difícil y al final del ciclo los alumnos mejoran
+    const VARIACION_UNIDAD = [2, -7, 1, 6];
+    const UN_DIA = 24 * 60 * 60 * 1000;
     const notasNuevas = [];
     for (const unidad of unidadesConActividades) {
-        const puntosUnidad = unidad.actividades.reduce((suma, a) => suma + Number(a.puntosMaximos), 0);
-
         for (const alumnoId of alumnosPorSeccion.get(unidad.cursoSeccion.seccionId) ?? []) {
             const desempeno = desempenoPorAlumno.get(alumnoId) ?? 70;
-            let restante = Math.round((puntosUnidad * desempeno) / 100);
 
-            for (let i = 0; i < unidad.actividades.length; i++) {
-                const actividad = unidad.actividades[i];
-                const esUltima = i === unidad.actividades.length - 1;
+            for (const actividad of unidad.actividades) {
                 const maximo = Number(actividad.puntosMaximos);
+                const porcentaje = desempeno
+                    + VARIACION_UNIDAD[(unidad.numero - 1) % 4]
+                    + (actividad.tipo === 'Examen' ? -5 : 2)
+                    + (azar() - 0.5) * 16;
+                const valor = Math.round((maximo * Math.max(0, Math.min(100, porcentaje))) / 100);
+                const fechaRegistro = actividad.fecha
+                    ? new Date(Math.min(actividad.fecha.getTime() + (1 + Math.floor(azar() * 6)) * UN_DIA, Date.now()))
+                    : undefined;
 
-                const valor = esUltima
-                    ? Math.max(0, Math.min(restante, maximo))
-                    : Math.max(0, Math.min(Math.round((maximo * desempeno) / 100), maximo, restante));
-                restante -= valor;
-
-                notasNuevas.push({ actividadId: actividad.actividadId, alumnoId, valor });
+                notasNuevas.push({ actividadId: actividad.actividadId, alumnoId, valor, fechaRegistro });
             }
         }
     }
@@ -607,16 +780,16 @@ async function main() {
     console.log(`Asistencias registradas: ${asistenciasCreadas.count}`);
 
     // 10b. Casos reales de roles y encargados para probar el sistema
-    await sembrarCasosDeEncargados(roles, passwordHash);
+    await sembrarCasosDeEncargados(roles, passwordHash, personas);
 
     // Personal con roles creados por el colegio (Secretaría) en la primera sede
-    for (const [nombreRol, email, nombres] of [
-        ['Secretaría', 'secretaria1@dercas.edu.gt', 'Secretaria1'],
+    for (const [nombreRol, { nombres, apellidos, email }] of [
+        ['Secretaría', personas.secretaria],
     ] as const) {
         await prisma.usuario.upsert({
             where: { email },
             update: {},
-            create: { nombres, apellidos: 'Prueba', email, passwordHash, rolId: roles.get(nombreRol)!, sedeId: sedesConAlumnos[0].sedeId },
+            create: { nombres, apellidos, email, passwordHash, rolId: roles.get(nombreRol)!, sedeId: sedesConAlumnos[0].sedeId },
         });
     }
 
@@ -624,7 +797,7 @@ async function main() {
     // requisitos, una política (presupuesto, descuento por hermanos y tope) y becas en todos los
     // estados para probar el flujo: activas, solicitadas, suspendidas y finalizadas.
     const alumnosSeed = await prisma.usuario.findMany({
-        where: { email: { startsWith: 'alumno' }, alumno: { isNot: null } },
+        where: { rolId: roles.get('Alumno')!, alumno: { isNot: null } },
         orderBy: { usuarioId: 'asc' },
         include: { alumno: { include: { seccion: true, encargados: true } } },
     });
@@ -746,8 +919,8 @@ async function main() {
     }
     console.log(`Programas de beca listos: ${PROGRAMAS_BECA.length * 2} por sede. Becas creadas: ${becasCreadas}`);
 
-    // 12. Pagos de colegiatura de enero al mes actual. La mayoría está al día;
-    // 1 de cada 5 alumnos debe los últimos meses (Pendiente) para probar morosidad.
+    // 12. Pagos de colegiatura de enero al mes actual. La mayoría está al día; según la sede,
+    // 1 de cada N alumnos (PERFIL_SEDE.morososCada) debe los últimos meses (Pendiente) para probar morosidad.
     const colegiatura = Number(process.env.COLEGIATURA_MENSUAL ?? 500);
     const mesActual = Math.min(new Date().getMonth() + 1, 10);
     const becasActivas = await prisma.beca.findMany({ where: { estado: 'Activa', anioLectivo: ANIO_LECTIVO } });
@@ -755,7 +928,8 @@ async function main() {
     for (const [idx, alumno] of alumnosSeed.entries()) {
         const beca = becasActivas.find((b) => b.alumnoId === alumno.usuarioId);
         const monto = Number((colegiatura * (1 - (beca ? Number(beca.porcentaje) : 0) / 100)).toFixed(2));
-        const moroso = idx % 5 === 2;
+        const morososCada = PERFIL_SEDE[indiceSede(alumno.alumno!.seccion.sedeId)]?.morososCada ?? 5;
+        const moroso = idx % morososCada === 2 % morososCada;
         for (let mes = 1; mes <= mesActual; mes++) {
             const pagado = !(moroso && mes >= mesActual - 1) && mes < mesActual + (idx % 3 === 0 ? 1 : 0);
             pagosNuevos.push({
@@ -782,12 +956,11 @@ async function main() {
         { sede: null, nombre: 'Exámenes de cuarta unidad', tipoEvento: 'Academico', mes: 10, dia: 12, descripcion: 'Semana de evaluaciones finales.' },
         { sede: null, nombre: 'Clausura del ciclo escolar', tipoEvento: 'Academico', mes: 10, dia: 30, descripcion: 'Acto de clausura y entrega de diplomas.' },
         { sede: 0, nombre: 'Reunión de padres - Sede Central', tipoEvento: 'Reunion', mes: 10, dia: 2, descripcion: 'Entrega de notas de tercera unidad.' },
-        { sede: 1, nombre: 'Reunión de padres - Sede Norte', tipoEvento: 'Reunion', mes: 10, dia: 3, descripcion: 'Entrega de notas de tercera unidad.' },
-        { sede: 2, nombre: 'Reunión de padres - Sede Sur', tipoEvento: 'Reunion', mes: 10, dia: 5, descripcion: 'Entrega de notas de tercera unidad.' },
+        { sede: 1, nombre: 'Reunión de padres - Sede Antigua', tipoEvento: 'Reunion', mes: 10, dia: 3, descripcion: 'Entrega de notas de tercera unidad.' },
+        { sede: 2, nombre: 'Reunión de padres - Sede Petén', tipoEvento: 'Reunion', mes: 10, dia: 5, descripcion: 'Entrega de notas de tercera unidad.' },
         { sede: 0, nombre: 'Olimpiadas deportivas', tipoEvento: 'Deportivo', mes: 8, dia: 21, descripcion: 'Competencias interaulas de fútbol y atletismo.' },
         { sede: 1, nombre: 'Feria científica', tipoEvento: 'Academico', mes: 8, dia: 28, descripcion: 'Exposición de proyectos de Ciencias Naturales.' },
         { sede: 2, nombre: 'Kermés escolar', tipoEvento: 'Deportivo', mes: 11, dia: 7, descripcion: 'Actividad para recaudar fondos.' },
-        { sede: 3, nombre: 'Inauguración Sede Mixco', tipoEvento: 'Reunion', mes: 1, dia: 12, descripcion: 'Acto de apertura del ciclo en la nueva sede.' },
     ];
     let eventosCreados = 0;
     for (const e of EVENTOS) {
@@ -847,7 +1020,7 @@ async function main() {
     }
 
     const NOTIFICACIONES = [
-        { tipo: 'Conducta', titulo: 'Nuevo reporte de conducta', mensaje: 'Se registró un reporte de conducta de Alumno1 Prueba. Revíselo en el portal.' },
+        { tipo: 'Conducta', titulo: 'Nuevo reporte de conducta', mensaje: `Se registró un reporte de conducta de ${personas.alumnos[0].nombres} ${personas.alumnos[0].apellidos}. Revíselo en el portal.` },
         { tipo: 'Notas', titulo: 'Notas de Matemática disponibles', mensaje: 'Ya están disponibles las notas de la Unidad 1 de Matemática.' },
         { tipo: 'Aviso', titulo: 'Reunión de padres de familia', mensaje: 'Se convoca a reunión de padres el viernes a las 16:00 horas en el salón de actos.' },
         { tipo: 'Notas', titulo: 'Notas de Comunicación y Lenguaje disponibles', mensaje: 'Ya están disponibles las notas de la Unidad 3 de Comunicación y Lenguaje.' },
@@ -855,7 +1028,7 @@ async function main() {
         { tipo: 'Aviso', titulo: 'Pago de colegiatura pendiente', mensaje: 'Le recordamos que tiene una colegiatura pendiente de pago.' },
     ];
     const encargadosSeed = await prisma.usuario.findMany({
-        where: { email: { startsWith: 'encargado' }, encargado: { isNot: null } },
+        where: { rolId: roles.get('Encargado')!, encargado: { isNot: null } },
         orderBy: { usuarioId: 'asc' },
         take: 12,
     });
@@ -879,10 +1052,10 @@ async function main() {
     console.log(`Notificaciones creadas: ${(await prisma.notificacion.count()) - notificacionesAntes}`);
 
     const adminsSede = await prisma.usuario.findMany({
-        where: { email: { startsWith: 'admin.sede' } },
+        where: { rolId: roles.get('Administrador de Sede')! },
         orderBy: { usuarioId: 'asc' },
     });
-    const adminGeneral1 = await prisma.usuario.findUnique({ where: { email: 'admin.general1@dercas.edu.gt' } });
+    const adminGeneral1 = await prisma.usuario.findUnique({ where: { email: personas.adminsGenerales[0].email } });
     const COMUNICADOS = [
         { tipo: 'Aviso', titulo: 'Inicio de la cuarta unidad', mensaje: 'Se informa a los padres de familia que la cuarta unidad inicia el lunes 5 de octubre.', destinatarios: 'Padres y encargados' },
         { tipo: 'Asueto', titulo: 'Asueto 15 de septiembre', mensaje: 'Por conmemorarse el Día de la Independencia no habrá clases el 15 de septiembre.', destinatarios: 'Toda la comunidad educativa' },
@@ -918,6 +1091,99 @@ async function main() {
     }
     console.log(`Conducta, notificaciones y comunicados listos (comunicados nuevos: ${comunicadosCreados})`);
 
+    // 15. Justificaciones de ausencia: sobre ausencias reales de la asistencia sembrada, en todos los
+    // estados. Las revisa el administrador de la sede del alumno.
+    const ausencias = asistenciasNuevas.filter((a) => a.estado === 'Ausente');
+    const MOTIVOS_AUSENCIA = [
+        'Cita médica en el IGSS por control de rutina.',
+        'Presentó fiebre y el pediatra recomendó reposo.',
+        'Viaje familiar por fallecimiento de un familiar.',
+        'Trámite del pasaporte en Migración.',
+        'Malestar estomacal, se adjunta constancia médica.',
+        'Participó en un torneo deportivo representando al departamento.',
+    ];
+    const ESTADOS_JUSTIFICACION = ['Pendiente', 'Pendiente', 'Aprobada', 'Pendiente', 'Rechazada', 'Aprobada'];
+    const justificadas = new Set<string>();
+    let justificacionesCreadas = 0;
+    for (const [idx, usuarioAlumno] of alumnosSeed.entries()) {
+        if (idx % 4 !== 1) continue;
+        const ausencia = ausencias.find((a) => a.alumnoId === usuarioAlumno.usuarioId && !justificadas.has(`${a.alumnoId}|${a.fecha.toISOString()}`));
+        const solicitante = usuarioAlumno.alumno!.encargados.find((e) => e.esPrincipal);
+        if (!ausencia || !solicitante) continue;
+        justificadas.add(`${ausencia.alumnoId}|${ausencia.fecha.toISOString()}`);
+        const estado = ESTADOS_JUSTIFICACION[justificacionesCreadas % ESTADOS_JUSTIFICACION.length];
+        const revisor = adminsSede.find((a) => a.sedeId === usuarioAlumno.alumno!.seccion.sedeId);
+        await prisma.justificacionAusencia.upsert({
+            where: { alumnoId_fecha: { alumnoId: ausencia.alumnoId, fecha: ausencia.fecha } },
+            update: {},
+            create: {
+                alumnoId: ausencia.alumnoId,
+                fecha: ausencia.fecha,
+                motivo: MOTIVOS_AUSENCIA[idx % MOTIVOS_AUSENCIA.length],
+                estado,
+                solicitanteId: solicitante.encargadoId,
+                revisorId: estado === 'Pendiente' ? null : revisor?.usuarioId ?? null,
+                comentario: estado === 'Rechazada' ? 'No se presentó la constancia que respalde la ausencia.' : null,
+                fechaSolicitud: new Date(ausencia.fecha.getTime() + 24 * 60 * 60 * 1000),
+                fechaRevision: estado === 'Pendiente' ? null : new Date(ausencia.fecha.getTime() + 2 * 24 * 60 * 60 * 1000),
+            },
+        });
+        justificacionesCreadas++;
+    }
+    console.log(`Justificaciones de ausencia creadas: ${justificacionesCreadas}`);
+
+    // 16. Solicitudes de inscripción para el próximo ciclo en cada sede. Son familias que aún no
+    // tienen cuenta, por eso su correo es personal y no del colegio.
+    const ESTADOS_SOLICITUD = ['PENDIENTE', 'PENDIENTE', 'REVISION', 'PENDIENTE', 'RECHAZADA', 'REVISION', 'VENCIDA'] as const;
+    const DOCUMENTOS_SOLICITUD = [
+        'Certificación de nacimiento del alumno extendida por RENAP',
+        'Certificado del último grado aprobado',
+        'Copia de DPI del padre o encargado',
+        'Dos fotografías tamaño cédula',
+    ];
+    const SOLICITUDES_POR_SEDE = [7, 5, 4];
+    let numeroSolicitud = 0;
+    for (const [s, sede] of sedes.entries()) {
+        for (let k = 0; k < (SOLICITUDES_POR_SEDE[s] ?? 0); k++) {
+            numeroSolicitud++;
+            const numero = `SOL-${ANIO_LECTIVO}-${String(numeroSolicitud).padStart(5, '0')}`;
+            if (await prisma.solicitud.findUnique({ where: { numero } })) continue;
+            const grado = grados[(numeroSolicitud * 5) % grados.length];
+            const madre = numeroSolicitud % 3 !== 0;
+            const encargado = nuevaPersona({ genero: madre ? 'M' : 'H' });
+            const hijo = nuevaPersona({ apellido1: madre ? undefined : encargado.apellido1, apellido2: madre ? encargado.apellido1 : undefined });
+            const estado = ESTADOS_SOLICITUD[numeroSolicitud % ESTADOS_SOLICITUD.length];
+            const fechaSolicitud = new Date(Date.now() - (numeroSolicitud % 12 + 1) * 3 * 24 * 60 * 60 * 1000);
+            const fechaLimite = new Date(fechaSolicitud.getTime() + (estado === 'VENCIDA' ? 7 : 30) * 24 * 60 * 60 * 1000);
+            await prisma.solicitud.create({
+                data: {
+                    numero,
+                    modo: numeroSolicitud % 2 ? 'PUBLICO' : 'PRESENCIAL',
+                    estado,
+                    encargadoNombres: encargado.nombres,
+                    encargadoApellidos: encargado.apellidos,
+                    encargadoDpi: String(2000000000000 + numeroSolicitud * 7919357).slice(0, 13),
+                    encargadoTelefono: `${[3, 4, 5][numeroSolicitud % 3]}${String(1000000 + numeroSolicitud * 48271).slice(-7)}`,
+                    encargadoCorreo: `${paraCorreo(encargado.nombres.split(' ')[0])}.${paraCorreo(encargado.apellido1)}${numeroSolicitud}@gmail.com`,
+                    encargadoParentesco: madre ? 'Madre' : 'Padre',
+                    alumnoNombres: hijo.nombres,
+                    alumnoApellidos: hijo.apellidos,
+                    alumnoFechaNacimiento: new Date(Date.UTC(ANIO_LECTIVO - 5 - grado.orden, numeroSolicitud % 12, (numeroSolicitud % 27) + 1)),
+                    alumnoNivel: grado.nivel,
+                    alumnoGrado: grado.nombre,
+                    sedeId: sede.sedeId,
+                    documentos: grado.nivel === 'Preprimaria' ? DOCUMENTOS_SOLICITUD.filter((_, d) => d !== 1) : DOCUMENTOS_SOLICITUD,
+                    observaciones: estado === 'REVISION' ? 'Documentos recibidos, pendiente de entrevista con dirección.' : null,
+                    fechaSolicitud,
+                    fechaLimite,
+                    fechaResolucion: estado === 'RECHAZADA' ? new Date(fechaSolicitud.getTime() + 5 * 24 * 60 * 60 * 1000) : null,
+                    motivoResolucion: estado === 'RECHAZADA' ? 'No hay cupo disponible en el grado solicitado.' : null,
+                },
+            });
+        }
+    }
+    console.log(`Solicitudes de inscripción: ${await prisma.solicitud.count()}`);
+
     console.log(`Seed completado. Contraseña de prueba para todos los usuarios: ${DEFAULT_PASSWORD}`);
 }
 
@@ -927,10 +1193,10 @@ async function main() {
 //    el padre paga la colegiatura y ve notas, pero no está autorizado a recogerlo.
 //  - alumno6: el padre tiene una orden de alejamiento: sin acceso a nada.
 //  - alumno7: la abuela es tutora temporal mientras los padres trabajan fuera (con fecha de fin).
-//  - catedratico1 también es padre de alumno8 (un usuario con dos roles).
-async function sembrarCasosDeEncargados(roles: Map<string, number>, passwordHash: string) {
+//  - catedratico1 también es madre de alumno8 (un usuario con dos roles).
+async function sembrarCasosDeEncargados(roles: Map<string, number>, passwordHash: string, personas: Personas) {
     const usuarioDe = (email: string) => prisma.usuario.findUnique({ where: { email } });
-    const crearEncargado = async (email: string, nombres: string, apellidos: string) => {
+    const crearEncargado = async ({ email, nombres, apellidos }: Persona) => {
         const u = await prisma.usuario.upsert({
             where: { email },
             update: {},
@@ -951,8 +1217,8 @@ async function sembrarCasosDeEncargados(roles: Map<string, number>, passwordHash
     };
 
     // Padres divorciados
-    const padreDivorciado = await crearEncargado('padre.alumno3@dercas.edu.gt', 'Roberto', 'Alumno3 Prueba');
-    const alumno3 = await vincular('alumno3@dercas.edu.gt', padreDivorciado.usuarioId, {
+    const padreDivorciado = await crearEncargado(personas.padreAlumno3);
+    const alumno3 = await vincular(personas.alumnos[2].email, padreDivorciado.usuarioId, {
         parentesco: 'Padre', responsableFinanciero: true, tieneCustodia: false, autorizadoRecoger: false,
         observaciones: 'Padres divorciados. Custodia de la madre según convenio; el padre cubre la colegiatura.',
     });
@@ -964,23 +1230,23 @@ async function sembrarCasosDeEncargados(roles: Map<string, number>, passwordHash
     }
 
     // Orden de alejamiento
-    const padreRestringido = await crearEncargado('padre.alumno6@dercas.edu.gt', 'Marvin', 'Alumno6 Prueba');
-    await vincular('alumno6@dercas.edu.gt', padreRestringido.usuarioId, {
+    const padreRestringido = await crearEncargado(personas.padreAlumno6);
+    await vincular(personas.alumnos[5].email, padreRestringido.usuarioId, {
         parentesco: 'Padre', restringido: true,
         motivoRestriccion: 'Orden de alejamiento No. 01080-2026-00118, Juzgado de Familia. No entregar al alumno ni dar información.',
         tieneCustodia: false, autorizadoRecoger: false, puedeVerNotas: false, puedeVerPagos: false, recibeNotificaciones: false,
     });
 
     // Tutor temporal
-    const abuela = await crearEncargado('abuela.alumno7@dercas.edu.gt', 'Carmen', 'Alumno7 Prueba');
-    await vincular('alumno7@dercas.edu.gt', abuela.usuarioId, {
+    const abuela = await crearEncargado(personas.abuelaAlumno7);
+    await vincular(personas.alumnos[6].email, abuela.usuarioId, {
         parentesco: 'Abuelo(a)', autorizadoRecoger: true, tieneCustodia: true,
         vigenteHasta: new Date(Date.UTC(ANIO_LECTIVO, 11, 31)),
         observaciones: 'Tutora temporal mientras los padres trabajan en el extranjero.',
     });
 
-    // Catedrático que también es padre de familia
-    const catedratico = await usuarioDe('catedratico1@dercas.edu.gt');
+    // Catedrática que también es madre de familia
+    const catedratico = await usuarioDe(personas.catedraticos[0].email);
     if (catedratico) {
         await prisma.usuarioRol.upsert({
             where: { usuarioId_rolId: { usuarioId: catedratico.usuarioId, rolId: roles.get('Encargado')! } },
@@ -988,7 +1254,7 @@ async function sembrarCasosDeEncargados(roles: Map<string, number>, passwordHash
             create: { usuarioId: catedratico.usuarioId, rolId: roles.get('Encargado')! },
         });
         await prisma.encargado.upsert({ where: { encargadoId: catedratico.usuarioId }, update: {}, create: { encargadoId: catedratico.usuarioId } });
-        await vincular('alumno8@dercas.edu.gt', catedratico.usuarioId, { parentesco: 'Padre' });
+        await vincular(personas.alumnos[7].email, catedratico.usuarioId, { parentesco: 'Madre' });
     }
 }
 
