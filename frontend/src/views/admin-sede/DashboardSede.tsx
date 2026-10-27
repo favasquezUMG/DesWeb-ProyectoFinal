@@ -45,7 +45,7 @@ export default function DashboardSede() {
           sub={data.aprobacion.evaluados ? `Promedio general ${data.aprobacion.promedio} · ${data.aprobacion.evaluados} evaluados` : "Aún no hay notas"}
           icon={<CheckCircle2 className="w-5 h-5" />}
           variant={data.aprobacion.porcentaje === null ? "default" : data.aprobacion.porcentaje >= 80 ? "success" : "warning"} />
-        <MetricCard label="Pagos vencidos" value={`${data.mora.porcentaje}%`} sub={`${data.mora.alumnos} cuenta(s) con cuotas atrasadas`}
+        <MetricCard label="Pagos pendientes" value={`${data.mora.porcentaje}%`} sub={`${data.mora.alumnos} alumno(s) con colegiaturas sin pagar`}
           icon={<AlertTriangle className="w-5 h-5" />} variant={data.mora.porcentaje > 15 ? "danger" : data.mora.porcentaje > 0 ? "warning" : "success"} />
         <MetricCard label="Becas activas" value={data.becas.activas} sub={`${data.becas.porcentaje}% del alumnado`} icon={<Award className="w-5 h-5" />} />
       </div>

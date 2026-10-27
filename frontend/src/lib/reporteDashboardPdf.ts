@@ -88,7 +88,7 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
       sub: datos.aprobacion ? limpiarTexto(datos.aprobacion.subtexto) : "Sin datos",
     },
     {
-      label: "PORCENTAJE DE MORA",
+      label: "PAGOS PENDIENTES",
       val: datos.mora ? `${datos.mora.porcentajeMora}%` : "0%",
       sub: datos.mora ? limpiarTexto(datos.mora.subtexto) : "Sin datos",
     },
