@@ -1,14 +1,18 @@
-# Blueprint de Render: API (Express + Prisma) y frontend (sitio estático de Vite).
-# Las variables con sync: false se llenan en el panel de Render al crear el Blueprint.
+# Blueprint de Render: un solo servicio. La API (Express + Prisma) también sirve el frontend
+# compilado, así todo queda en un mismo link. Las variables con sync: false se llenan en el
+# panel de Render al crear el Blueprint.
 services:
   - type: web
-    name: colegio-vanguardia-api
+    name: colegio-vanguardia
     runtime: node
     plan: free
-    rootDir: backend
-    # --include=dev: tsc y prisma son devDependencies y NODE_ENV=production las omitiría
-    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
-    startCommand: npm start
+    # Primero el frontend (con la URL del propio servicio, que Render da en RENDER_EXTERNAL_URL) y luego la API.
+    # --include=dev: vite, tsc y prisma son devDependencies y NODE_ENV=production las omitiría
+    buildCommand: >-
+      cd frontend && npm ci --include=dev &&
+      VITE_API_URL=$RENDER_EXTERNAL_URL VITE_SITE_URL=$RENDER_EXTERNAL_URL npm run build &&
+      cd ../backend && npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: cd backend && npm start
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
@@ -26,13 +30,6 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 1h
-      # URL del frontend en Render, p. ej. https://colegio-vanguardia.onrender.com
-      - key: CORS_ORIGIN
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
-      - key: APP_URL
-        sync: false
       - key: MAIL_HOST
         sync: false
       - key: MAIL_PORT
@@ -63,25 +60,6 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-
-  - type: web
-    name: colegio-vanguardia
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: NODE_VERSION
-        value: 24.18.0
-      # URL de la API en Render, p. ej. https://colegio-vanguardia-api.onrender.com
-      - key: VITE_API_URL
-        sync: false
+      # Llave PUBLICABLE (pk_test_...): la usa el build del frontend
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
-      - key: VITE_SITE_URL
-        value: https://colegio-vanguardia.onrender.com
-    routes:
-      # SPA: toda ruta la resuelve React (incluida la página 404)
-      - type: rewrite
-        source: /*
-        destination: /index.html

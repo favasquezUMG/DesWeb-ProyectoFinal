@@ -1,4 +1,6 @@
 import express from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
@@ -42,6 +44,9 @@ import { closeBrowser } from "./services/pdf.service.js";
 dotenv.config();
 const app = express();
 
+// En Render la API también sirve el frontend: los enlaces de los correos apuntan a la misma URL
+if (process.env.RENDER_EXTERNAL_URL) process.env.FRONTEND_URL ||= process.env.RENDER_EXTERNAL_URL;
+
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
 
@@ -51,6 +56,7 @@ const origenesPermitidos = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
   .filter(Boolean);
 
 const origenesPropios = [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
+if (process.env.RENDER_EXTERNAL_URL) origenesPropios.push(process.env.RENDER_EXTERNAL_URL);
 
 const puertosDev = origenesPermitidos
   .map((o) => { try { return new URL(o).port; } catch { return null; } })
@@ -80,6 +86,18 @@ app.post(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Frontend compilado (frontend/dist), si existe. Va antes de "/" para que la raíz sea la página de inicio
+const frontendDist = path.resolve(import.meta.dirname, "../../frontend/dist");
+const hayFrontend = existsSync(frontendDist);
+if (hayFrontend) {
+  app.use(express.static(frontendDist, {
+    setHeaders(res, archivo) {
+      // Los archivos de assets/ llevan hash en el nombre: nunca cambian
+      if (archivo.includes(`${path.sep}assets${path.sep}`)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  }));
+}
 
 app.get("/", (_req, res) => {
   res.json({
@@ -131,6 +149,14 @@ app.use('/api/encargado', encargadoRoutes);
 app.use('/api/portal-alumno', portalAlumnoRoutes);
 app.use('/api/grados', gradoRoutes);
 app.use('/api/circulares', circularRoutes);
+
+// La app solo vive en "/": cualquier otra ruta que no sea de la API muestra la página 404 de React con estado 404
+if (hayFrontend) {
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api")) return next();
+    res.status(404).sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 app.listen(PORT, async () => {
   try {
