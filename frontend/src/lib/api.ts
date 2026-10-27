@@ -201,7 +201,7 @@ export interface UsuarioDto {
   rolesAdicionales: { rolId: number; rol: { rolId: number; nombre: string } }[];
   catedratico: { especialidad: string | null } | null;
   encargado: { _count: { alumnosEncargado: number } } | null;
-  alumno: { seccion: { nombre: string; grado: { nombre: string } } } | null;
+  alumno: { seccion: { seccionId?: number; nombre: string; anioLectivo?: number; grado: { nombre: string } } } | null;
 }
 
 export interface UsuarioDetalleDto extends UsuarioDto {
@@ -292,6 +292,11 @@ export function setAccesoPortalAlumno(alumnoId: number, accesoPortal: boolean | 
 
 export function setSaludAlumno(alumnoId: number, datos: DatosSaludDto): Promise<{ status: "success"; message: string; data: DatosSaludDto }> {
   return request(`/api/alumnos/${alumnoId}/salud`, { method: "PUT", body: JSON.stringify(datos) });
+}
+
+/** Cambia al alumno de sección; si la sección es de otra sede, también cambia de sede */
+export function trasladarAlumno(alumnoId: number, seccionId: number): Promise<{ status: "success"; message: string; data: { seccionId: number; sede: { sedeId: number; nombre: string } } }> {
+  return request(`/api/alumnos/${alumnoId}/seccion`, { method: "PUT", body: JSON.stringify({ seccionId }) });
 }
 
 export async function getAlumnos(params?: { seccionId?: number; q?: string }): Promise<AlumnoDto[]> {
@@ -1823,8 +1828,8 @@ export async function getDashboardSede(sedeId?: number): Promise<DashboardSedeDt
 
 // ---------- Reportes en PDF (generados por el backend) ----------
 
-/** Descarga un PDF protegido (con el token de la sesión) y lo abre en otra pestaña */
-export async function abrirReportePdf(path: string): Promise<void> {
+/** Descarga un PDF protegido (con el token de la sesión) con su nombre y extensión .pdf */
+export async function descargarReportePdf(path: string, nombreArchivo: string): Promise<void> {
   const token = getToken();
   let response: Response;
   try {
@@ -1836,8 +1841,14 @@ export async function abrirReportePdf(path: string): Promise<void> {
     const body = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(body?.message || "No se pudo generar el reporte.");
   }
-  const url = URL.createObjectURL(await response.blob());
-  window.open(url, "_blank");
+  if (!response.headers.get("Content-Type")?.includes("application/pdf")) {
+    throw new Error("El servidor no devolvió un PDF.");
+  }
+  const url = URL.createObjectURL(new Blob([await response.arrayBuffer()], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nombreArchivo;
+  link.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 

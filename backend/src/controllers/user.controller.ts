@@ -42,7 +42,7 @@ const incluirDetalle = {
     rolesAdicionales: { include: { rol: { select: { rolId: true, nombre: true } } } },
     catedratico: { select: { especialidad: true } },
     encargado: { select: { _count: { select: { alumnosEncargado: { where: { activo: true } } } } } },
-    alumno: { select: { seccion: { select: { nombre: true, grado: { select: { nombre: true } } } } } },
+    alumno: { select: { seccion: { select: { seccionId: true, nombre: true, anioLectivo: true, grado: { select: { nombre: true } } } } } },
 } as const;
 
 // Nunca se devuelve el hash de la contraseña
