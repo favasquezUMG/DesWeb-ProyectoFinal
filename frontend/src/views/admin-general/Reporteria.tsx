@@ -68,7 +68,7 @@ export default function Reporteria() {
   }
 
   const reportes: { clave: Clave; titulo: string; desc: string; tag: string; listo: boolean; falta?: string }[] = [
-    { clave: "resumen", titulo: "Resumen de sede", desc: "Alumnos, aprobación por grado, mora, becas y alumnos en riesgo.", tag: "Directivo", listo: true },
+    { clave: "resumen", titulo: "Resumen de sede", desc: "Alumnos, aprobación por grado, pagos pendientes, becas y alumnos en riesgo.", tag: "Directivo", listo: true },
     { clave: "seccion", titulo: "Aprobados y reprobados por sección", desc: "Promedio de cada alumno de la sección, separados por resultado.", tag: "Académico", listo: !!seccionId, falta: "Elija una sección" },
     { clave: "catedratico", titulo: "Notas por catedrático", desc: "Notas por unidad de todos los cursos que imparte el docente.", tag: "Académico", listo: !!catedraticoId, falta: "Elija un catedrático" },
     { clave: "carga", titulo: "Carga horaria docente", desc: "Cursos asignados y horas semanales de cada catedrático.", tag: "Administrativo", listo: catedraticosFiltrados.length > 0 },

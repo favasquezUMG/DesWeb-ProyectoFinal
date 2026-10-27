@@ -136,7 +136,7 @@ export default function SedesView() {
                       <div className="bg-success-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, m.aprobacion)}%` }} />
                     </div>
                     <div className="flex items-center justify-between text-xs text-stone-500 mb-4">
-                      <span>Mora</span>
+                      <span>Pagos pendientes</span>
                       <span className={`font-display font-bold tabular-nums ${m.mora > 15 ? "text-danger-700" : "text-stone-700"}`}>{m.mora}%</span>
                     </div>
                   </>

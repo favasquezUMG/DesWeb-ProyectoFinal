@@ -183,8 +183,8 @@ function DashboardConsolidado() {
           icon={<TrendingUp className="w-5 h-5" />}
           variant="success"
         />
-        <MetricCard label="En mora de pagos"
-          value={moraMetric ? `${moraMetric.porcentajeMora}` : "..."}
+        <MetricCard label="Pagos pendientes"
+          value={moraMetric ? `${moraMetric.porcentajeMora}%` : "..."}
           sub={moraMetric ? `${moraMetric.subtexto}` : "Cargando..."}
           icon={<AlertTriangle className="w-5 h-5" />}
           variant="warning"
