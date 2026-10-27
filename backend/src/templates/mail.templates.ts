@@ -19,9 +19,13 @@ const parrafos = (texto: string): string =>
         .map((linea) => `<p style="margin:0 0 10px 0;">${linea}</p>`)
         .join("");
 
+// Misma prioridad que el enlace de recuperar contraseña: FRONTEND_URL primero, APP_URL como respaldo
+const urlFrontend = (): string =>
+    (process.env.FRONTEND_URL || process.env.APP_URL || "").replace(/\/+$/, "");
+
 const botonIngresar = (): string =>
-    process.env.APP_URL
-        ? `<p style="margin-top:20px;"><a href="${process.env.APP_URL}" style="background-color:#1d4ed8; color:#ffffff; padding:10px 18px; border-radius:6px; text-decoration:none; font-weight:bold;">Ingresar al sistema</a></p>`
+    urlFrontend()
+        ? `<p style="margin-top:20px;"><a href="${urlFrontend()}" style="background-color:#1d4ed8; color:#ffffff; padding:10px 18px; border-radius:6px; text-decoration:none; font-weight:bold;">Ingresar al sistema</a></p>`
         : "";
 
 // Las columnas @db.Date llegan como medianoche UTC; se formatean en UTC para no correr el dia
@@ -321,8 +325,8 @@ export const plantillaComprobantePago = (datos: {
 
 // Lleva directo a la circular: el frontend pide iniciar sesion si hace falta y luego la abre
 const botonCircular = (eventoId: number, conCosto: boolean): string =>
-    process.env.APP_URL
-        ? `<p style="margin-top:20px;"><a href="${process.env.APP_URL}/?circular=${eventoId}" style="background-color:#1d4ed8; color:#ffffff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:bold;">${conCosto ? "Autorizar y pagar" : "Responder circular"}</a></p>`
+    urlFrontend()
+        ? `<p style="margin-top:20px;"><a href="${urlFrontend()}/?circular=${eventoId}" style="background-color:#1d4ed8; color:#ffffff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:bold;">${conCosto ? "Autorizar y pagar" : "Responder circular"}</a></p>`
         : "";
 
 export const plantillaNuevaCircular = (datos: {
