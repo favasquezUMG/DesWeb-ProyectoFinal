@@ -27,6 +27,7 @@ import AvisosPadre from "./AvisosPadre";
 import AsistenciaPadre from "./AsistenciaPadre";
 import BecasPadre from "./BecasPadre";
 import CircularesPadre from "./CircularesPadre";
+import TableroTareas from "../components/TableroTareas";
 
 const errorDe = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
@@ -630,6 +631,35 @@ function MatriculaView({ user }: { user?: AppUser }) {
 
 // ─── Notas ───────────────────────────────────────────────────────────────────
 
+// Tareas en línea de cada hijo. En Primaria (sin portal) el encargado es quien entrega.
+function TareasHijo() {
+  const { hijos: todos, error: errorHijos } = useHijosEncargado();
+  const hijos = todos?.filter((h) => h.puedeVerNotas && !h.retirado) ?? null;
+  const [hijoId, setHijoId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (hijos && hijoId === null && hijos.length) setHijoId(hijos[0].alumnoId);
+  }, [hijos, hijoId]);
+
+  if (hijos && hijos.length === 0) return <SinHijos title="Tareas" />;
+  const hijo = hijos?.find((h) => h.alumnoId === hijoId) ?? null;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <SectionHeader title="Tareas" subtitle={hijo
+          ? hijo.accesoPortal
+            ? `${hijo.nombre} entrega sus tareas desde su portal; aquí puede darles seguimiento.`
+            : `${hijo.nombre} no tiene acceso al portal: usted entrega sus tareas en línea.`
+          : undefined} />
+        {hijos && <SelectorHijo hijos={hijos} value={hijoId} onChange={setHijoId} />}
+      </div>
+      {errorHijos && <AlertBanner type="error" message={errorHijos} />}
+      {hijoId !== null && <TableroTareas alumnoId={hijoId} />}
+    </div>
+  );
+}
+
 function NotasHijo() {
   const { hijos: todos, error: errorHijos } = useHijosEncargado();
   const hijos = todos?.filter((h) => h.puedeVerNotas) ?? null;
@@ -1229,6 +1259,7 @@ function PerfilView({ user }: { user?: AppUser }) {
 export default function Padre({ view, user, onNavigate }: { view: View; user?: AppUser; onNavigate?: (v: View) => void }) {
   if (view === "pad-matricula") return <MatriculaView user={user} />;
   if (view === "pad-notas") return <NotasHijo />;
+  if (view === "pad-tareas") return <TareasHijo />;
   if (view === "pad-pagos") return <PagosView />;
   if (view === "pad-circulares") return <CircularesPadre onNavigate={onNavigate} />;
   if (view === "pad-becas") return <BecasPadre />;

@@ -11,6 +11,8 @@ import { forwardRef, type ComponentType } from "react";
 import type { IconProps, IconWeight } from "@phosphor-icons/react";
 import {
   ArrowLeft as PhArrowLeft, ArrowsClockwise as PhArrowsClockwise, ArrowsLeftRight as PhArrowsLeftRight, Bell as PhBell, BellRinging as PhBellRinging, BellSlash as PhBellSlash, BookBookmark as PhBookBookmark, BookOpen as PhBookOpen, BookOpenText as PhBookOpenText, Buildings as PhBuildings, CalendarCheck as PhCalendarCheck, CalendarDots as PhCalendarDots, CalendarSlash as PhCalendarSlash, CalendarX as PhCalendarX, Car as PhCar, CarProfile as PhCarProfile, CaretDown as PhCaretDown, CaretLeft as PhCaretLeft, CaretRight as PhCaretRight, ChartBar as PhChartBar, ChatCircleText as PhChatCircleText, Check as PhCheck, CheckCircle as PhCheckCircle, Checks as PhChecks, ClipboardText as PhClipboardText, Clock as PhClock, ClockCounterClockwise as PhClockCounterClockwise, Copy as PhCopy, CopySimple as PhCopySimple, CreditCard as PhCreditCard, DotsThreeVertical as PhDotsThreeVertical, DownloadSimple as PhDownloadSimple, EnvelopeSimple as PhEnvelopeSimple, Eye as PhEye, EyeSlash as PhEyeSlash, FileMagnifyingGlass as PhFileMagnifyingGlass, FileText as PhFileText, FloppyDisk as PhFloppyDisk, Gauge as PhGauge, GearSix as PhGearSix, GraduationCap as PhGraduationCap, GridNine as PhGridNine, Heart as PhHeart, House as PhHouse, Info as PhInfo, Key as PhKey, Laptop as PhLaptop, Lightbulb as PhLightbulb, List as PhList, ListChecks as PhListChecks, Lock as PhLock, MagnifyingGlass as PhMagnifyingGlass, MapPin as PhMapPin, Medal as PhMedal, NotePencil as PhNotePencil, Notebook as PhNotebook, PaperPlaneTilt as PhPaperPlaneTilt, PauseCircle as PhPauseCircle, PencilSimple as PhPencilSimple, Phone as PhPhone, PlayCircle as PhPlayCircle, Plus as PhPlus, Printer as PhPrinter, Prohibit as PhProhibit, Receipt as PhReceipt, SealCheck as PhSealCheck, ShieldCheck as PhShieldCheck, ShieldWarning as PhShieldWarning, ShoppingCart as PhShoppingCart, Signature as PhSignature, SignOut as PhSignOut, SquaresFour as PhSquaresFour, Stack as PhStack, Star as PhStar, Ticket as PhTicket, Trash as PhTrash, Tray as PhTray, TrendUp as PhTrendUp, User as PhUser, UserCheck as PhUserCheck, UserCircle as PhUserCircle, UserMinus as PhUserMinus, UserPlus as PhUserPlus, Users as PhUsers, UsersThree as PhUsersThree, Wallet as PhWallet, Warning as PhWarning, WarningCircle as PhWarningCircle, WarningOctagon as PhWarningOctagon, X as PhX, XCircle as PhXCircle, Target as PhTarget, Binoculars as PhBinoculars, NavigationArrow as PhNavigationArrow,
+  ArrowsOut as PhArrowsOut, ArrowsIn as PhArrowsIn, MagnifyingGlassPlus as PhMagnifyingGlassPlus, MagnifyingGlassMinus as PhMagnifyingGlassMinus, ArrowUp as PhArrowUp, ArrowArcLeft as PhArrowArcLeft, ArrowArcRight as PhArrowArcRight, ArrowUDownLeft as PhArrowUDownLeft, MapTrifold as PhMapTrifold, PersonSimpleWalk as PhPersonSimpleWalk,
+  Paperclip as PhPaperclip, UploadSimple as PhUploadSimple, ArrowUUpLeft as PhArrowUUpLeft, Kanban as PhKanban,
 } from "@phosphor-icons/react";
 
 export type Icono = ComponentType<IconProps & { className?: string }>;
@@ -123,3 +125,21 @@ export const XCircle = crear(PhXCircle, "duotone");
 export const Target = crear(PhTarget, "duotone");
 export const Binoculars = crear(PhBinoculars, "duotone");
 export const Navigation = crear(PhNavigationArrow, "duotone");
+
+// Recorrido virtual
+export const Expandir = crear(PhArrowsOut, "bold");
+export const Contraer = crear(PhArrowsIn, "bold");
+export const ZoomIn = crear(PhMagnifyingGlassPlus, "bold");
+export const ZoomOut = crear(PhMagnifyingGlassMinus, "bold");
+export const Avanzar = crear(PhArrowUp, "bold");
+export const GirarIzquierda = crear(PhArrowArcLeft, "bold");
+export const GirarDerecha = crear(PhArrowArcRight, "bold");
+export const DarVuelta = crear(PhArrowUDownLeft, "bold");
+export const Mapa = crear(PhMapTrifold, "duotone");
+export const Caminar = crear(PhPersonSimpleWalk, "duotone");
+
+// Tareas y entregas
+export const Clip = crear(PhPaperclip, "bold");
+export const Subir = crear(PhUploadSimple, "bold");
+export const Devolver = crear(PhArrowUUpLeft, "bold");
+export const Tablero = crear(PhKanban, "duotone");

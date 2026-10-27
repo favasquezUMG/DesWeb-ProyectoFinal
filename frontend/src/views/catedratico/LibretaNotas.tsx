@@ -187,6 +187,11 @@ export default function LibretaNotas() {
         >
           <span className="max-w-28 truncate">{act.nombre}</span>
           <span className="text-[11px] font-normal text-stone-400">(0–{act.puntosMaximos})</span>
+          {act.porRevisar > 0 && (
+            <span className="text-[11px] font-semibold text-warning-800 bg-warning-50 rounded-full px-1.5" title="Entregas en línea por revisar en Tareas y entregas">
+              {act.porRevisar} por revisar
+            </span>
+          )}
         </button>
       </th>
     );
