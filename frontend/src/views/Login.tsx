@@ -4,7 +4,7 @@ import { Sede, type AppUser, type Role } from "../types";
 import type { Portal } from "./Home";
 import { Btn, AlertBanner, Input, Card, Tabs, Badge } from "../components/Ui";
 import SolicitudInscripcion from "../components/SolicitudInscripcion";
-import { type SedeDto, getSedes, login, restablecerPassword, solicitarRecuperacion } from "../lib/api";
+import { login, restablecerPassword, solicitarRecuperacion } from "../lib/api";
 import { buildAppUser, clearSession, mapBackendRole, saveSession } from "../lib/auth";
 import {
   type SolicitudGuardada,
@@ -15,7 +15,7 @@ import {
 } from "../lib/solicitudes";
 import { generarConstanciaPdf } from "../lib/constanciaPdf";
 
-export type Screen = "login" | "forgot" | "reset" | "sede" | "solicitud" | "consulta";
+export type Screen = "login" | "forgot" | "reset" | "solicitud" | "consulta";
 
 // Qué roles pueden entrar por cada portal. Los encargados usan el portal de
 // estudiantes porque consultan la información de sus hijos.
@@ -88,10 +88,6 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resetError, setResetError] = useState("");
   const [resetDone, setResetDone] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
-  const [selectedSede, setSelectedSede] = useState("Sede Central");
-
-  const [sedes, setSedes] = useState<SedeDto[]>([]);
 
   const [consultaTab, setConsultaTab] = useState<"numero" | "dpi">("numero");
   const [consultaNumero, setConsultaNumero] = useState("");
@@ -131,13 +127,7 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
       }
 
       saveSession(result.token, appUser);
-
-      if (appUser.role === "admin-general") {
-        setSelectedUser(appUser);
-        setScreen("sede");
-      } else {
-        onLogin(appUser, appUser.sede);
-      }
+      onLogin(appUser, appUser.sede);
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       setError(
@@ -183,10 +173,6 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleSedeConfirm() {
-    if (selectedUser) onLogin(selectedUser, selectedSede);
   }
 
   function volverAlLogin() {
@@ -242,19 +228,6 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
     }
     setConsultaResultado(encontrada);
   }
-
-  useEffect(() => {
-    async function cargarSedes() {
-      try{
-        const data = await getSedes();
-        setSedes(data);
-      } catch (error) {
-        console.error("Error al cargar datos desde el backend:", error)
-      }
-    }
-    cargarSedes();
-
-  }, [])
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
@@ -454,33 +427,6 @@ export default function Login({ onLogin, onBack, initialPortal = "estudiante", i
                   </>
                 )}
               </form>
-            )}
-
-            {screen === "sede" && selectedUser && (
-              <div>
-                <h2 className="font-display text-2xl font-bold text-stone-900 mb-1">Seleccionar sede</h2>
-                <p className="text-stone-500 text-sm mb-6">Su usuario tiene acceso a varias sedes. Seleccione la sede de trabajo para esta sesión.</p>
-
-                <div className="space-y-2 mb-6">
-                  {sedes.map(s => (
-                    <button key={s.sedeId} type="button" onClick={() => setSelectedSede(s.nombre)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors cursor-pointer text-left
-                        ${selectedSede === s.nombre ? "border-primary-700 bg-primary-50" : "border-stone-200 bg-white hover:border-stone-300"}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedSede === s.nombre ? "border-primary-700" : "border-stone-300"}`}>
-                        {selectedSede === s.nombre && <div className="w-2 h-2 rounded-full bg-primary-700" />}
-                      </div>
-                      <span className={`text-sm font-medium ${selectedSede === s.nombre ? "text-primary-900" : "text-stone-700"}`}>{s.nombre}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <Btn variant="primary" size="lg" className="w-full justify-center" onClick={handleSedeConfirm}>
-                  Continuar con {selectedSede}
-                </Btn>
-                <button type="button" onClick={() => setScreen("login")} className="w-full text-center text-sm text-stone-500 hover:text-stone-700 mt-3 py-1">
-                  ← Cambiar usuario
-                </button>
-              </div>
             )}
 
             {screen === "solicitud" && (

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Download } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, Select, AlertBanner } from "../../components/Ui";
 import {
-  getSedes, getSeccionesAdmin, getCatedraticosSede, getDashboardSede, abrirReportePdf,
+  getSedes, getSeccionesAdmin, getCatedraticosSede, getDashboardSede, descargarReportePdf,
   type SedeDto, type SeccionAdminDto, type CatedraticoSedeDto,
 } from "../../lib/api";
 import { generarCargaHorariaPdf, generarResumenSedePdf } from "../../lib/reportesPdf";
@@ -56,8 +56,8 @@ export default function Reporteria() {
     setGenerando(clave);
     setError("");
     try {
-      if (clave === "seccion") await abrirReportePdf(`/api/reportes/alumnos-por-rango?seccionId=${seccionId}`);
-      if (clave === "catedratico") await abrirReportePdf(`/api/reportes/notas-por-catedratico/${catedraticoId}`);
+      if (clave === "seccion") await descargarReportePdf(`/api/reportes/alumnos-por-rango?seccionId=${seccionId}`, `alumnos-seccion-${seccionId}.pdf`);
+      if (clave === "catedratico") await descargarReportePdf(`/api/reportes/notas-por-catedratico/${catedraticoId}`, `notas-catedratico-${catedraticoId}.pdf`);
       if (clave === "resumen") generarResumenSedePdf(await getDashboardSede(sedeId || undefined));
       if (clave === "carga") generarCargaHorariaPdf(catedraticosFiltrados, sede?.nombre ?? "Todas las sedes", ciclo);
     } catch (e) {
