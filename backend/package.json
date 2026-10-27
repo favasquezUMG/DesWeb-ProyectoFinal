@@ -12,7 +12,8 @@
     "start": "node dist/server.js",
     "migrate": "dotenv -e .env -- prisma migrate dev",
     "generate": "prisma generate",
-    "seed": "tsx --env-file=.env prisma/seed.ts"
+    "seed": "tsx --env-file=.env prisma/seed.ts",
+    "limpiar": "tsx --env-file=.env prisma/limpiar.ts"
   },
   "prisma": {
     "seed": "tsx --env-file=.env prisma/seed.ts"

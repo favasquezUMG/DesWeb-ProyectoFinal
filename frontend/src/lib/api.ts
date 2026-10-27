@@ -832,7 +832,7 @@ export function enviarNotasAEncargados(input: EnvioNotasInput): Promise<EnvioNot
 
 export interface TendenciaNotasDto {
   mes: string;
-  promedio: number;
+  promedio: number | null; // null: mes sin notas registradas
 }
 
 export async function getTendenciaNotas(): Promise<TendenciaNotasDto[]>{

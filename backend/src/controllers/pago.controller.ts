@@ -616,7 +616,7 @@ export const getMoraPagosMetrica = async (_req: AuthenticatedRequest, res: Respo
                 data: {
                 porcentajeMora: 0,
                 cuentasPendientes: 0,
-                subtexto: "0 cuentas pendientes",
+                subtexto: "Sin colegiaturas pendientes",
                 },
             });
         }
@@ -651,7 +651,7 @@ export const getMoraPagosMetrica = async (_req: AuthenticatedRequest, res: Respo
             data: {
                 porcentajeMora,
                 cuentasPendientes: totalPagosPendientes,
-                subtexto: `${totalPagosPendientes} cuentas pendientes`,
+                subtexto: `${alumnosEnMora.length} alumno(s) con ${totalPagosPendientes} colegiatura(s) sin pagar`,
             },
         });
     } catch (error) {
