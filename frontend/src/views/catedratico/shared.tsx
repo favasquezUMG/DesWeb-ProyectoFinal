@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSession } from "../../lib/auth";
 import { getCursosDeCatedratico, type ActividadDto, type CursoSeccionDto, type LibretaDto, type TipoActividad } from "../../lib/api";
-import { Badge, EstadoBadge } from "../../components/Ui";
+import { Badge, EstadoBadge, ListaSkeleton } from "../../components/Ui";
 
 export const NOTA_APROBACION = 61;
 
@@ -202,11 +202,11 @@ export function CursoSelect({ cursos, value, onChange }: {
   );
 }
 
+// El texto solo lo anuncia el lector de pantalla; a la vista queda la silueta de la lista
 export function Cargando({ texto = "Cargando..." }: { texto?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-sm text-stone-500">
-      <span className="w-4 h-4 border-2 border-stone-300 border-t-primary-700 rounded-full animate-spin" />
-      {texto}
+    <div className="py-4" aria-label={texto}>
+      <ListaSkeleton />
     </div>
   );
 }

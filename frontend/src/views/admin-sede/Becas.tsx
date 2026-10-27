@@ -3,7 +3,7 @@ import {
   Plus, Edit, Ban, History, PauseCircle, PlayCircle, RefreshCw, ClipboardCheck, Check, X, Award, Inbox, Wallet, Receipt,
 } from "../../components/Iconos";
 import {
-  Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea, TablaResponsiva, AlAparecer,
+  Card, SectionHeader, Btn, Badge, TH, TD, AlertBanner, Modal, Drawer, Tabs, MetricCard, Select, Input, Textarea, TablaResponsiva, AlAparecer, ListaSkeleton,
 } from "../../components/Ui";
 import HistorialBeca from "../../components/HistorialBeca";
 import ProgramasBeca from "./becas/ProgramasBeca";
@@ -382,10 +382,7 @@ export default function BecasView() {
       <Tabs tabs={tabs} active={tabActiva} onChange={(t) => setTab(t.startsWith("Solicitudes") ? "Solicitudes" : t)} />
 
       {loading ? (
-        <Card className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-          <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-          Cargando becas…
-        </Card>
+        <ListaSkeleton />
       ) : (
         <>
           {tab === "Becas" && (

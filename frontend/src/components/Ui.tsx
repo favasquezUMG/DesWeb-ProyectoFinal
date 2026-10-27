@@ -212,6 +212,52 @@ export function PagoBadge({ estado }: { estado: "pagado" | "pendiente" | "vencid
   return <span className={`${PILL} ${cfg.cls}`}>{cfg.icon}{cfg.label}</span>;
 }
 
+// ─── Esqueletos de carga ─────────────────────────────────────────────────────
+
+/** Bloque que late mientras llega el contenido; sin animación si la persona pidió menos movimiento */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <span aria-hidden="true" className={`block rounded-xl bg-stone-200/70 motion-safe:animate-pulse ${className}`} />;
+}
+
+/** Silueta de una pantalla completa: título, tarjetas y una tabla */
+export function PantallaSkeleton() {
+  return (
+    <div role="status" className="space-y-6 pt-2">
+      <span className="sr-only">Cargando…</span>
+      <div className="space-y-2.5">
+        <Skeleton className="h-9 w-64 max-w-full" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <Skeleton className="h-36 rounded-[22px]" />
+        <Skeleton className="h-36 rounded-[22px] hidden sm:block" />
+        <Skeleton className="h-36 rounded-[22px] hidden lg:block" />
+      </div>
+      <Skeleton className="h-64 rounded-[22px]" />
+    </div>
+  );
+}
+
+/** Lista de filas mientras carga (bandejas, tablas cortas) */
+export function ListaSkeleton({ filas = 4 }: { filas?: number }) {
+  return (
+    <div role="status" className="space-y-2.5">
+      <span className="sr-only">Cargando…</span>
+      {Array.from({ length: filas }, (_, i) => <Skeleton key={i} className="h-14 rounded-2xl" />)}
+    </div>
+  );
+}
+
+/** Unas cuantas filas para las tarjetas del dashboard */
+export function LineasSkeleton({ lineas = 3 }: { lineas?: number }) {
+  return (
+    <div role="status" className="space-y-3">
+      <span className="sr-only">Cargando…</span>
+      {Array.from({ length: lineas }, (_, i) => <Skeleton key={i} className="h-10 rounded-2xl" />)}
+    </div>
+  );
+}
+
 // ─── Contenedores ────────────────────────────────────────────────────────────
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
