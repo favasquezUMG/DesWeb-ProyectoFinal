@@ -1829,6 +1829,38 @@ export async function getDashboardSede(sedeId?: number): Promise<DashboardSedeDt
 // ---------- Reportes en PDF (generados por el backend) ----------
 
 /** Descarga un PDF protegido (con el token de la sesión) con su nombre y extensión .pdf */
+export interface ReporteAlumnosPorRangoDto {
+  sede: string;
+  cicloEscolar: string;
+  seccion: string;
+  reprobados: { alumnoId: number; nombre: string; promedio: number }[];
+  aprobados: { alumnoId: number; nombre: string; promedio: number }[];
+}
+
+export interface ReporteNotasCatedraticoDto {
+  catedratico: { catedraticoId: number; nombre: string; especialidad: string | null };
+  sede: string;
+  cicloEscolar: string;
+  cursos: {
+    cursoSeccionId: number;
+    curso: string;
+    seccion: string;
+    alumnos: { alumnoId: number; nombre: string; unidades: { numero: number; nota: number }[]; total: number }[];
+  }[];
+}
+
+// Los datos de estos reportes se piden en JSON y el PDF se arma en el navegador (reportesPdf.ts),
+// así no dependen de que el servidor tenga Chrome para Puppeteer
+export async function getReporteAlumnosPorRango(seccionId: number): Promise<ReporteAlumnosPorRangoDto> {
+  const body = await request<{ status: "success"; data: ReporteAlumnosPorRangoDto }>(`/api/reportes/alumnos-por-rango?seccionId=${seccionId}&formato=json`);
+  return body.data;
+}
+
+export async function getReporteNotasCatedratico(catedraticoId: number): Promise<ReporteNotasCatedraticoDto> {
+  const body = await request<{ status: "success"; data: ReporteNotasCatedraticoDto }>(`/api/reportes/notas-por-catedratico/${catedraticoId}?formato=json`);
+  return body.data;
+}
+
 export async function descargarReportePdf(path: string, nombreArchivo: string): Promise<void> {
   const token = getToken();
   let response: Response;

@@ -9,12 +9,21 @@ const getBrowser = async (): Promise<Browser> => {
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
         });
 
-        browserPromise.catch(() => {
-            browserPromise = null;
-        });
+        browserPromise
+            // Si Chrome se cierra o se cae (suspensión, falta de memoria), se descarta para
+            // abrir uno nuevo en el siguiente reporte en lugar de fallar hasta reiniciar el servidor
+            .then((browser) => browser.on("disconnected", () => { browserPromise = null; }))
+            .catch(() => {
+                browserPromise = null;
+            });
     }
 
-    return browserPromise;
+    const browser = await browserPromise;
+    if (!browser.connected) {
+        browserPromise = null;
+        return getBrowser();
+    }
+    return browser;
 };
 
 export const renderPdfFromHtml = async (html: string): Promise<Buffer> => {

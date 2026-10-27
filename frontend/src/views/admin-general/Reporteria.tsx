@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Download } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Badge, Select, AlertBanner } from "../../components/Ui";
 import {
-  getSedes, getSeccionesAdmin, getCatedraticosSede, getDashboardSede, descargarReportePdf,
+  getSedes, getSeccionesAdmin, getCatedraticosSede, getDashboardSede, getReporteAlumnosPorRango, getReporteNotasCatedratico,
   type SedeDto, type SeccionAdminDto, type CatedraticoSedeDto,
 } from "../../lib/api";
-import { generarCargaHorariaPdf, generarResumenSedePdf } from "../../lib/reportesPdf";
+import { generarAlumnosPorRangoPdf, generarCargaHorariaPdf, generarNotasCatedraticoPdf, generarResumenSedePdf } from "../../lib/reportesPdf";
 
 type Clave = "seccion" | "catedratico" | "resumen" | "carga";
 
@@ -56,8 +56,8 @@ export default function Reporteria() {
     setGenerando(clave);
     setError("");
     try {
-      if (clave === "seccion") await descargarReportePdf(`/api/reportes/alumnos-por-rango?seccionId=${seccionId}`, `alumnos-seccion-${seccionId}.pdf`);
-      if (clave === "catedratico") await descargarReportePdf(`/api/reportes/notas-por-catedratico/${catedraticoId}`, `notas-catedratico-${catedraticoId}.pdf`);
+      if (clave === "seccion" && seccionId) generarAlumnosPorRangoPdf(await getReporteAlumnosPorRango(seccionId), seccionId);
+      if (clave === "catedratico" && catedraticoId) generarNotasCatedraticoPdf(await getReporteNotasCatedratico(catedraticoId));
       if (clave === "resumen") generarResumenSedePdf(await getDashboardSede(sedeId || undefined));
       if (clave === "carga") generarCargaHorariaPdf(catedraticosFiltrados, sede?.nombre ?? "Todas las sedes", ciclo);
     } catch (e) {

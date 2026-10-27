@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import type { CatedraticoSedeDto, DashboardSedeDto } from "./api";
+import type { CatedraticoSedeDto, DashboardSedeDto, ReporteAlumnosPorRangoDto, ReporteNotasCatedraticoDto } from "./api";
 
 const PRIMARY = [43, 58, 140] as const;
 const TEXT = [30, 30, 30] as const;
@@ -63,6 +63,27 @@ function tabla(doc: jsPDF, y: number, columnas: { titulo: string; x: number }[],
   return y + 4;
 }
 
+// Título de un bloque; si no queda espacio para el título y algunas filas, pasa a otra página
+function subtitulo(doc: jsPDF, y: number, texto: string, color: readonly [number, number, number] = PRIMARY): number {
+  if (y > 235) {
+    doc.addPage();
+    y = 20;
+  }
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...color);
+  doc.text(texto, MARGEN, y);
+  return y + 8;
+}
+
+function sinDatos(doc: jsPDF, y: number, texto: string): number {
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...MUTED);
+  doc.text(texto, MARGEN, y);
+  return y + 10;
+}
+
 const archivo = (texto: string) => texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-");
 
 export function generarResumenSedePdf(d: DashboardSedeDto): void {
@@ -106,6 +127,47 @@ export function generarResumenSedePdf(d: DashboardSedeDto): void {
   }
 
   doc.save(`resumen-${archivo(d.sede)}-${d.anioLectivo}.pdf`);
+}
+
+// Aprobados y reprobados de una sección según el promedio de sus cursos (aprueba con 61)
+export function generarAlumnosPorRangoPdf(r: ReporteAlumnosPorRangoDto, seccionId: number): void {
+  const doc = new jsPDF({ unit: "mm", format: "letter" });
+  let y = encabezado(doc, `Aprobados y reprobados: ${r.seccion}`, `${r.sede} · Ciclo ${r.cicloEscolar}`);
+  const columnas = [{ titulo: "Alumno", x: 0 }, { titulo: "Promedio", x: 140 }];
+  const filas = (lista: ReporteAlumnosPorRangoDto["aprobados"]) => lista.map((a) => [a.nombre, a.promedio.toFixed(2)]);
+
+  y = subtitulo(doc, y, `Reprobados (0 - 60) · ${r.reprobados.length}`, [185, 28, 28]);
+  y = r.reprobados.length ? tabla(doc, y, columnas, filas(r.reprobados)) : sinDatos(doc, y, "No hay alumnos en este rango.");
+  y = subtitulo(doc, y + 2, `Aprobados (61 - 100) · ${r.aprobados.length}`, [21, 128, 61]);
+  if (r.aprobados.length) tabla(doc, y, columnas, filas(r.aprobados));
+  else sinDatos(doc, y, "No hay alumnos en este rango.");
+
+  doc.save(`alumnos-seccion-${seccionId}.pdf`);
+}
+
+// Notas por unidad de cada curso que imparte el catedrático
+export function generarNotasCatedraticoPdf(r: ReporteNotasCatedraticoDto): void {
+  const doc = new jsPDF({ unit: "mm", format: "letter" });
+  const especialidad = r.catedratico.especialidad ? ` · ${r.catedratico.especialidad}` : "";
+  let y = encabezado(doc, `Notas por catedrático: ${r.catedratico.nombre}`, `${r.sede}${especialidad} · Ciclo ${r.cicloEscolar}`);
+
+  if (!r.cursos.length) {
+    sinDatos(doc, y, "Este catedrático no tiene cursos asignados.");
+  }
+  for (const curso of r.cursos) {
+    y = subtitulo(doc, y, `${curso.curso} — ${curso.seccion}`);
+    if (!curso.alumnos.length) {
+      y = sinDatos(doc, y, "No hay alumnos inscritos en esta sección.");
+      continue;
+    }
+    const unidades = curso.alumnos[0].unidades.map((u) => `Unidad ${u.numero}`);
+    const ancho = (ANCHO - MARGEN * 2 - 70) / (unidades.length + 1);
+    y = tabla(doc, y,
+      [{ titulo: "Alumno", x: 0 }, ...[...unidades, "Promedio"].map((titulo, i) => ({ titulo, x: 70 + ancho * i }))],
+      curso.alumnos.map((a) => [a.nombre, ...a.unidades.map((u) => u.nota.toFixed(2)), a.total.toFixed(2)]));
+  }
+
+  doc.save(`notas-catedratico-${r.catedratico.catedraticoId}.pdf`);
 }
 
 const minutos = (h: string) => { const [a, b] = h.split(":").map(Number); return a * 60 + b; };

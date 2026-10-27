@@ -62,10 +62,11 @@ export const getReporteNotasPorCatedratico = async (req: Request, res: Response)
         res.setHeader("Content-Disposition", `inline; filename="notas-catedratico-${catedraticoId}.pdf"`);
         return res.send(pdfBuffer);
     } catch (error) {
+        console.error(`Error al generar el reporte de notas del catedrático ${catedraticoId}:`, error);
         return res.status(500).json({
             status: "error",
             message: `Error al generar el reporte de notas del catedrático con ID: ${catedraticoId}.`,
-            error,
+            error: error instanceof Error ? error.message : String(error),
         });
     }
 };
@@ -140,10 +141,11 @@ export const getReporteAlumnosPorRango = async (req: Request, res: Response) => 
         res.setHeader("Content-Disposition", `inline; filename="alumnos-rango-seccion-${seccionId}.pdf"`);
         return res.send(pdfBuffer);
     } catch (error) {
+        console.error(`Error al generar el reporte de alumnos por rango de la sección ${seccionId}:`, error);
         return res.status(500).json({
             status: "error",
             message: `Error al generar el reporte de alumnos por rango de la sección con ID: ${seccionId}.`,
-            error,
+            error: error instanceof Error ? error.message : String(error),
         });
     }
 };
