@@ -109,7 +109,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (v: View) => voi
 
   const hoyTexto = formatFechaCorta(hoyISO());
 
-  if (loading) return <Cargando texto="Cargando su panel..." />;
+  if (loading) return <Cargando texto="Cargando su panel…" />;
 
   const clases = clasesDe(cursos);
   const proxima = proximaClase(clases);
@@ -150,7 +150,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (v: View) => voi
           </div>
           <div>
             <p className={`font-display font-bold text-5xl leading-none tabular-nums ${totalPendientes ? "text-warning-700" : "text-stone-900"}`}>{totalPendientes ?? "…"}</p>
-            <p className="text-[13px] text-stone-500 mt-2">{totalPendientes === undefined ? "Calculando..." : totalPendientes === 0 ? "Todo al día" : "Notas y asistencia por registrar"}</p>
+            <p className="text-[13px] text-stone-500 mt-2">{totalPendientes === undefined ? "Calculando…" : totalPendientes === 0 ? "Todo al día" : "Notas y asistencia por registrar"}</p>
           </div>
           <p className="text-[13px] text-stone-500 border-t border-stone-100 pt-3"><span className="font-bold text-stone-900">{cursos.length}</span> cursos{cursos[0]?.seccion.anioLectivo ? ` en el ciclo ${cursos[0].seccion.anioLectivo}` : ""}</p>
         </Card>

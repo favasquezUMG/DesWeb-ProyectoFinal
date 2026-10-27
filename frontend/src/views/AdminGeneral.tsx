@@ -174,24 +174,24 @@ function DashboardConsolidado() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard label="Total alumnos"
           value={alumnosMetric ? alumnosMetric.total.toLocaleString() : "..."}
-          sub={alumnosMetric ? alumnosMetric.subtexto : "Cargando..."}
+          sub={alumnosMetric ? alumnosMetric.subtexto : "Cargando…"}
           icon={<Users className="w-5 h-5" />}
         />
         <MetricCard label="Tasa de aprobación"
           value={aprobacionMetric ? `${aprobacionMetric.tasaAprobacion}%` : "..."} 
-          sub={aprobacionMetric ? `${aprobacionMetric.subtexto}` : "Cargando..."} 
+          sub={aprobacionMetric ? `${aprobacionMetric.subtexto}` : "Cargando…"} 
           icon={<TrendingUp className="w-5 h-5" />}
           variant="success"
         />
         <MetricCard label="En mora de pagos"
           value={moraMetric ? `${moraMetric.porcentajeMora}` : "..."}
-          sub={moraMetric ? `${moraMetric.subtexto}` : "Cargando..."}
+          sub={moraMetric ? `${moraMetric.subtexto}` : "Cargando…"}
           icon={<AlertTriangle className="w-5 h-5" />}
           variant="warning"
         />
         <MetricCard label="Becas activas"
           value={becasActivasMetric ? `${becasActivasMetric.becasActivas}` : "..." } 
-          sub={becasActivasMetric ? `${becasActivasMetric.subtexto}` : "Cargando..."}
+          sub={becasActivasMetric ? `${becasActivasMetric.subtexto}` : "Cargando…"}
           icon={<Award className="w-5 h-5" />}
           variant="default" 
         />

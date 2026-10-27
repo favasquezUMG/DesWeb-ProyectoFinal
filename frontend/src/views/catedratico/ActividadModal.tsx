@@ -140,7 +140,7 @@ export default function ActividadModal({ libreta, edicion, onClose, onGuardado }
             </label>
             <Textarea label="Instrucciones" rows={4} maxLength={4000} value={form.instrucciones}
               onChange={(e) => setForm({ ...form, instrucciones: e.target.value })}
-              placeholder="Qué deben hacer, formato de entrega, criterios de calificación..." />
+              placeholder="Qué deben hacer, formato de entrega, criterios de calificación…" />
             <p className="text-[13px] text-stone-500">Los archivos de apoyo (guías, lecturas) se agregan desde "Tareas y entregas" después de guardar.</p>
           </>
         ) : (

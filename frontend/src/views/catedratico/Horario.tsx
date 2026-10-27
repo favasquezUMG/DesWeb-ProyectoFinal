@@ -29,7 +29,7 @@ export function clasesDe(cursos: CursoSeccionDto[]): ClaseHorario[] {
 export default function Horario() {
   const { cursos, loading, error } = useMisCursos();
 
-  if (loading) return <Cargando texto="Cargando su horario..." />;
+  if (loading) return <Cargando texto="Cargando su horario…" />;
   if (error) return <AlertBanner type="error" message={error} />;
 
   const clases = clasesDe(cursos);

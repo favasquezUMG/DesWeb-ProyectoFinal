@@ -166,7 +166,6 @@ export default function RecorridoVirtual() {
 
       {/* Lugar actual */}
       <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 max-w-[calc(100%-5rem)] sm:max-w-[calc(100%-12rem)] md:max-w-sm rounded-[20px] bg-stone-900/75 backdrop-blur text-white px-4 py-3 pointer-events-none">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-subject-social">Usted está en</p>
         <p className="font-display text-lg sm:text-xl font-bold leading-tight">{punto.nombre}</p>
         <p className="hidden sm:block text-sm text-white/75 mt-1 leading-snug">{punto.descripcion}</p>
       </div>
@@ -270,7 +269,9 @@ function MiniMapa({ actual, yaw, onIr }: { actual: string; yaw: number; onIr: (i
         {PUNTOS.map(p => {
           const esActual = p.id === actual;
           return (
-            <g key={p.id} onClick={() => onIr(p.id)} className="cursor-pointer">
+            <g key={p.id} onClick={() => onIr(p.id)} className="cursor-pointer focus:outline-none [&:focus-visible>circle:last-of-type]:stroke-[#f2b705] [&:focus-visible>circle:last-of-type]:stroke-[1.2]"
+              role="button" tabIndex={0} aria-label={`Ir a ${p.nombre}`}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onIr(p.id); } }}>
               <title>{p.nombre}</title>
               <circle cx={mx(p.x)} cy={my(p.y)} r={4} fill="transparent" />
               <circle cx={mx(p.x)} cy={my(p.y)} r={esActual ? 2.2 : 1.6} fill={esActual ? "#c42b34" : "#34449a"} stroke="#ffffff" strokeWidth={0.6} />

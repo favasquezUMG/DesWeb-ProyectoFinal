@@ -78,7 +78,7 @@ export default function Asistencia() {
     }
   }
 
-  if (cargandoCursos) return <Cargando texto="Cargando sus cursos..." />;
+  if (cargandoCursos) return <Cargando texto="Cargando sus cursos…" />;
   if (errorCursos) return <AlertBanner type="error" message={errorCursos} />;
   if (cursos.length === 0) {
     return <EmptyState icon={<ClipboardList className="w-10 h-10" />} title="Sin cursos asignados" description="Aún no tiene cursos asignados en este ciclo." />;

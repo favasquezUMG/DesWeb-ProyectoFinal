@@ -203,7 +203,7 @@ export function CursoSelect({ cursos, value, onChange }: {
 }
 
 // El texto solo lo anuncia el lector de pantalla; a la vista queda la silueta de la lista
-export function Cargando({ texto = "Cargando..." }: { texto?: string }) {
+export function Cargando({ texto = "Cargando…" }: { texto?: string }) {
   return (
     <div className="py-4" aria-label={texto}>
       <ListaSkeleton />

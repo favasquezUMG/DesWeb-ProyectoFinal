@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Role, View } from "../types";
 import type { AppUser } from "../types";
+import { menuDe, tituloDeVista, type ItemMenu } from "../lib/navegacion";
 import NotificacionesMenu from "./NotificacionesMenu";
 import MiCuentaModal from "./MiCuentaModal";
 import {
@@ -10,70 +11,54 @@ import {
   User, ChevronLeft, ChevronRight, Menu, X, ChevronDown,
   LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, FileSignature, Tablero
 } from "./Iconos";
+import type { Icono } from "./Iconos";
 
-// modulo: permiso que necesita el personal de sede para ver la opción del menú
-// modulo: permiso que necesita el personal de sede para ver la pestaña.
-// soloDirector: pestaña del Administrador de Sede que no depende de un permiso (ej. el Dashboard).
-type NavItem = { label: string; view: View; Icon: typeof LayoutDashboard; modulo?: string; soloDirector?: boolean };
+type NavItem = ItemMenu & { Icon: Icono };
 
-const NAV: Record<Role, NavItem[]> = {
-  "admin-general": [
-    { label: "Dashboard", view: "ag-dashboard", Icon: LayoutDashboard },
-    { label: "Sedes", view: "ag-sedes", Icon: School },
-    { label: "Malla Curricular", view: "ag-malla", Icon: Layers },
-    { label: "Reportería", view: "ag-reporteria", Icon: FileBarChart },
-    { label: "Solicitudes", view: "as-solicitudes", Icon: FileText },
-    { label: "Calendario", view: "as-calendario", Icon: CalendarDays },
-    { label: "Usuarios", view: "as-usuarios", Icon: Users },
-    { label: "Pagos en ventanilla", view: "as-pagos", Icon: CreditCard },
-    { label: "Roles y Permisos", view: "as-roles", Icon: ShieldCheck },
-  ],
-  "admin-sede": [
-    { label: "Dashboard", view: "as-dashboard", Icon: LayoutDashboard, soloDirector: true },
-    { label: "Usuarios", view: "as-usuarios", Icon: Users, modulo: "usuarios" },
-    { label: "Catedráticos", view: "as-catedraticos", Icon: GraduationCap, modulo: "usuarios" },
-    { label: "Solicitudes", view: "as-solicitudes", Icon: FileText, modulo: "matriculas" },
-    { label: "Alumnos y Encargados", view: "as-alumnos", Icon: UserCheck, modulo: "alumnos" },
-    { label: "Grados y Secciones", view: "as-grados", Icon: Grid3X3, modulo: "horarios" },
-    { label: "Cursos", view: "as-cursos", Icon: BookMarked, modulo: "horarios" },
-    { label: "Horarios", view: "as-horarios", Icon: Clock, modulo: "horarios" },
-    { label: "Becas", view: "as-becas", Icon: Award, modulo: "becas" },
-    { label: "Pagos en ventanilla", view: "as-pagos", Icon: CreditCard, modulo: "pagos" },
-    { label: "Justificaciones", view: "as-justificaciones", Icon: FileCheck2, modulo: "asistencia" },
-    { label: "Notificaciones", view: "as-notificaciones", Icon: Bell, modulo: "comunicados" },
-    { label: "Calendario", view: "as-calendario", Icon: CalendarDays, modulo: "calendario" },
-  ],
-  "catedratico": [
-    { label: "Dashboard", view: "cat-dashboard", Icon: LayoutDashboard },
-    { label: "Mis Cursos", view: "cat-cursos", Icon: BookOpen },
-    { label: "Libreta de Notas", view: "cat-notas", Icon: BookText },
-    { label: "Tareas y entregas", view: "cat-tareas", Icon: Tablero },
-    { label: "Asistencia", view: "cat-asistencia", Icon: ClipboardList },
-    { label: "Mi Horario", view: "cat-horario", Icon: CalendarCheck },
-    { label: "Calendario", view: "cat-calendario", Icon: CalendarDays },
-    { label: "Comunicación con padres", view: "cat-comunicacion", Icon: MessageSquare },
-  ],
-  "alumno": [
-    { label: "Dashboard", view: "alu-dashboard", Icon: LayoutDashboard },
-    { label: "Mis Notas", view: "alu-notas", Icon: BookOpenCheck },
-    { label: "Mis Tareas", view: "alu-tareas", Icon: Tablero },
-    { label: "Mi Horario", view: "alu-horario", Icon: Clock },
-    { label: "Calendario", view: "alu-calendario", Icon: CalendarDays },
-  ],
-  "padre": [
-    { label: "Dashboard", view: "pad-dashboard", Icon: LayoutDashboard },
-    { label: "Matrícula", view: "pad-matricula", Icon: BookMarked },
-    { label: "Notas y Reportes", view: "pad-notas", Icon: Star },
-    { label: "Tareas", view: "pad-tareas", Icon: Tablero },
-    { label: "Asistencia", view: "pad-asistencia", Icon: ClipboardList },
-    { label: "Horario", view: "pad-horario", Icon: Clock },
-    { label: "Calendario", view: "pad-calendario", Icon: CalendarDays },
-    { label: "Pagos", view: "pad-pagos", Icon: CreditCard },
-    { label: "Circulares", view: "pad-circulares", Icon: FileSignature },
-    { label: "Becas", view: "pad-becas", Icon: Award },
-    { label: "Avisos y Conducta", view: "pad-avisos", Icon: BellRing },
-    { label: "Perfil", view: "pad-perfil", Icon: User },
-  ],
+const ICONO_VISTA: Partial<Record<View, Icono>> = {
+  "ag-dashboard": LayoutDashboard,
+  "ag-sedes": School,
+  "ag-malla": Layers,
+  "ag-reporteria": FileBarChart,
+  "as-solicitudes": FileText,
+  "as-calendario": CalendarDays,
+  "as-usuarios": Users,
+  "as-pagos": CreditCard,
+  "as-roles": ShieldCheck,
+  "as-dashboard": LayoutDashboard,
+  "as-catedraticos": GraduationCap,
+  "as-alumnos": UserCheck,
+  "as-grados": Grid3X3,
+  "as-cursos": BookMarked,
+  "as-horarios": Clock,
+  "as-becas": Award,
+  "as-justificaciones": FileCheck2,
+  "as-notificaciones": Bell,
+  "cat-dashboard": LayoutDashboard,
+  "cat-cursos": BookOpen,
+  "cat-notas": BookText,
+  "cat-tareas": Tablero,
+  "cat-asistencia": ClipboardList,
+  "cat-horario": CalendarCheck,
+  "cat-calendario": CalendarDays,
+  "cat-comunicacion": MessageSquare,
+  "alu-dashboard": LayoutDashboard,
+  "alu-notas": BookOpenCheck,
+  "alu-tareas": Tablero,
+  "alu-horario": Clock,
+  "alu-calendario": CalendarDays,
+  "pad-dashboard": LayoutDashboard,
+  "pad-matricula": BookMarked,
+  "pad-notas": Star,
+  "pad-tareas": Tablero,
+  "pad-asistencia": ClipboardList,
+  "pad-horario": Clock,
+  "pad-calendario": CalendarDays,
+  "pad-pagos": CreditCard,
+  "pad-circulares": FileSignature,
+  "pad-becas": Award,
+  "pad-avisos": BellRing,
+  "pad-perfil": User,
 };
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -101,29 +86,8 @@ function etiquetaDe(user: AppUser): string {
   return user.roleName ? etiquetaRol(user.roleName) : ROLE_LABELS[user.role];
 }
 
-// El personal de sede solo ve los módulos para los que su rol tiene permiso.
-// (Sesiones guardadas antes de los permisos no traen la lista: se muestra todo.)
-// El personal de sede (Administrador de Sede y los roles que crea el colegio, ej. Secretaría) solo ve
-// las pestañas de los módulos que tiene permitidos.
 function navDe(user: AppUser): NavItem[] {
-  if (user.role !== "admin-sede") return NAV[user.role];
-  return NAV[user.role].filter((item) =>
-    item.soloDirector ? user.roleName === "Administrador de Sede"
-      : !item.modulo || user.permisos === undefined || user.permisos.includes(item.modulo));
-}
-
-/** Pantallas que el usuario puede abrir (las de su menú) */
-// Nombre de una pantalla tal como aparece en el menú (para el título de la pestaña)
-export function tituloDeVista(view: View): string | undefined {
-  for (const items of Object.values(NAV)) {
-    const item = items.find((i) => i.view === view);
-    if (item) return item.label;
-  }
-  return undefined;
-}
-
-export function vistasPermitidas(user: AppUser): View[] {
-  return navDe(user).map((item) => item.view);
+  return menuDe(user).map((item) => ({ ...item, Icon: ICONO_VISTA[item.view] ?? LayoutDashboard }));
 }
 
 function Logo({ compact = false }: { compact?: boolean }) {

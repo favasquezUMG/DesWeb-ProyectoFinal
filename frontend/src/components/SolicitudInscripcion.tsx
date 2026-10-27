@@ -403,14 +403,14 @@ export default function SolicitudInscripcion({ modo, conCuenta = false, onFinali
             <p className="sm:col-span-2 text-sm text-stone-500">Complete estos datos una sola vez; se usarán en sus próximas solicitudes.</p>
             {faltantes.has("dpi") && (
               <Input
-                label="DPI" value={encargado.dpi} inputMode="numeric" placeholder="0000000000000"
+                label="DPI" autoComplete="off" spellCheck={false} value={encargado.dpi} inputMode="numeric" placeholder="0000000000000"
                 onChange={(e) => actualizarEncargado("dpi", e.target.value.replace(/\D/g, "").slice(0, 13))}
                 error={erroresEncargado.dpi} hint={!erroresEncargado.dpi ? "13 dígitos, sin espacios ni guiones" : undefined}
               />
             )}
             {faltantes.has("telefono") && (
               <Input
-                label="Teléfono" value={encargado.telefono} inputMode="numeric" placeholder="00000000"
+                label="Teléfono" type="tel" autoComplete="tel-national" value={encargado.telefono} inputMode="numeric" placeholder="00000000"
                 onChange={(e) => actualizarEncargado("telefono", e.target.value.replace(/\D/g, "").slice(0, 8))}
                 error={erroresEncargado.telefono}
               />
@@ -429,20 +429,20 @@ export default function SolicitudInscripcion({ modo, conCuenta = false, onFinali
 
       {step === 0 && !conCuenta && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Nombres" value={encargado.nombres} onChange={(e) => actualizarEncargado("nombres", e.target.value)} error={erroresEncargado.nombres} placeholder="Nombres del encargado" />
-          <Input label="Apellidos" value={encargado.apellidos} onChange={(e) => actualizarEncargado("apellidos", e.target.value)} error={erroresEncargado.apellidos} placeholder="Apellidos del encargado" />
+          <Input label="Nombres" autoComplete="given-name" value={encargado.nombres} onChange={(e) => actualizarEncargado("nombres", e.target.value)} error={erroresEncargado.nombres} placeholder="Nombres del encargado" />
+          <Input label="Apellidos" autoComplete="family-name" value={encargado.apellidos} onChange={(e) => actualizarEncargado("apellidos", e.target.value)} error={erroresEncargado.apellidos} placeholder="Apellidos del encargado" />
           <Input
-            label="DPI" value={encargado.dpi} inputMode="numeric" placeholder="0000000000000"
+            label="DPI" autoComplete="off" spellCheck={false} value={encargado.dpi} inputMode="numeric" placeholder="0000000000000"
             onChange={(e) => actualizarEncargado("dpi", e.target.value.replace(/\D/g, "").slice(0, 13))}
             error={erroresEncargado.dpi} hint={!erroresEncargado.dpi ? "13 dígitos, sin espacios ni guiones" : undefined}
           />
           <Input
-            label="Teléfono" value={encargado.telefono} inputMode="numeric" placeholder="00000000"
+            label="Teléfono" type="tel" autoComplete="tel-national" value={encargado.telefono} inputMode="numeric" placeholder="00000000"
             onChange={(e) => actualizarEncargado("telefono", e.target.value.replace(/\D/g, "").slice(0, 8))}
             error={erroresEncargado.telefono}
           />
           <div className="sm:col-span-2">
-            <Input label="Correo electrónico" type="email" value={encargado.correo} onChange={(e) => actualizarEncargado("correo", e.target.value)} error={erroresEncargado.correo} placeholder="encargado@correo.com" />
+            <Input label="Correo electrónico" type="email" autoComplete="email" spellCheck={false} value={encargado.correo} onChange={(e) => actualizarEncargado("correo", e.target.value)} error={erroresEncargado.correo} placeholder="encargado@correo.com" />
           </div>
           <div className="sm:col-span-2">
             <Select label="Parentesco con el alumno" value={encargado.parentesco} onChange={(e) => actualizarEncargado("parentesco", e.target.value)} error={erroresEncargado.parentesco}>
@@ -455,9 +455,9 @@ export default function SolicitudInscripcion({ modo, conCuenta = false, onFinali
 
       {step === 1 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Nombres del alumno" value={alumno.nombres} onChange={(e) => actualizarAlumno("nombres", e.target.value)} error={erroresAlumno.nombres} />
-          <Input label="Apellidos del alumno" value={alumno.apellidos} onChange={(e) => actualizarAlumno("apellidos", e.target.value)} error={erroresAlumno.apellidos} />
-          <Input label="Fecha de nacimiento" type="date" value={alumno.fechaNacimiento} onChange={(e) => actualizarAlumno("fechaNacimiento", e.target.value)} error={erroresAlumno.fechaNacimiento} />
+          <Input label="Nombres del alumno" autoComplete="off" value={alumno.nombres} onChange={(e) => actualizarAlumno("nombres", e.target.value)} error={erroresAlumno.nombres} />
+          <Input label="Apellidos del alumno" autoComplete="off" value={alumno.apellidos} onChange={(e) => actualizarAlumno("apellidos", e.target.value)} error={erroresAlumno.apellidos} />
+          <Input label="Fecha de nacimiento" type="date" autoComplete="off" value={alumno.fechaNacimiento} onChange={(e) => actualizarAlumno("fechaNacimiento", e.target.value)} error={erroresAlumno.fechaNacimiento} />
           <Select label="Sede" value={alumno.sede} onChange={(e) => actualizarAlumno("sede", e.target.value)} error={erroresAlumno.sede}>
             <option value="">Seleccione…</option>
             {sedes.map((s) => (
@@ -601,7 +601,7 @@ export default function SolicitudInscripcion({ modo, conCuenta = false, onFinali
             <Btn variant="outline" size="md" onClick={irAnterior}>Anterior</Btn>
           )}
           <Btn variant="primary" size="md" onClick={irSiguiente} disabled={cargandoEmail || (conCuenta && faltantes === null)}>
-            { cargandoEmail ? "Verificando..." : step === 2 ? "Enviar solicitud" : "Siguiente"}
+            { cargandoEmail ? "Verificando…" : step === 2 ? "Enviar solicitud" : "Siguiente"}
           </Btn>
         </div>
       )}

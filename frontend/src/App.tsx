@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { AppUser, View } from "./types";
-import { Layout, vistasPermitidas } from "./components/Layout";
+import { vistasPermitidas } from "./lib/navegacion";
 import type { Screen } from "./views/Login";
 import Home, { type Portal } from "./views/Home";
 import { PantallaSkeleton, Skeleton } from "./components/Ui";
@@ -15,6 +15,8 @@ const AdminSede = lazy(() => import("./views/admin-sede"));
 const Catedratico = lazy(() => import("./views/Catedratico"));
 const Alumno = lazy(() => import("./views/Alumno"));
 const Padre = lazy(() => import("./views/Padre"));
+// El marco del sistema (menú lateral y sus íconos) tampoco hace falta en el inicio
+const Layout = lazy(() => import("./components/Layout").then((m) => ({ default: m.Layout })));
 
 const TITULO_ACCESO: Record<Screen, string> = {
   login: "Iniciar sesión",
@@ -157,16 +159,26 @@ export default function App() {
   }
 
   return (
-    <Layout
-      user={user}
-      currentView={currentView}
-      onNavigate={setCurrentView}
-      onLogout={handleLogout}
-      onCambiarRol={handleCambiarRol}
-      sede={sede}
-    >
-      <Suspense fallback={<PantallaSkeleton />}>{renderView()}</Suspense>
-    </Layout>
+    <Suspense fallback={<SistemaSkeleton />}>
+      <Layout
+        user={user}
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onLogout={handleLogout}
+        onCambiarRol={handleCambiarRol}
+        sede={sede}
+      >
+        <Suspense fallback={<PantallaSkeleton />}>{renderView()}</Suspense>
+      </Layout>
+    </Suspense>
+  );
+}
+
+function SistemaSkeleton() {
+  return (
+    <div className="min-h-screen bg-sand-100 p-6 lg:p-10">
+      <PantallaSkeleton />
+    </div>
   );
 }
 
