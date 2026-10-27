@@ -38,6 +38,9 @@ const DESCRIPCION_NIVEL: Record<string, string> = {
   Diversificado: "Preparación universitaria, proyectos de investigación y prácticas con enfoque profesional.",
 };
 
+// Teléfono para los datos estructurados: los de 8 dígitos son de Guatemala
+const internacional = (telefono: string) => (/^\d{8}$/.test(telefono) ? `+502 ${telefono}` : telefono);
+
 function formatearTelefono(telefono: string | null): string | null {
   if (!telefono) return null;
   return /^\d{8}$/.test(telefono) ? `${telefono.slice(0, 4)}-${telefono.slice(4)}` : telefono;
@@ -68,6 +71,26 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
     ? `de ${niveles[0].nivel} a ${niveles[niveles.length - 1].nivel}`
     : niveles.length === 1 ? `de ${niveles[0].nivel}` : "";
   const telefonoContacto = formatearTelefono(sedes.find(s => s.telefono)?.telefono ?? null);
+
+  // Agrega las sedes a los datos estructurados de index.html (las sedes viven en la base de datos)
+  useEffect(() => {
+    const script = document.getElementById("datos-colegio");
+    if (!script || !info?.sedes.length) return;
+    try {
+      const datos = JSON.parse(script.textContent ?? "{}");
+      datos.department = info.sedes.map((s) => ({
+        "@type": "School",
+        name: `Colegio Vanguardia, ${s.nombre}`,
+        ...(s.direccion ? { address: { "@type": "PostalAddress", streetAddress: s.direccion, addressCountry: "GT" } } : {}),
+        ...(s.telefono ? { telephone: internacional(s.telefono) } : {}),
+      }));
+      const telefono = info.sedes.find((s) => s.telefono)?.telefono;
+      if (telefono) datos.telephone = internacional(telefono);
+      script.textContent = JSON.stringify(datos);
+    } catch {
+      // Si el JSON no se puede leer se deja como vino en el HTML
+    }
+  }, [info]);
 
   return (
     <div className="min-h-screen bg-sand-100 text-stone-900">

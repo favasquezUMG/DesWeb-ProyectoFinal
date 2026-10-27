@@ -47,6 +47,8 @@ function sitioPublico(siteUrl: string): Plugin {
     name: 'Colegio Vanguardia',
     description: 'Educación de Preprimaria a Diversificado en sedes de Guatemala, con portal académico en línea.',
     email: 'info@colegiovanguardia.edu.gt',
+    openingHours: 'Mo-Fr 07:00-15:00',
+    areaServed: { '@type': 'Country', name: 'Guatemala' },
     address: { '@type': 'PostalAddress', addressCountry: 'GT' },
     ...(base ? { url: `${base}/`, logo: `${base}/apple-touch-icon.png`, image: `${base}/og.png` } : {}),
   }
@@ -55,7 +57,8 @@ function sitioPublico(siteUrl: string): Plugin {
     name: 'sitio-publico',
     transformIndexHtml(html) {
       const tags: HtmlTagDescriptor[] = [
-        { tag: 'script', attrs: { type: 'application/ld+json' }, children: JSON.stringify(datosEstructurados), injectTo: 'head' },
+        // El id lo usa el inicio para agregar las sedes cuando llegan de la base de datos
+        { tag: 'script', attrs: { type: 'application/ld+json', id: 'datos-colegio' }, children: JSON.stringify(datosEstructurados), injectTo: 'head' },
       ]
       if (!base) return { html, tags }
       tags.push(

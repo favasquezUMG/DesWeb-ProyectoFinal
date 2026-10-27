@@ -2,12 +2,12 @@ import type { AppUser, Role, View } from "../types";
 
 // Menú de cada rol, sin íconos (los pone Layout): App lo usa para los permisos antes de cargar Layout.
 // modulo: permiso que necesita el personal de sede para ver la pestaña.
-// soloDirector: pestaña del Administrador de Sede que no depende de un permiso (ej. el Dashboard).
+// soloDirector: pestaña del Administrador de Sede que no depende de un permiso (ej. el Inicio).
 export type ItemMenu = { label: string; view: View; modulo?: string; soloDirector?: boolean };
 
 const MENU: Record<Role, ItemMenu[]> = {
   "admin-general": [
-    { label: "Dashboard", view: "ag-dashboard" },
+    { label: "Inicio", view: "ag-dashboard" },
     { label: "Sedes", view: "ag-sedes" },
     { label: "Malla Curricular", view: "ag-malla" },
     { label: "Reportería", view: "ag-reporteria" },
@@ -18,7 +18,7 @@ const MENU: Record<Role, ItemMenu[]> = {
     { label: "Roles y Permisos", view: "as-roles" },
   ],
   "admin-sede": [
-    { label: "Dashboard", view: "as-dashboard", soloDirector: true },
+    { label: "Inicio", view: "as-dashboard", soloDirector: true },
     { label: "Usuarios", view: "as-usuarios", modulo: "usuarios" },
     { label: "Catedráticos", view: "as-catedraticos", modulo: "usuarios" },
     { label: "Solicitudes", view: "as-solicitudes", modulo: "matriculas" },
@@ -33,7 +33,7 @@ const MENU: Record<Role, ItemMenu[]> = {
     { label: "Calendario", view: "as-calendario", modulo: "calendario" },
   ],
   "catedratico": [
-    { label: "Dashboard", view: "cat-dashboard" },
+    { label: "Inicio", view: "cat-dashboard" },
     { label: "Mis Cursos", view: "cat-cursos" },
     { label: "Libreta de Notas", view: "cat-notas" },
     { label: "Tareas y entregas", view: "cat-tareas" },
@@ -43,14 +43,14 @@ const MENU: Record<Role, ItemMenu[]> = {
     { label: "Comunicación con padres", view: "cat-comunicacion" },
   ],
   "alumno": [
-    { label: "Dashboard", view: "alu-dashboard" },
+    { label: "Inicio", view: "alu-dashboard" },
     { label: "Mis Notas", view: "alu-notas" },
     { label: "Mis Tareas", view: "alu-tareas" },
     { label: "Mi Horario", view: "alu-horario" },
     { label: "Calendario", view: "alu-calendario" },
   ],
   "padre": [
-    { label: "Dashboard", view: "pad-dashboard" },
+    { label: "Inicio", view: "pad-dashboard" },
     { label: "Matrícula", view: "pad-matricula" },
     { label: "Notas y Reportes", view: "pad-notas" },
     { label: "Tareas", view: "pad-tareas" },
