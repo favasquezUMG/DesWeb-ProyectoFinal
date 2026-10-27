@@ -65,6 +65,7 @@ export default function MallaCurricular() {
   }
 
   async function quitar(grado: GradoDto, curso: { cursoId: number; nombre: string }) {
+    if (!window.confirm(`¿Quitar ${curso.nombre} de ${grado.nombre}?`)) return;
     setError("");
     try {
       await quitarCursoDeGrado(curso.cursoId, grado.gradoId);

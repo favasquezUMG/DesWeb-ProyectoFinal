@@ -140,7 +140,7 @@ export default function LibretaNotas() {
     setLibreta(await getLibreta(libreta.cursoSeccionId));
   }
 
-  if (cargandoCursos) return <Cargando texto="Cargando sus cursos..." />;
+  if (cargandoCursos) return <Cargando texto="Cargando sus cursos…" />;
   if (errorCursos) return <AlertBanner type="error" message={errorCursos} />;
   if (cursos.length === 0) {
     return <EmptyState icon={<BookText className="w-10 h-10" />} title="Sin cursos asignados" description="Aún no tiene cursos asignados en este ciclo." />;

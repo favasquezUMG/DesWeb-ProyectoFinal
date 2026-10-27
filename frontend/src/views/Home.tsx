@@ -1,9 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import {
-  GraduationCap, Users2, ShieldCheck, MapPin, Phone, Mail, Clock,
-  Award, Heart, Lightbulb, Menu, X, FileSearch, ClipboardEdit,
-  Target, Binoculars, School, Caminar, Avanzar,
-} from "../components/Iconos";
+  GraduationCap, Users2, ShieldCheck, MapPin, Phone, Menu, X, FileSearch, ClipboardEdit, Avanzar,
+} from "../components/iconos/publicos";
 import { Btn, Skeleton } from "../components/Ui";
 import { getInfoInicio, type InfoInicioDto } from "../lib/api";
 
@@ -27,9 +25,9 @@ const NAV_LINKS = [
 ];
 
 const VALORES = [
-  { Icon: Award, titulo: "Excelencia", texto: "Exigencia académica acompañada de seguimiento cercano a cada alumno." },
-  { Icon: Heart, titulo: "Formación integral", texto: "Valores, deporte, arte y convivencia como parte del día a día." },
-  { Icon: Lightbulb, titulo: "Innovación", texto: "Tecnología al servicio del aprendizaje y de la comunicación con las familias." },
+  { titulo: "Excelencia", texto: "Exigencia académica acompañada de seguimiento cercano a cada alumno." },
+  { titulo: "Formación integral", texto: "Valores, deporte, arte y convivencia como parte del día a día." },
+  { titulo: "Innovación", texto: "Tecnología al servicio del aprendizaje y de la comunicación con las familias." },
 ];
 
 // Textos descriptivos por nivel; los niveles y grados vienen de la base de datos
@@ -114,11 +112,11 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           <div className="lg:col-span-7">
             <h1 className="font-display font-extrabold text-[2.9rem] sm:text-6xl lg:text-[4.6rem] leading-[0.98] tracking-tight">
-              Formamos a los líderes del mañana
+              De Preprimaria a Diversificado
             </h1>
             <p className="text-stone-600 mt-6 text-lg leading-relaxed max-w-xl">
-              Colegio Vanguardia ofrece educación {rangoNiveles} en sedes de todo el país,
-              con un sistema académico en línea que mantiene a alumnos, familias y docentes conectados.
+              Colegio Vanguardia{sedes.length > 0 ? `, con ${sedes.length} ${sedes.length === 1 ? "sede" : "sedes"} en Guatemala` : ", en Guatemala"}.
+              Notas, tareas, horario, asistencia y pagos de cada alumno se consultan en línea, en el mismo portal para alumnos, familias y docentes.
             </p>
             <div className="flex flex-wrap gap-3 mt-8">
               <Btn variant="secondary" size="lg" onClick={onSolicitud} icon={<ClipboardEdit className="w-5 h-5" />}>Solicitar inscripción</Btn>
@@ -196,35 +194,29 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           </div>
 
           <div className="grid md:grid-cols-2 gap-5 mt-12">
-            <article className="relative overflow-hidden rounded-[28px] bg-anil-800 textile-pattern text-white p-8 sm:p-10 min-h-[280px] flex flex-col">
-              <span className="icono-color w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center [&>svg]:w-8 [&>svg]:h-8"><Target /></span>
-              <h3 className="font-display text-3xl font-bold mt-6">Misión</h3>
+            <article className="relative overflow-hidden rounded-[28px] bg-anil-800 textile-pattern text-white p-8 sm:p-10 flex flex-col">
+              <h3 className="font-display text-3xl font-bold">Misión</h3>
               <p className="text-[17px] text-white/80 leading-relaxed mt-3 max-w-md">
                 Brindar una educación integral y de calidad que desarrolle las capacidades académicas, humanas y
                 sociales de nuestros alumnos, en alianza con las familias y con el apoyo de docentes comprometidos.
               </p>
             </article>
-            <article className="relative overflow-hidden rounded-[28px] bg-subject-social text-stone-900 p-8 sm:p-10 min-h-[280px] flex flex-col">
-              <span className="icono-color-granate w-14 h-14 rounded-2xl bg-white/60 flex items-center justify-center [&>svg]:w-8 [&>svg]:h-8 text-stone-900"><Binoculars /></span>
-              <h3 className="font-display text-3xl font-bold mt-6">Visión</h3>
+            <article className="relative overflow-hidden rounded-[28px] bg-subject-social text-stone-900 p-8 sm:p-10 flex flex-col">
+              <h3 className="font-display text-3xl font-bold">Visión</h3>
               <p className="text-[17px] text-stone-800 leading-relaxed mt-3 max-w-md">
                 Ser la red de colegios referente en Guatemala por su excelencia académica, su innovación
                 pedagógica y la formación de ciudadanos responsables con su comunidad.
               </p>
-              <span className="absolute -right-16 -bottom-24 w-44 h-44 rounded-full border-[16px] border-white/25" aria-hidden="true" />
             </article>
           </div>
 
           <div className="mt-14">
             <h3 className="font-display text-2xl font-bold">Lo que nos mueve</h3>
             <ul className="grid sm:grid-cols-3 gap-x-8 gap-y-8 mt-6">
-              {VALORES.map(({ Icon, titulo, texto }, i) => (
-                <li key={titulo} className="flex gap-4">
-                  <span className={`icono-color w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 [&>svg]:w-6 [&>svg]:h-6 ${["bg-action-600", "bg-success-600", "bg-subject-english"][i % 3]}`}><Icon /></span>
-                  <div>
-                    <p className="font-display text-xl font-bold leading-tight">{titulo}</p>
-                    <p className="text-[15px] text-stone-600 mt-1.5 leading-relaxed">{texto}</p>
-                  </div>
+              {VALORES.map(({ titulo, texto }) => (
+                <li key={titulo}>
+                  <p className="font-display text-xl font-bold leading-tight">{titulo}</p>
+                  <p className="text-[15px] text-stone-600 mt-1.5 leading-relaxed">{texto}</p>
                 </li>
               ))}
             </ul>
@@ -239,9 +231,8 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           <EstadoCarga cargando={cargando} error={error} vacio={!!info && niveles.length === 0} textoVacio="Aún no hay niveles registrados." />
           <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-10">
             {niveles.map((n, i) => (
-              <li key={n.nivel} className="relative rounded-[24px] bg-white border border-stone-200/80 p-6 pt-14 flex flex-col overflow-hidden">
+              <li key={n.nivel} className="relative rounded-[24px] bg-white border border-stone-200/80 p-6 pt-8 flex flex-col overflow-hidden">
                 <span className={`absolute top-0 left-0 right-0 h-2 ${["bg-subject-social", "bg-subject-science", "bg-subject-math", "bg-subject-english"][i % 4]}`} />
-                <span className="absolute top-5 left-6 font-display font-extrabold text-sm text-stone-400">Etapa {i + 1}</span>
                 <h3 className="font-display text-[1.7rem] leading-tight font-bold">{n.nivel}</h3>
                 <p className="text-sm font-semibold text-primary-700 mt-1">{rangoGrados(n.grados)}</p>
                 <p className="text-[15px] text-stone-600 leading-relaxed mt-4">
@@ -268,9 +259,8 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                 <PortadaRecorrido />
                 <span className="absolute inset-x-0 bottom-0 p-6 sm:p-10 flex flex-col sm:flex-row sm:items-end justify-between gap-5 bg-gradient-to-t from-stone-900/80 to-transparent">
                   <span>
-                    <span className="flex items-center gap-2 text-sm font-bold text-subject-social"><Caminar className="w-5 h-5" />Recorrido virtual 360°</span>
-                    <span className="block font-display text-3xl sm:text-4xl font-bold leading-tight mt-2">9 espacios para conocer</span>
-                    <span className="block text-white/75 text-[15px] mt-1">Funciona en computadora y en celular.</span>
+                    <span className="block font-display text-3xl sm:text-4xl font-bold leading-tight">9 espacios en 360°</span>
+                    <span className="block text-white/75 text-[15px] mt-1">De la entrada a la cancha, en computadora o en celular.</span>
                   </span>
                   <span className="inline-flex items-center gap-2 self-start sm:self-auto px-6 py-3 rounded-full bg-action-500 group-hover:bg-action-600 transition-colors font-bold">
                     Iniciar recorrido<Avanzar className="w-4 h-4 rotate-90" />
@@ -292,16 +282,12 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
               const tono = TONOS_SEDE[i % TONOS_SEDE.length];
               return (
                 <li key={s.sedeId} className="rounded-[26px] border border-stone-200/80 bg-white overflow-hidden flex flex-col">
-                  <div className={`relative h-36 ${tono.fondo} overflow-hidden`} aria-hidden="true">
-                    <MapaSede trazo={tono.trazo} />
-                    <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[70%] w-14 h-14 rounded-full rounded-br-none rotate-45 flex items-center justify-center ${tono.pin}`}>
-                      <span className="-rotate-45 icono-color [&>svg]:w-6 [&>svg]:h-6"><School /></span>
-                    </span>
+                  <div className={`${tono.fondo} ${tono.texto} px-6 pt-10 pb-6`}>
+                    <h3 className="font-display text-[1.9rem] font-bold leading-tight">{s.nombre}</h3>
                   </div>
                   <div className="p-6 flex flex-col flex-1">
-                    <h3 className="font-display text-2xl font-bold leading-tight">{s.nombre}</h3>
                     {s.direccion && (
-                      <p className="text-[15px] text-stone-600 flex items-start gap-2 mt-3 leading-snug">
+                      <p className="text-[15px] text-stone-600 flex items-start gap-2 leading-snug">
                         <MapPin className="w-5 h-5 text-action-600 shrink-0" />{s.direccion}
                       </p>
                     )}
@@ -353,9 +339,9 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
       <section id="contacto" className="scroll-mt-20 max-w-6xl mx-auto px-4 sm:px-6 pb-20">
         <SectionTitle titulo="Estamos para servirle" />
         <div className="grid sm:grid-cols-3 gap-4 mt-8">
-          {telefonoContacto && <ContactItem Icon={Phone} titulo="Teléfono" texto={telefonoContacto} />}
-          <ContactItem Icon={Mail} titulo="Correo" texto="info@colegiovanguardia.edu.gt" />
-          <ContactItem Icon={Clock} titulo="Horario de atención" texto="Lunes a viernes, de 7:00 a 15:00" />
+          {telefonoContacto && <ContactItem titulo="Teléfono" texto={telefonoContacto} />}
+          <ContactItem titulo="Correo" texto="info@colegiovanguardia.edu.gt" />
+          <ContactItem titulo="Horario de atención" texto="Lunes a viernes, de 7:00 a 15:00" />
         </div>
       </section>
 
@@ -379,27 +365,11 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 }
 
 const TONOS_SEDE = [
-  { fondo: "bg-anil-800", trazo: "rgba(255,255,255,0.18)", pin: "bg-subject-social text-stone-900" },
-  { fondo: "bg-action-600", trazo: "rgba(255,255,255,0.2)", pin: "bg-white text-action-700" },
-  { fondo: "bg-success-600", trazo: "rgba(255,255,255,0.2)", pin: "bg-subject-social text-stone-900" },
-  { fondo: "bg-subject-social", trazo: "rgba(52,68,154,0.18)", pin: "bg-anil-800 text-white" },
+  { fondo: "bg-anil-800", texto: "text-white" },
+  { fondo: "bg-action-600", texto: "text-white" },
+  { fondo: "bg-success-600", texto: "text-white" },
+  { fondo: "bg-subject-social", texto: "text-stone-900" },
 ];
-
-/** Plano de calles ilustrativo (no es un mapa real) */
-function MapaSede({ trazo }: { trazo: string }) {
-  return (
-    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 144" preserveAspectRatio="xMidYMid slice" fill="none">
-      <g stroke={trazo} strokeLinecap="round">
-        <path d="M-10 40 H330 M-10 98 H330" strokeWidth="10" />
-        <path d="M60 -10 V160 M170 -10 V160 M262 -10 V160" strokeWidth="8" />
-        <path d="M-10 140 L120 10 M200 160 L330 30" strokeWidth="5" />
-        <path d="M100 0 V40 M220 98 V144 M20 70 H60 M262 70 H320" strokeWidth="3" />
-      </g>
-      <circle cx="290" cy="122" r="14" fill={trazo} />
-      <circle cx="28" cy="18" r="9" fill={trazo} />
-    </svg>
-  );
-}
 
 /** Ilustración de la portada del recorrido: pasillo en perspectiva con flechas en el piso */
 function PortadaRecorrido() {
@@ -458,10 +428,9 @@ function PortalButton({ Icon, titulo, texto, onClick, destacado = false }: { Ico
   );
 }
 
-function ContactItem({ Icon, titulo, texto }: { Icon: typeof Phone; titulo: string; texto: string }) {
+function ContactItem({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <div className="rounded-[22px] bg-white border border-stone-200/80 p-4 sm:p-5 flex items-center gap-3 sm:gap-4 min-w-0">
-      <span className="w-11 h-11 rounded-full bg-sand-100 text-action-500 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
+    <div className="rounded-[22px] bg-white border border-stone-200/80 p-4 sm:p-5 min-w-0">
       <div className="min-w-0">
         <p className="text-[13px] font-semibold text-stone-500">{titulo}</p>
         <p className="text-[15px] text-stone-900 font-semibold [overflow-wrap:anywhere]">{texto}</p>

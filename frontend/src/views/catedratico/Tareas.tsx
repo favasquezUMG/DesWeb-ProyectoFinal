@@ -54,7 +54,7 @@ export default function Tareas() {
   const tarea = tareas.find((t) => t.actividadId === tareaId) ?? null;
   const zonaLlena = unidadActual ? sumaPuntos(actividadesPorTipo(unidadActual.actividades, "Zona")) >= PUNTEO_POR_TIPO.Zona : true;
 
-  if (cargandoCursos) return <Cargando texto="Cargando sus cursos..." />;
+  if (cargandoCursos) return <Cargando texto="Cargando sus cursos…" />;
   if (errorCursos) return <AlertBanner type="error" message={errorCursos} />;
   if (cursos.length === 0) {
     return <EmptyState icon={<BookText className="w-10 h-10" />} title="Sin cursos asignados" description="Aún no tiene cursos asignados en este ciclo." />;
@@ -231,7 +231,7 @@ function BandejaTarea({ actividadId, onEditar, onCambio }: { actividadId: number
         <div className="space-y-2">
           <p className="text-[13px] font-semibold text-stone-500">Material de apoyo</p>
           <ListaArchivos archivos={datos.material} onQuitar={(a) => quitarMaterial(a.archivoId)} onError={setError} />
-          <ElegirArchivos onElegir={subirMaterial} disabled={subiendo} texto={subiendo ? "Subiendo..." : "Agregar material"} />
+          <ElegirArchivos onElegir={subirMaterial} disabled={subiendo} texto={subiendo ? "Subiendo…" : "Agregar material"} />
         </div>
       </Card>
 
