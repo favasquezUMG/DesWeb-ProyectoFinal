@@ -20,6 +20,15 @@ export const filtroAlumnoConAcceso: Prisma.AlumnoWhereInput = {
     ],
 };
 
+// El contrario, escrito aparte: un NOT sobre el filtro anterior deja fuera a los accesoPortal = null
+// (en SQL, NOT (null = true) no es verdadero)
+export const filtroAlumnoSinAcceso: Prisma.AlumnoWhereInput = {
+    OR: [
+        { accesoPortal: false },
+        { accesoPortal: null, seccion: { grado: { nivel: { in: NIVELES_SIN_ACCESO } } } },
+    ],
+};
+
 // null si el usuario no es alumno
 export const accesoPortalDe = async (usuarioId: number): Promise<boolean | null> => {
     const alumno = await prisma.alumno.findUnique({

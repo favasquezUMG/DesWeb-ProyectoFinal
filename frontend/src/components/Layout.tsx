@@ -8,7 +8,7 @@ import {
   GraduationCap, UserCheck, Grid3X3, BookMarked, CalendarDays, Bell,
   ClipboardList, Clock, BookOpenCheck, CalendarCheck, Star, CreditCard, FileText,
   User, ChevronLeft, ChevronRight, Menu, X, ChevronDown,
-  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, FileSignature
+  LogOut, Settings, Award, BookText, Layers, MessageSquare, BellRing, Repeat, FileCheck2, FileSignature, Tablero
 } from "./Iconos";
 
 // modulo: permiso que necesita el personal de sede para ver la opción del menú
@@ -44,6 +44,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Dashboard", view: "cat-dashboard", Icon: LayoutDashboard },
     { label: "Mis Cursos", view: "cat-cursos", Icon: BookOpen },
     { label: "Libreta de Notas", view: "cat-notas", Icon: BookText },
+    { label: "Tareas y entregas", view: "cat-tareas", Icon: Tablero },
     { label: "Asistencia", view: "cat-asistencia", Icon: ClipboardList },
     { label: "Mi Horario", view: "cat-horario", Icon: CalendarCheck },
     { label: "Calendario", view: "cat-calendario", Icon: CalendarDays },
@@ -52,6 +53,7 @@ const NAV: Record<Role, NavItem[]> = {
   "alumno": [
     { label: "Dashboard", view: "alu-dashboard", Icon: LayoutDashboard },
     { label: "Mis Notas", view: "alu-notas", Icon: BookOpenCheck },
+    { label: "Mis Tareas", view: "alu-tareas", Icon: Tablero },
     { label: "Mi Horario", view: "alu-horario", Icon: Clock },
     { label: "Calendario", view: "alu-calendario", Icon: CalendarDays },
   ],
@@ -59,6 +61,7 @@ const NAV: Record<Role, NavItem[]> = {
     { label: "Dashboard", view: "pad-dashboard", Icon: LayoutDashboard },
     { label: "Matrícula", view: "pad-matricula", Icon: BookMarked },
     { label: "Notas y Reportes", view: "pad-notas", Icon: Star },
+    { label: "Tareas", view: "pad-tareas", Icon: Tablero },
     { label: "Asistencia", view: "pad-asistencia", Icon: ClipboardList },
     { label: "Horario", view: "pad-horario", Icon: Clock },
     { label: "Calendario", view: "pad-calendario", Icon: CalendarDays },

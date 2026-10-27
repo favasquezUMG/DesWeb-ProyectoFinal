@@ -249,7 +249,12 @@ export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Res
         seccion: { include: { grado: true } },
         unidades: {
           orderBy: { numero: 'asc' },
-          include: { actividades: { orderBy: [{ fecha: 'asc' }, { actividadId: 'asc' }] } },
+          include: {
+            actividades: {
+              orderBy: [{ fecha: 'asc' }, { actividadId: 'asc' }],
+              include: { _count: { select: { entregas: { where: { estado: 'Entregada' } } } } },
+            },
+          },
         },
       },
     });
@@ -289,6 +294,11 @@ export const getLibretaCursoSeccion = async (req: AuthenticatedRequest, res: Res
             puntosMaximos: Number(a.puntosMaximos),
             tipo: a.tipo,
             fecha: a.fecha ? a.fecha.toISOString().slice(0, 10) : null,
+            aceptaEntregas: a.aceptaEntregas,
+            instrucciones: a.instrucciones,
+            fechaLimite: a.fechaLimite?.toISOString() ?? null,
+            permiteAtrasadas: a.permiteAtrasadas,
+            porRevisar: a._count.entregas,
           })),
         })),
         alumnos: alumnos.map(({ usuario, ...a }) => ({ ...a, nombres: usuario.nombres, apellidos: usuario.apellidos })),

@@ -111,6 +111,8 @@ model Usuario {
   respuestasCircular InscripcionEvento[] @relation("RespuestasCircular")
   justificacionesSolicitadas JustificacionAusencia[] @relation("JustificacionSolicitante")
   justificacionesRevisadas   JustificacionAusencia[] @relation("JustificacionRevisor")
+  entregasRealizadas         Entrega[]               @relation("EntregaAutor")
+  archivosSubidos            ArchivoTarea[]
 }
 
 model Catedratico {
@@ -147,6 +149,7 @@ model Alumno {
   encargados       AlumnoEncargado[]
   matriculas       Matricula[]
   notas            Nota[]
+  entregas         Entrega[]
   asistencias      Asistencia[]
   becas            Beca[]
   pagos            Pago[]
@@ -298,8 +301,56 @@ model Actividad {
   fecha         DateTime? @db.Date
   tipo          TipoActividad @default(Zona)
 
-  unidad Unidad @relation(fields: [unidadId], references: [unidadId])
-  notas  Nota[]
+  // Tarea con entrega en linea: el alumno (o su encargado, si el alumno no tiene portal) sube su trabajo
+  aceptaEntregas   Boolean   @default(false)
+  instrucciones    String?   @db.VarChar(4000)
+  fechaLimite      DateTime? // dia y hora limite de entrega
+  permiteAtrasadas Boolean   @default(true)
+
+  unidad   Unidad         @relation(fields: [unidadId], references: [unidadId])
+  notas    Nota[]
+  entregas Entrega[]
+  archivos ArchivoTarea[]
+}
+
+// Entrega de un alumno en una tarea. La calificacion se guarda en Nota, como cualquier actividad.
+model Entrega {
+  entregaId         Int       @id @default(autoincrement())
+  actividadId       Int
+  alumnoId          Int
+  entregadoPorId    Int? // alumno o encargado que subio la entrega; null si el catedratico la marco "en clase"
+  estado            String    @default("Entregada") @db.VarChar(15) // Entregada, Devuelta, Calificada
+  enClase           Boolean   @default(false) // entregada en fisico (cuaderno, maqueta...)
+  comentario        String?   @db.VarChar(2000)
+  fechaEntrega      DateTime  @default(now())
+  retroalimentacion String?   @db.VarChar(2000)
+  fechaRevision     DateTime?
+
+  actividad    Actividad      @relation(fields: [actividadId], references: [actividadId], onDelete: Cascade)
+  alumno       Alumno         @relation(fields: [alumnoId], references: [alumnoId])
+  entregadoPor Usuario?       @relation("EntregaAutor", fields: [entregadoPorId], references: [usuarioId])
+  archivos     ArchivoTarea[]
+
+  @@unique([actividadId, alumnoId])
+}
+
+// Archivo guardado en Cloudinary (tipo "authenticated": solo se abre con URL firmada).
+// Es del catedratico (material de la tarea) o de una entrega.
+model ArchivoTarea {
+  archivoId    Int      @id @default(autoincrement())
+  actividadId  Int?
+  entregaId    Int?
+  publicId     String   @unique @db.VarChar(255)
+  resourceType String   @db.VarChar(10) // image, raw, video
+  formato      String?  @db.VarChar(20)
+  nombre       String   @db.VarChar(255)
+  bytes        Int
+  subidoPorId  Int
+  fechaSubida  DateTime @default(now())
+
+  actividad Actividad? @relation(fields: [actividadId], references: [actividadId], onDelete: Cascade)
+  entrega   Entrega?   @relation(fields: [entregaId], references: [entregaId], onDelete: Cascade)
+  subidoPor Usuario    @relation(fields: [subidoPorId], references: [usuarioId])
 }
 
 model Nota {

@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   GraduationCap, Users2, ShieldCheck, MapPin, Phone, Mail, Clock,
   Award, Heart, Lightbulb, Menu, X, FileSearch, ClipboardEdit,
-  Target, Binoculars, Navigation, School,
+  Target, Binoculars, Navigation, School, Caminar, Avanzar,
 } from "../components/Iconos";
 import { Btn } from "../components/Ui";
 import { getInfoInicio, type InfoInicioDto } from "../lib/api";
+
+const RecorridoVirtual = lazy(() => import("../components/RecorridoVirtual"));
 
 export type Portal = "estudiante" | "personal";
 
@@ -18,6 +20,7 @@ interface HomeProps {
 const NAV_LINKS = [
   { label: "Nosotros", href: "#nosotros" },
   { label: "Niveles", href: "#niveles" },
+  { label: "Recorrido", href: "#recorrido" },
   { label: "Sedes", href: "#sedes" },
   { label: "Admisiones", href: "#admisiones" },
   { label: "Contacto", href: "#contacto" },
@@ -60,6 +63,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
   const [info, setInfo] = useState<InfoInicioDto | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recorridoAbierto, setRecorridoAbierto] = useState(false);
 
   useEffect(() => {
     getInfoInicio()
@@ -257,6 +261,35 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
         </div>
       </section>
 
+      {/* Recorrido virtual */}
+      <section id="recorrido" className="scroll-mt-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+          <SectionTitle titulo="Recorra el colegio desde casa" texto="Camine por la recepción, las aulas, el laboratorio, la biblioteca y la cancha como si estuviera aquí. Arrastre para mirar alrededor y use las flechas para avanzar." />
+          <div className="mt-10">
+            {recorridoAbierto ? (
+              <Suspense fallback={<div className="w-full h-[68vh] min-h-[420px] max-h-[720px] rounded-[28px] bg-stone-900" />}>
+                <RecorridoVirtual />
+              </Suspense>
+            ) : (
+              <button type="button" onClick={() => setRecorridoAbierto(true)}
+                className="group relative w-full h-[340px] sm:h-[420px] rounded-[28px] overflow-hidden bg-anil-800 textile-pattern text-white text-left cursor-pointer">
+                <PortadaRecorrido />
+                <span className="absolute inset-x-0 bottom-0 p-6 sm:p-10 flex flex-col sm:flex-row sm:items-end justify-between gap-5 bg-gradient-to-t from-stone-900/80 to-transparent">
+                  <span>
+                    <span className="flex items-center gap-2 text-sm font-bold text-subject-social"><Caminar className="w-5 h-5" />Recorrido virtual 360°</span>
+                    <span className="block font-display text-3xl sm:text-4xl font-bold leading-tight mt-2">9 espacios para conocer</span>
+                    <span className="block text-white/75 text-[15px] mt-1">Funciona en computadora y en celular.</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2 self-start sm:self-auto px-6 py-3 rounded-full bg-action-500 group-hover:bg-action-600 transition-colors font-bold">
+                    Iniciar recorrido<Avanzar className="w-4 h-4 rotate-90" />
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* Sedes */}
       <section id="sedes" className="scroll-mt-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
@@ -379,6 +412,25 @@ function MapaSede({ trazo }: { trazo: string }) {
       </g>
       <circle cx="290" cy="122" r="14" fill={trazo} />
       <circle cx="28" cy="18" r="9" fill={trazo} />
+    </svg>
+  );
+}
+
+/** Ilustración de la portada del recorrido: pasillo en perspectiva con flechas en el piso */
+function PortadaRecorrido() {
+  return (
+    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid slice" fill="none" aria-hidden="true">
+      <path d="M0 0 L330 150 L470 150 L800 0 Z" fill="rgba(255,255,255,0.06)" />
+      <path d="M0 420 L330 250 L470 250 L800 420 Z" fill="rgba(255,255,255,0.1)" />
+      <rect x="330" y="150" width="140" height="100" fill="rgba(242,183,5,0.85)" />
+      <g stroke="rgba(255,255,255,0.22)" strokeWidth="2">
+        <path d="M0 0 L330 150 M800 0 L470 150 M0 420 L330 250 M800 420 L470 250" />
+        <path d="M120 55 V365 M220 100 V310 M290 132 V268 M680 55 V365 M580 100 V310 M510 132 V268" />
+      </g>
+      <g fill="#ffffff">
+        <path d="M400 268 L440 300 L418 300 L418 330 L382 330 L382 300 L360 300 Z" opacity="0.95" />
+        <path d="M400 222 L418 236 L408 236 L408 248 L392 248 L392 236 L382 236 Z" opacity="0.6" />
+      </g>
     </svg>
   );
 }

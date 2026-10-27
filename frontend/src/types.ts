@@ -8,11 +8,11 @@ export type View =
   | "as-alumnos" | "as-grados" | "as-cursos" | "as-horarios"
   | "as-becas" | "as-solicitudes" | "as-justificaciones" | "as-notificaciones" | "as-calendario"
   // Catedrático
-  | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-asistencia" | "cat-horario" | "cat-calendario" | "cat-comunicacion"
+  | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-tareas" | "cat-asistencia" | "cat-horario" | "cat-calendario" | "cat-comunicacion"
   // Alumno
-  | "alu-dashboard" | "alu-notas" | "alu-horario" | "alu-calendario"
+  | "alu-dashboard" | "alu-notas" | "alu-tareas" | "alu-horario" | "alu-calendario"
   // Padre
-  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-asistencia" | "pad-horario" | "pad-calendario" | "pad-pagos" | "pad-circulares" | "pad-becas" | "pad-avisos" | "pad-perfil";
+  | "pad-dashboard" | "pad-matricula" | "pad-notas" | "pad-tareas" | "pad-asistencia" | "pad-horario" | "pad-calendario" | "pad-pagos" | "pad-circulares" | "pad-becas" | "pad-avisos" | "pad-perfil";
 
 export interface RolUsuario {
   rolId: number;

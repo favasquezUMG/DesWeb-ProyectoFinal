@@ -662,6 +662,12 @@ export interface ActividadDto {
   puntosMaximos: number;
   tipo: TipoActividad;
   fecha: string | null; // "YYYY-MM-DD"
+  // Tarea con entrega en línea
+  aceptaEntregas: boolean;
+  instrucciones: string | null;
+  fechaLimite: string | null; // ISO con hora
+  permiteAtrasadas: boolean;
+  porRevisar: number; // entregas que esperan calificación
 }
 
 export interface LibretaDto {
@@ -685,9 +691,13 @@ export interface ActividadInput {
   puntosMaximos: number;
   tipo: TipoActividad;
   fecha: string;
+  aceptaEntregas?: boolean;
+  instrucciones?: string | null;
+  fechaLimite?: string | null;
+  permiteAtrasadas?: boolean;
 }
 
-export function createActividad(input: ActividadInput): Promise<{ status: "success" }> {
+export function createActividad(input: ActividadInput): Promise<{ status: "success"; data: { actividadId: number } }> {
   return request("/api/actividades", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -702,6 +712,204 @@ export function deleteActividad(id: number): Promise<MessageResponse> {
 // valor null borra la nota registrada
 export function guardarNotasActividad(actividadId: number, notas: { alumnoId: number; valor: number | null }[]): Promise<MessageResponse> {
   return request("/api/notas/bulk", { method: "POST", body: JSON.stringify({ actividadId, notas }) });
+}
+
+// ---------- Tareas con entrega en línea ----------
+
+export type EstadoTarea = "Pendiente" | "Atrasada" | "Entregada" | "Devuelta" | "Calificada";
+
+export interface ArchivoTareaDto {
+  archivoId: number;
+  nombre: string;
+  bytes: number;
+  formato: string | null;
+  fechaSubida: string;
+}
+
+export interface EntregaDto {
+  entregaId: number;
+  estado: Exclude<EstadoTarea, "Pendiente" | "Atrasada">;
+  enClase: boolean;
+  comentario: string | null;
+  fechaEntrega: string;
+  tarde: boolean;
+  retroalimentacion: string | null;
+  fechaRevision: string | null;
+  entregadoPor: string | null;
+  archivos: ArchivoTareaDto[];
+}
+
+export interface TareaDto {
+  actividadId: number;
+  nombre: string;
+  tipo: TipoActividad;
+  puntosMaximos: number;
+  fecha: string | null;
+  unidad: number;
+  curso: string;
+  cursoSeccionId: number;
+  aceptaEntregas: boolean;
+  instrucciones: string | null;
+  fechaLimite: string | null;
+  permiteAtrasadas: boolean;
+}
+
+export interface EntregasTareaDto {
+  tarea: TareaDto;
+  material: ArchivoTareaDto[];
+  alumnos: {
+    alumnoId: number;
+    nombres: string;
+    apellidos: string;
+    /** Sin acceso al portal: entrega su encargado */
+    entregaPorEncargado: boolean;
+    estado: EstadoTarea;
+    entrega: EntregaDto | null;
+    nota: number | null;
+  }[];
+}
+
+export interface TableroTareasDto {
+  alumnoId: number;
+  alumno: string;
+  puedeEntregar: boolean;
+  tareas: {
+    actividadId: number;
+    nombre: string;
+    curso: string;
+    cursoSeccionId: number;
+    catedratico: string;
+    unidad: number;
+    tipo: TipoActividad;
+    puntosMaximos: number;
+    fechaLimite: string | null;
+    permiteAtrasadas: boolean;
+    estado: EstadoTarea;
+    tarde: boolean;
+    fechaEntrega: string | null;
+    nota: number | null;
+  }[];
+}
+
+export interface TareaAlumnoDto {
+  tarea: TareaDto;
+  material: ArchivoTareaDto[];
+  estado: EstadoTarea;
+  entrega: EntregaDto | null;
+  nota: number | null;
+  puedeEntregar: boolean;
+  motivoNoEditable: string | null;
+}
+
+/** Lo que Cloudinary responde al subir, más el nombre original; el backend verifica la firma */
+export interface SubidaArchivo {
+  public_id: string;
+  version: number;
+  signature: string;
+  resource_type: string;
+  format?: string;
+  bytes: number;
+  nombre: string;
+}
+
+export async function getEntregasTarea(actividadId: number): Promise<EntregasTareaDto> {
+  const body = await request<{ status: "success"; data: EntregasTareaDto }>(`/api/tareas/${actividadId}/entregas`);
+  return body.data;
+}
+
+export function calificarEntrega(actividadId: number, alumnoId: number, valor: number, retroalimentacion: string): Promise<MessageResponse> {
+  return request(`/api/tareas/${actividadId}/alumnos/${alumnoId}/calificar`, { method: "POST", body: JSON.stringify({ valor, retroalimentacion }) });
+}
+
+export function devolverEntrega(actividadId: number, alumnoId: number, retroalimentacion: string): Promise<MessageResponse> {
+  return request(`/api/tareas/${actividadId}/alumnos/${alumnoId}/devolver`, { method: "POST", body: JSON.stringify({ retroalimentacion }) });
+}
+
+export function marcarEntregaEnClase(actividadId: number, alumnoId: number, marcar: boolean): Promise<MessageResponse> {
+  return request(`/api/tareas/${actividadId}/alumnos/${alumnoId}/en-clase`, { method: marcar ? "POST" : "DELETE" });
+}
+
+export async function agregarMaterialTarea(actividadId: number, archivos: SubidaArchivo[]): Promise<ArchivoTareaDto[]> {
+  const body = await request<{ status: "success"; data: ArchivoTareaDto[] }>(`/api/tareas/${actividadId}/material`, { method: "POST", body: JSON.stringify({ archivos }) });
+  return body.data;
+}
+
+export function quitarMaterialTarea(archivoId: number): Promise<MessageResponse> {
+  return request(`/api/tareas/material/${archivoId}`, { method: "DELETE" });
+}
+
+export async function getTableroTareas(alumnoId: number): Promise<TableroTareasDto> {
+  const body = await request<{ status: "success"; data: TableroTareasDto }>(`/api/tareas/alumno/${alumnoId}`);
+  return body.data;
+}
+
+export async function getTareaAlumno(alumnoId: number, actividadId: number): Promise<TareaAlumnoDto> {
+  const body = await request<{ status: "success"; data: TareaAlumnoDto }>(`/api/tareas/alumno/${alumnoId}/${actividadId}`);
+  return body.data;
+}
+
+export function guardarEntrega(actividadId: number, alumnoId: number, datos: { comentario: string; archivos: SubidaArchivo[]; quitar: number[] }): Promise<MessageResponse> {
+  return request(`/api/tareas/${actividadId}/alumnos/${alumnoId}/entrega`, { method: "PUT", body: JSON.stringify(datos) });
+}
+
+interface FirmaSubida {
+  url: string;
+  campos: Record<string, string | number | boolean>;
+  maxBytes: number;
+  extensiones: string[];
+}
+
+/**
+ * Sube archivos directo a Cloudinary (no pasan por el backend) con una firma del backend.
+ * Sin alumnoId son material del catedrático; con alumnoId, parte de la entrega de ese alumno.
+ * Devuelve las subidas para registrarlas con agregarMaterialTarea o guardarEntrega.
+ */
+export async function subirArchivosTarea(actividadId: number, archivos: File[], alumnoId?: number): Promise<SubidaArchivo[]> {
+  if (archivos.length === 0) return [];
+  const { data: firma } = await request<{ status: "success"; data: FirmaSubida }>(`/api/tareas/${actividadId}/firma`, {
+    method: "POST",
+    body: JSON.stringify(alumnoId === undefined ? {} : { alumnoId }),
+  });
+
+  for (const archivo of archivos) {
+    const ext = archivo.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!firma.extensiones.includes(ext)) throw new Error(`"${archivo.name}": tipo de archivo no permitido. Se aceptan ${firma.extensiones.join(", ")}.`);
+    if (archivo.size > firma.maxBytes) throw new Error(`"${archivo.name}" pesa más de ${Math.round(firma.maxBytes / 1024 / 1024)} MB.`);
+  }
+
+  const subidas: SubidaArchivo[] = [];
+  for (const archivo of archivos) {
+    const form = new FormData();
+    form.append("file", archivo);
+    for (const [k, v] of Object.entries(firma.campos)) form.append(k, String(v));
+    let r: Response;
+    try {
+      r = await fetch(firma.url, { method: "POST", body: form });
+    } catch {
+      throw new Error(`No se pudo subir "${archivo.name}". Verifique su conexión.`);
+    }
+    const res = await r.json().catch(() => null);
+    if (!r.ok || !res?.public_id) throw new Error(`No se pudo subir "${archivo.name}": ${res?.error?.message ?? "error del servicio de archivos"}.`);
+    subidas.push({
+      public_id: res.public_id, version: res.version, signature: res.signature, resource_type: res.resource_type,
+      format: res.format, bytes: res.bytes, nombre: archivo.name,
+    });
+  }
+  return subidas;
+}
+
+/** Abre un archivo de tarea en otra pestaña con una URL temporal */
+export async function abrirArchivoTarea(archivoId: number): Promise<void> {
+  // La pestaña se abre antes de esperar al servidor para que el navegador no la bloquee
+  const ventana = window.open("", "_blank");
+  try {
+    const { data } = await requestServidor<{ status: "success"; data: { url: string } }>(`/api/tareas/archivos/${archivoId}/url`, {});
+    if (ventana) ventana.location.href = data.url;
+    else window.location.href = data.url;
+  } catch (err) {
+    ventana?.close();
+    throw err;
+  }
 }
 
 // ---------- Asistencia ----------
