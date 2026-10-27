@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import { ReglaNegocioError } from "../lib/errores.js";
+import { seccionVigente } from "../lib/ciclo.js";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { puedeOperarSede, sedeDelAlcance } from "../middlewares/role.middleware.js";
 
@@ -26,13 +27,25 @@ const sedeObjetivo = async (req: AuthenticatedRequest, pedida: unknown): Promise
     return sedeId;
 };
 
-// GET /api/grados — grados con su malla curricular
+// GET /api/grados — grados con su malla curricular. Cada curso trae en cuántas secciones
+// vigentes de ese grado está asignado: mientras sea > 0 no se puede quitar de la malla.
 export const getGrados = async (_req: AuthenticatedRequest, res: Response) => {
     try {
-        const grados = await prisma.grado.findMany({
-            include: { mallas: { include: { curso: { select: { cursoId: true, nombre: true } } } } },
-            orderBy: { orden: "asc" },
-        });
+        const [grados, asignaciones] = await Promise.all([
+            prisma.grado.findMany({
+                include: { mallas: { include: { curso: { select: { cursoId: true, nombre: true } } } } },
+                orderBy: { orden: "asc" },
+            }),
+            prisma.cursoSeccion.findMany({
+                where: { seccion: seccionVigente() },
+                select: { cursoId: true, seccion: { select: { gradoId: true } } },
+            }),
+        ]);
+        const enUso = new Map<string, number>();
+        for (const a of asignaciones) {
+            const clave = `${a.seccion.gradoId}-${a.cursoId}`;
+            enUso.set(clave, (enUso.get(clave) ?? 0) + 1);
+        }
         return res.json({
             status: "success",
             data: grados.map((g) => ({
@@ -40,7 +53,9 @@ export const getGrados = async (_req: AuthenticatedRequest, res: Response) => {
                 nombre: g.nombre,
                 nivel: g.nivel,
                 orden: g.orden,
-                cursos: g.mallas.map((m) => m.curso).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+                cursos: g.mallas
+                    .map((m) => ({ ...m.curso, seccionesAsignadas: enUso.get(`${g.gradoId}-${m.curso.cursoId}`) ?? 0 }))
+                    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
             })),
         });
     } catch (error) {

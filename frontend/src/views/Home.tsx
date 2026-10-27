@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import {
   GraduationCap, Users2, ShieldCheck, MapPin, Phone, Mail, Clock,
   Award, Heart, Lightbulb, Menu, X, FileSearch, ClipboardEdit,
-  Target, Binoculars, Navigation, School, Caminar, Avanzar,
+  Target, Binoculars, School, Caminar, Avanzar,
 } from "../components/Iconos";
 import { Btn } from "../components/Ui";
 import { getInfoInicio, type InfoInicioDto } from "../lib/api";
@@ -43,14 +43,6 @@ const DESCRIPCION_NIVEL: Record<string, string> = {
 function formatearTelefono(telefono: string | null): string | null {
   if (!telefono) return null;
   return /^\d{8}$/.test(telefono) ? `${telefono.slice(0, 4)}-${telefono.slice(4)}` : telefono;
-}
-
-// El mapa es solo de referencia: apunta al parque central del municipio de la sede.
-function mapaParqueCentral(nombre: string, direccion: string | null): string {
-  const lugar = (direccion ?? "")
-    .split(",").map(p => p.trim().replace(/^zona\s+\d+(\s+de)?\s*/i, "")).find(Boolean)
-    ?? nombre.replace(/^sede\s+/i, "");
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Parque Central ${lugar}, Guatemala`)}`;
 }
 
 function rangoGrados(grados: string[]): string {
@@ -298,7 +290,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
             {sedes.map((s, i) => {
               const tono = TONOS_SEDE[i % TONOS_SEDE.length];
-              const mapa = mapaParqueCentral(s.nombre, s.direccion);
               return (
                 <li key={s.sedeId} className="rounded-[26px] border border-stone-200/80 bg-white overflow-hidden flex flex-col">
                   <div className={`relative h-36 ${tono.fondo} overflow-hidden`} aria-hidden="true">
@@ -319,12 +310,6 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                         <Phone className="w-5 h-5 text-action-600 shrink-0" />{formatearTelefono(s.telefono)}
                       </p>
                     )}
-                    <div className="flex flex-wrap gap-2 mt-auto pt-5">
-                      <a href={mapa} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-anil-800 text-white text-sm font-bold hover:bg-anil-900 transition-colors">
-                        <Navigation className="w-4 h-4" />Cómo llegar
-                      </a>
-                    </div>
                   </div>
                 </li>
               );

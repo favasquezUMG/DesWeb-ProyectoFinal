@@ -6,7 +6,7 @@ export type View =
   // Admin Sede
   | "as-dashboard" | "as-usuarios" | "as-roles" | "as-catedraticos"
   | "as-alumnos" | "as-grados" | "as-cursos" | "as-horarios"
-  | "as-becas" | "as-solicitudes" | "as-justificaciones" | "as-notificaciones" | "as-calendario"
+  | "as-becas" | "as-solicitudes" | "as-justificaciones" | "as-notificaciones" | "as-calendario" | "as-pagos"
   // Catedrático
   | "cat-dashboard" | "cat-cursos" | "cat-notas" | "cat-tareas" | "cat-asistencia" | "cat-horario" | "cat-calendario" | "cat-comunicacion"
   // Alumno

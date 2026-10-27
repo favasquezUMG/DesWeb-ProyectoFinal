@@ -722,6 +722,54 @@ export const setAccesoPortal = async (req: AuthenticatedRequest, res: Response) 
 };
 
 // PUT /api/alumnos/:id/salud  { necesidadesApoyo, alergias, medicamentos }  (texto o null)
+// PUT /api/alumnos/:id/seccion  { seccionId }
+// Traslada al alumno a otra sección del mismo ciclo. Si la sección es de otra sede, el alumno cambia
+// de sede (solo el Administrador General). Su matrícula activa del ciclo se mueve con él.
+export const trasladarAlumno = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        const alumnoId = leerId(req.params.id);
+        const seccionId = Number(req.body?.seccionId);
+        if (!Number.isInteger(seccionId) || seccionId <= 0) throw new ReglaNegocioError('Indique la sección destino (seccionId).', 400);
+
+        const alumno = await verificarAlumnoDeMiSede(req, alumnoId);
+        if (alumno.seccionId === seccionId) throw new ReglaNegocioError('El alumno ya está en esa sección.', 400);
+
+        const destino = await prisma.seccion.findUnique({ where: { seccionId }, include: { grado: true, sede: true } });
+        if (!destino || destino.deletedAt) throw new ReglaNegocioError(`Sección con ID: ${seccionId} no encontrada.`, 404);
+        if (!destino.sede.activo || destino.sede.deletedAt) throw new ReglaNegocioError(`La sede ${destino.sede.nombre} está desactivada.`, 400);
+        const cambiaSede = destino.sedeId !== alumno.seccion.sedeId;
+        if (cambiaSede && (await sedeDelAlcance(req)) !== null) {
+            throw new ReglaNegocioError('Solo el Administrador General puede trasladar alumnos a otra sede.', 403);
+        }
+        if (destino.anioLectivo !== alumno.seccion.anioLectivo) {
+            throw new ReglaNegocioError(`La sección destino es del ciclo ${destino.anioLectivo} y el alumno está en el ${alumno.seccion.anioLectivo}. Para otro ciclo use una matrícula nueva.`, 400);
+        }
+
+        await prisma.$transaction([
+            prisma.alumno.update({ where: { alumnoId }, data: { seccionId } }),
+            prisma.usuario.update({ where: { usuarioId: alumnoId }, data: { sedeId: destino.sedeId } }),
+            prisma.matricula.updateMany({ where: { alumnoId, anioLectivo: destino.anioLectivo, estado: 'Activa' }, data: { seccionId } }),
+        ]);
+
+        const descripcion = `${destino.grado.nombre} "${destino.nombre}"${cambiaSede ? ` de ${destino.sede.nombre}` : ''}`;
+        await registrarBitacora(
+            Number(req.user?.id),
+            'Traslado',
+            'Alumno',
+            alumnoId,
+            `De ${alumno.seccion.grado.nombre} "${alumno.seccion.nombre}" a ${descripcion}.`,
+        );
+
+        return res.json({
+            status: 'success',
+            message: `${nombreDe(alumno.usuario)} trasladado a ${descripcion}.`,
+            data: { seccionId, sede: { sedeId: destino.sedeId, nombre: destino.sede.nombre } },
+        });
+    } catch (error) {
+        return responderError(res, error, 'Error al trasladar al alumno.');
+    }
+};
+
 export const setSaludAlumno = async (req: AuthenticatedRequest, res: Response) => {
     try {
         const alumnoId = leerId(req.params.id);

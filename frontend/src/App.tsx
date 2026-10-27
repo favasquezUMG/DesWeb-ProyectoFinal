@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppUser, View } from "./types";
-import { Layout } from "./components/Layout";
+import { Layout, vistasPermitidas } from "./components/Layout";
 import Login, { type Screen } from "./views/Login";
 import Home, { type Portal } from "./views/Home";
 import AdminGeneral from "./views/AdminGeneral";
@@ -12,9 +12,13 @@ import { buildAppUser, clearSession, getSession, saveSession } from "./lib/auth"
 import { cambiarRol } from "./lib/api";
 import { guardarCircularPendiente, hayCircularPendiente } from "./views/CircularesPadre";
 
-// Si el padre llegó desde el enlace de una circular, entra directo a Circulares (que la abre)
-const vistaInicial = (role: string): View =>
-  role === "padre" && hayCircularPendiente() ? "pad-circulares" : DEFAULT_VIEWS[role] as View;
+// Si el padre llegó desde el enlace de una circular, entra directo a Circulares (que la abre).
+// El personal de sede entra a la primera pestaña que tiene permitida (la secretaría no ve el Dashboard).
+const vistaInicial = (user: AppUser): View => {
+  if (user.role === "padre" && hayCircularPendiente()) return "pad-circulares";
+  if (user.role === "admin-sede") return vistasPermitidas(user)[0] ?? DEFAULT_VIEWS[user.role];
+  return DEFAULT_VIEWS[user.role];
+};
 
 const DEFAULT_VIEWS: Record<string, View> = {
   "admin-general": "ag-dashboard",
@@ -45,7 +49,7 @@ export default function App() {
     if (session) {
       setUser(session.user);
       setSede(session.user.sede);
-      setCurrentView(vistaInicial(session.user.role));
+      setCurrentView(vistaInicial(session.user));
     } else if (circular > 0) {
       setAcceso({ portal: "estudiante", screen: "login" });
     }
@@ -62,7 +66,7 @@ export default function App() {
   function handleLogin(loggedUser: AppUser, loggedSede?: string) {
     setUser(loggedUser);
     setSede(loggedSede || loggedUser.sede);
-    setCurrentView(vistaInicial(loggedUser.role));
+    setCurrentView(vistaInicial(loggedUser));
   }
 
   // Una persona con varios roles (ej. catedrático y padre) cambia de rol sin cerrar sesión
@@ -73,7 +77,7 @@ export default function App() {
       saveSession(result.token, nuevo);
       setUser(nuevo);
       setSede(nuevo.sede);
-      setCurrentView(vistaInicial(nuevo.role));
+      setCurrentView(vistaInicial(nuevo));
     } catch (err) {
       window.alert(err instanceof Error ? err.message : "No se pudo cambiar de rol.");
     }
@@ -112,7 +116,12 @@ export default function App() {
     if (!user) return null;
     switch (user.role) {
       case "admin-general": return <AdminGeneral view={currentView} />;
-      case "admin-sede": return <AdminSede view={currentView} />;
+      case "admin-sede": {
+        // Una pantalla sin permiso (o sin ninguna pestaña asignada) no se muestra aunque se llegue a ella
+        const permitidas = vistasPermitidas(user);
+        if (permitidas.length === 0) return <SinPermisos />;
+        return <AdminSede view={permitidas.includes(currentView) ? currentView : permitidas[0]} />;
+      }
       case "catedratico": return <Catedratico view={currentView} onNavigate={setCurrentView} />;
       case "alumno": return <Alumno view={currentView} onNavigate={setCurrentView} />;
       case "padre": return <Padre view={currentView} user={user} onNavigate={setCurrentView} />;
@@ -131,5 +140,14 @@ export default function App() {
     >
       {renderView()}
     </Layout>
+  );
+}
+
+function SinPermisos() {
+  return (
+    <div className="py-20 text-center max-w-md mx-auto">
+      <h2 className="font-display font-bold text-xl text-stone-900">Su cuenta todavía no tiene permisos</h2>
+      <p className="text-sm text-stone-500 mt-2">Pida al Administrador General que asigne permisos a su rol en "Roles y Permisos".</p>
+    </div>
   );
 }

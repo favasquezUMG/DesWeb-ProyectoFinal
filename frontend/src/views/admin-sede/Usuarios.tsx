@@ -6,11 +6,14 @@ import {
   getUsuario,
   getRoles,
   getSedes,
+  getSeccionesAdmin,
+  trasladarAlumno,
   createUsuario,
   updateUsuario,
   setRolesAdicionales,
   cambiarEstadoUsuario,
   type RolDto,
+  type SeccionAdminDto,
   type SedeDto,
   type UsuarioDetalleDto,
   type UsuarioDto,
@@ -28,12 +31,13 @@ interface FormUsuario {
   rolId: string;
   adicionales: Set<number>;
   sedeId: string;
+  seccionId: string;
   especialidad: string;
   password: string;
 }
 
 const formVacio = (): FormUsuario => ({
-  nombres: "", apellidos: "", email: "", rolId: "", adicionales: new Set(), sedeId: "", especialidad: "", password: "",
+  nombres: "", apellidos: "", email: "", rolId: "", adicionales: new Set(), sedeId: "", seccionId: "", especialidad: "", password: "",
 });
 
 const ROLES_SOLO_GENERAL = ["Administrador General", "Administrador de Sede"];
@@ -58,6 +62,8 @@ export default function UsuariosView() {
   const [formError, setFormError] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [passwordTemporal, setPasswordTemporal] = useState<{ email: string; clave: string } | null>(null);
+  // Secciones del ciclo del alumno que se está editando (para trasladarlo); null = no se pudieron cargar
+  const [secciones, setSecciones] = useState<SeccionAdminDto[] | null>([]);
 
   const [estadoDe, setEstadoDe] = useState<UsuarioDto | null>(null);
   const [motivo, setMotivo] = useState("");
@@ -111,10 +117,17 @@ export default function UsuariosView() {
         rolId: String(detalle.rolId),
         adicionales: new Set(detalle.rolesAdicionales.map((r) => r.rolId)),
         sedeId: detalle.sedeId ? String(detalle.sedeId) : "",
+        seccionId: detalle.alumno?.seccion.seccionId ? String(detalle.alumno.seccion.seccionId) : "",
         especialidad: detalle.catedratico?.especialidad ?? "",
         password: "",
       });
+      setSecciones([]);
       setDrawer(detalle);
+      if (detalle.alumno?.seccion.anioLectivo) {
+        getSeccionesAdmin({ anioLectivo: detalle.alumno.seccion.anioLectivo })
+          .then((r) => setSecciones(r.secciones))
+          .catch(() => setSecciones(null));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo abrir el usuario.");
     }
@@ -155,7 +168,13 @@ export default function UsuariosView() {
         const antes = new Set(drawer.rolesAdicionales.map((r) => r.rolId));
         const cambiaron = antes.size !== adicionales.length || adicionales.some((id) => !antes.has(id));
         if (cambiaron) await setRolesAdicionales(drawer.usuarioId, adicionales);
-        setExito("Usuario actualizado.");
+        const seccionAntes = drawer.alumno?.seccion.seccionId;
+        if (seccionAntes && form.seccionId && Number(form.seccionId) !== seccionAntes) {
+          const res = await trasladarAlumno(drawer.usuarioId, Number(form.seccionId));
+          setExito(`Usuario actualizado. ${res.message}`);
+        } else {
+          setExito("Usuario actualizado.");
+        }
       }
       setDrawer(null);
       await cargar();
@@ -184,6 +203,11 @@ export default function UsuariosView() {
 
   const detalle = drawer && drawer !== "nuevo" ? drawer : null;
   const esUnoMismo = detalle?.usuarioId === miId;
+  const esAlumno = nombresElegidos.includes("Alumno");
+  // Si su sede actual está desactivada no viene en la lista, pero tiene que verse como seleccionada
+  const opcionesSede = detalle?.sede && !sedes.some((s) => s.sedeId === detalle.sede!.sedeId)
+    ? [...sedes, { sedeId: detalle.sede.sedeId, nombre: `${detalle.sede.nombre} (desactivada)`, direccion: null }]
+    : sedes;
 
   return (
     <div className="space-y-5">
@@ -289,13 +313,43 @@ export default function UsuariosView() {
             </div>
           </div>
 
-          {necesitaSede && (
-            <Select label="Sede" value={form.sedeId} disabled={esUnoMismo} onChange={(e) => setForm((f) => ({ ...f, sedeId: e.target.value }))}>
-              <option value="">Seleccionar…</option>
-              {sedes.map((s) => <option key={s.sedeId} value={s.sedeId}>{s.nombre}</option>)}
-            </Select>
+          {esAlumno ? (
+            detalle?.alumno && secciones?.some((s) => s.seccionId === detalle.alumno!.seccion.seccionId) ? (
+              <div>
+                <Select label="Sección (y sede)" value={form.seccionId} onChange={(e) => setForm((f) => ({ ...f, seccionId: e.target.value }))}>
+                  {[...new Set(secciones.map((s) => s.sede.nombre))].map((sede) => (
+                    <optgroup key={sede} label={sede}>
+                      {secciones.filter((s) => s.sede.nombre === sede)
+                        .sort((a, b) => a.grado.orden - b.grado.orden || a.nombre.localeCompare(b.nombre))
+                        .map((s) => <option key={s.seccionId} value={s.seccionId}>{s.grado.nombre} "{s.nombre}" · {sede}</option>)}
+                    </optgroup>
+                  ))}
+                </Select>
+                <p className="text-xs text-stone-500 mt-1">
+                  La sede del alumno es la de su sección. Al elegir una sección de otra sede, el alumno se traslada a esa sede junto con su matrícula del ciclo {detalle.alumno.seccion.anioLectivo}.
+                  {!esGeneral && " Solo el Administrador General puede trasladarlo a otra sede."}
+                </p>
+              </div>
+            ) : (
+              <SedeFija sede={detalle?.sede?.nombre}
+                nota={secciones === null ? "No tiene permiso para ver las secciones; pida al Administrador General que traslade al alumno." : "La sede del alumno es la de su sección."} />
+            )
+          ) : necesitaSede ? (
+            <div>
+              <Select label="Sede" value={form.sedeId} disabled={esUnoMismo} onChange={(e) => setForm((f) => ({ ...f, sedeId: e.target.value }))}>
+                <option value="">Seleccionar…</option>
+                {opcionesSede.map((s) => <option key={s.sedeId} value={s.sedeId}>{s.nombre}</option>)}
+              </Select>
+              {esUnoMismo && <p className="text-xs text-stone-500 mt-1">No puede cambiar su propia sede.</p>}
+            </div>
+          ) : esGeneral ? (
+            <SedeFija sede={nombresElegidos.includes("Administrador General") ? "Todas las sedes" : "Sin sede"}
+              nota={nombresElegidos.includes("Administrador General") ? "El Administrador General trabaja con todas las sedes." : "Los encargados no pertenecen a una sede: ven a sus hijos en la sede donde estudien."} />
+          ) : detalle ? (
+            <SedeFija sede={detalle.sede?.nombre ?? "Sin sede"} nota="Solo el Administrador General puede cambiar la sede de un usuario." />
+          ) : (
+            <p className="text-xs text-stone-500">La cuenta queda en su sede.</p>
           )}
-          {!esGeneral && <p className="text-xs text-stone-500">La cuenta queda en su sede.</p>}
 
           {incluyeCatedratico && (
             <Input label="Especialidad" value={form.especialidad} onChange={(e) => setForm((f) => ({ ...f, especialidad: e.target.value }))} placeholder="Ej. Matemática" />
@@ -369,6 +423,17 @@ export default function UsuariosView() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+// Sede que se muestra pero no se puede cambiar desde aquí, con el motivo
+function SedeFija({ sede, nota }: { sede?: string; nota: string }) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-stone-700 mb-1">Sede</p>
+      <p className="px-3.5 py-2.5 text-[15px] rounded-xl border-[1.5px] border-stone-200 bg-stone-50 text-stone-600">{sede ?? "—"}</p>
+      <p className="text-xs text-stone-500 mt-1">{nota}</p>
     </div>
   );
 }

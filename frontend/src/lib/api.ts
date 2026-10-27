@@ -201,7 +201,7 @@ export interface UsuarioDto {
   rolesAdicionales: { rolId: number; rol: { rolId: number; nombre: string } }[];
   catedratico: { especialidad: string | null } | null;
   encargado: { _count: { alumnosEncargado: number } } | null;
-  alumno: { seccion: { nombre: string; grado: { nombre: string } } } | null;
+  alumno: { seccion: { seccionId?: number; nombre: string; anioLectivo?: number; grado: { nombre: string } } } | null;
 }
 
 export interface UsuarioDetalleDto extends UsuarioDto {
@@ -292,6 +292,11 @@ export function setAccesoPortalAlumno(alumnoId: number, accesoPortal: boolean | 
 
 export function setSaludAlumno(alumnoId: number, datos: DatosSaludDto): Promise<{ status: "success"; message: string; data: DatosSaludDto }> {
   return request(`/api/alumnos/${alumnoId}/salud`, { method: "PUT", body: JSON.stringify(datos) });
+}
+
+/** Cambia al alumno de sección; si la sección es de otra sede, también cambia de sede */
+export function trasladarAlumno(alumnoId: number, seccionId: number): Promise<{ status: "success"; message: string; data: { seccionId: number; sede: { sedeId: number; nombre: string } } }> {
+  return request(`/api/alumnos/${alumnoId}/seccion`, { method: "PUT", body: JSON.stringify({ seccionId }) });
 }
 
 export async function getAlumnos(params?: { seccionId?: number; q?: string }): Promise<AlumnoDto[]> {
@@ -1261,6 +1266,29 @@ export async function updateSede(
   return body.data;
 }
 
+/** Sede vista por el Administrador General: incluye las desactivadas y si se puede borrar. */
+export interface SedeAdminDto extends SedeDto {
+  activo: boolean;
+  alumnosActivos: number;
+  /** Solo una sede desactivada y sin nada registrado se puede borrar. */
+  puedeEliminar: boolean;
+  /** Lo que tiene registrado, ej. "3 usuario(s), 2 sección(es)". Vacío si no tiene nada. */
+  relacionados: string;
+}
+
+export async function getSedesAdmin(): Promise<SedeAdminDto[]> {
+  const body = await request<{ status: "success"; data: SedeAdminDto[] }>("/api/sedes/admin");
+  return body.data;
+}
+
+export function cambiarEstadoSede(sedeId: number, activo: boolean): Promise<MessageResponse> {
+  return request(`/api/sedes/${sedeId}/activo`, { method: "PATCH", body: JSON.stringify({ activo }) });
+}
+
+export function eliminarSede(sedeId: number): Promise<MessageResponse> {
+  return request(`/api/sedes/${sedeId}`, { method: "DELETE" });
+}
+
 export async function getSedesMetricas(): Promise<SedeMetricaDto[]> {
   const body = await request<{ status: "success"; data: SedeMetricaDto[] }>("/api/sedes/metricas")
   return body.data;
@@ -1289,9 +1317,10 @@ export interface HijoDto {
 
 /**
  * "Sin registrar" = nunca se intentó pagar; "Pendiente" = se abrió el pago pero no se completó;
- * "Exonerado" = la beca (y/o descuento por hermanos) cubre el 100% del mes.
+ * "Exonerado" = la beca (y/o descuento por hermanos) cubre el 100% del mes;
+ * "No aplica" = mes que no se le cobra (entró con el ciclo empezado o lo decidió la sede).
  */
-export type EstadoPagoBackend = "Pagado" | "Pendiente" | "Reembolsado" | "Exonerado" | "Sin registrar";
+export type EstadoPagoBackend = "Pagado" | "Pendiente" | "Reembolsado" | "Exonerado" | "No aplica" | "Sin registrar";
 
 export interface MesEstadoCuentaDto {
   mes: number;
@@ -1313,6 +1342,9 @@ export interface EstadoCuentaDto {
   anioLectivo: number;
   mesesPagados: number;
   mesesPendientes: number;
+  /** Meses que no se le cobran y los que sí (10 - mesesSinCobro). */
+  mesesSinCobro: number;
+  mesesACobrar: number;
   totalPagado: number;
   detalle: MesEstadoCuentaDto[];
 }
@@ -1346,6 +1378,76 @@ export async function getEstadoCuenta(alumnoId: number, anioLectivo?: number): P
   const query = anioLectivo ? `?anioLectivo=${anioLectivo}` : "";
   const body = await request<{ status: "success"; data: EstadoCuentaDto }>(`/api/pagos/estado-cuenta/${alumnoId}${query}`);
   return body.data;
+}
+
+// ---------- Solicitud de inscripción de un encargado con cuenta ----------
+
+/** Lo que ya se sabe del encargado logueado. dpi/telefono/parentesco vienen vacíos si nunca los registró. */
+export interface MisDatosSolicitudDto {
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  dpi: string;
+  telefono: string;
+  parentesco: string;
+}
+
+export async function getMisDatosSolicitud(): Promise<MisDatosSolicitudDto> {
+  const body = await request<{ status: "success"; data: MisDatosSolicitudDto }>("/api/solicitudes/mis-datos");
+  return body.data;
+}
+
+/** La solicitud queda a nombre de la cuenta logueada; dpi/telefono/parentesco solo se usan si la cuenta no los tiene. */
+export function crearSolicitudPropia(input: {
+  numero: string;
+  alumno: Record<string, unknown>;
+  documentos: string[];
+  fechaSolicitud: string;
+  fechaLimite: string;
+  dpi?: string;
+  telefono?: string;
+  parentesco?: string;
+}): Promise<{ status: "success" }> {
+  return request("/api/solicitudes/mia", { method: "POST", body: JSON.stringify(input) });
+}
+
+// ---------- Pagos en ventanilla (personal con permiso de pagos) ----------
+
+export interface AlumnoVentanillaDto { alumnoId: number; nombre: string; grado: string; seccion: string; sede: string }
+export interface EventoPendienteDto { inscripcionId: number; nombre: string; fechaEvento: string; fechaLimite: string | null; monto: number }
+export const METODOS_PAGO = ["Efectivo", "Tarjeta (POS)", "Depósito bancario", "Cheque"] as const;
+export type MetodoPago = (typeof METODOS_PAGO)[number];
+export interface PagoVentanillaDto {
+  alumno: string;
+  lineas: { descripcion: string; monto: number }[];
+  total: number;
+  metodo: MetodoPago;
+  referencia: string | null;
+  fecha: string;
+}
+
+export async function buscarAlumnosVentanilla(q: string): Promise<AlumnoVentanillaDto[]> {
+  const body = await request<{ status: "success"; data: AlumnoVentanillaDto[] }>(`/api/pagos/ventanilla/alumnos${toQueryString({ q })}`);
+  return body.data;
+}
+
+export async function getEventosPendientesVentanilla(alumnoId: number): Promise<EventoPendienteDto[]> {
+  const body = await request<{ status: "success"; data: EventoPendienteDto[] }>(`/api/pagos/ventanilla/${alumnoId}/eventos`);
+  return body.data;
+}
+
+export function registrarPagoVentanilla(alumnoId: number, input: {
+  colegiaturas: { anioLectivo: number; mes: number }[];
+  eventos: number[];
+  metodo: MetodoPago;
+  referencia?: string;
+}): Promise<{ status: "success"; message: string; data: PagoVentanillaDto }> {
+  return request(`/api/pagos/ventanilla/${alumnoId}`, { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Personal de la sede: meses en que no se cobra colegiatura al alumno (los demás quedan habilitados). */
+export function setMesesCobro(alumnoId: number, anioLectivo: number, mesesSinCobro: number[]): Promise<{ status: "success"; message: string; data: { anioLectivo: number; mesesSinCobro: number[] } }> {
+  return request(`/api/pagos/meses-cobro/${alumnoId}`, { method: "PUT", body: JSON.stringify({ anioLectivo, mesesSinCobro }) });
 }
 
 /** Prepara el cobro en Stripe y devuelve el clientSecret para montar el formulario de tarjeta. */
@@ -1781,7 +1883,8 @@ export interface GradoDto {
   nombre: string;
   nivel: string;
   orden: number;
-  cursos: { cursoId: number; nombre: string }[];
+  /** seccionesAsignadas: secciones vigentes del grado que imparten el curso (> 0 = no se puede quitar). */
+  cursos: { cursoId: number; nombre: string; seccionesAsignadas: number }[];
 }
 
 export interface SeccionAdminDto {
@@ -1933,8 +2036,8 @@ export async function getDashboardSede(sedeId?: number): Promise<DashboardSedeDt
 
 // ---------- Reportes en PDF (generados por el backend) ----------
 
-/** Descarga un PDF protegido (con el token de la sesión) y lo abre en otra pestaña */
-export async function abrirReportePdf(path: string): Promise<void> {
+/** Descarga un PDF protegido (con el token de la sesión) con su nombre y extensión .pdf */
+export async function descargarReportePdf(path: string, nombreArchivo: string): Promise<void> {
   const token = getToken();
   let response: Response;
   try {
@@ -1946,8 +2049,14 @@ export async function abrirReportePdf(path: string): Promise<void> {
     const body = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(body?.message || "No se pudo generar el reporte.");
   }
-  const url = URL.createObjectURL(await response.blob());
-  window.open(url, "_blank");
+  if (!response.headers.get("Content-Type")?.includes("application/pdf")) {
+    throw new Error("El servidor no devolvió un PDF.");
+  }
+  const url = URL.createObjectURL(new Blob([await response.arrayBuffer()], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nombreArchivo;
+  link.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 

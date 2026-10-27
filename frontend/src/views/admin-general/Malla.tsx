@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, ChevronDown, X, BookOpen } from "../../components/Iconos";
+import { Plus, ChevronDown, X, BookOpen, Lock } from "../../components/Iconos";
 import { Card, SectionHeader, Btn, Modal, Input, Select, AlertBanner, EmptyState } from "../../components/Ui";
 import {
   getGrados, getCursosCatalogo, crearCurso, asignarCursoAGrado, quitarCursoDeGrado,
@@ -80,6 +80,9 @@ export default function MallaCurricular() {
   return (
     <div className="space-y-6">
       <SectionHeader title="Malla Curricular" subtitle="Cursos que lleva cada grado (CNB). Las sedes asignan estos cursos a sus secciones." />
+      <p className="text-xs text-stone-500 flex items-center gap-1.5 -mt-3">
+        <Lock className="w-3 h-3" />Curso asignado en secciones de este ciclo (el número): no se puede quitar hasta que las sedes lo desasignen.
+      </p>
 
       {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
       {aviso && <AlertBanner type="success" message={aviso} onClose={() => setAviso("")} />}
@@ -110,7 +113,13 @@ export default function MallaCurricular() {
                           </div>
                           {g.cursos.length === 0 ? <p className="text-xs text-stone-400">Sin cursos en la malla.</p> : (
                             <div className="flex flex-wrap gap-2">
-                              {g.cursos.map((c) => (
+                              {g.cursos.map((c) => c.seccionesAsignadas > 0 ? (
+                                <span key={c.cursoId} title={`Asignado en ${c.seccionesAsignadas} ${c.seccionesAsignadas === 1 ? "sección" : "secciones"} de este ciclo; no se puede quitar de la malla.`}
+                                  className="inline-flex items-center gap-1 pl-2.5 pr-2 py-1 text-xs bg-stone-100 text-stone-700 rounded-full border border-stone-200">
+                                  {c.nombre}
+                                  <span className="flex items-center gap-0.5 text-stone-400"><Lock className="w-3 h-3" />{c.seccionesAsignadas}</span>
+                                </span>
+                              ) : (
                                 <span key={c.cursoId} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 text-xs bg-stone-100 text-stone-700 rounded-full border border-stone-200">
                                   {c.nombre}
                                   <button onClick={() => quitar(g, c)} aria-label={`Quitar ${c.nombre} de ${g.nombre}`}
@@ -140,7 +149,7 @@ export default function MallaCurricular() {
             {disponibles.map((c) => <option key={c.cursoId} value={c.cursoId}>{c.nombre}</option>)}
           </Select>
           {cursoSel === "nuevo" && <Input label="Nombre del curso" value={nombreNuevo} maxLength={100} onChange={(e) => setNombreNuevo(e.target.value)} placeholder="Ej. Robótica" />}
-          <p className="text-xs text-stone-500">Quitar un curso de la malla no es posible si alguna sección ya lo tiene asignado.</p>
+          <p className="text-xs text-stone-500">Quitar un curso de la malla no es posible mientras alguna sección de este ciclo lo tenga asignado.</p>
           {errorModal && <AlertBanner type="error" message={errorModal} />}
         </div>
       </Modal>

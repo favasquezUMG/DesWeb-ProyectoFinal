@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, AlertOctagon, UserX, Heart } from "../../components/Iconos";
+import { Search, Users, AlertOctagon, UserX, Heart, Wallet } from "../../components/Iconos";
 import { Card, SectionHeader, Badge, Drawer, AlertBanner, TH, TD, TablaResponsiva } from "../../components/Ui";
 import { getAlumnos, setAccesoPortalAlumno, setSaludAlumno, type AlumnoDto, type DatosSaludDto } from "../../lib/api";
 import { IndicadorSalud, ModalSalud } from "../../components/InfoSalud";
 import { nombreDe } from "../../lib/becas";
 import EncargadosAlumno from "./EncargadosAlumno";
+import { ModalMesesCobro } from "./MesesCobro";
 
 function gradoSeccion(s: { nombre: string; grado: { nombre: string } }): string {
   return `${s.grado.nombre} "${s.nombre}"`;
@@ -21,6 +22,7 @@ export default function AlumnosView() {
   const [aviso, setAviso] = useState("");
   const [guardandoAcceso, setGuardandoAcceso] = useState<number | null>(null);
   const [saludDe, setSaludDe] = useState<AlumnoDto | null>(null);
+  const [cobroDe, setCobroDe] = useState<{ alumnoId: number; nombre: string } | null>(null);
 
   async function guardarSalud(datos: DatosSaludDto) {
     if (!saludDe) return;
@@ -141,6 +143,9 @@ export default function AlumnosView() {
                     <button onClick={() => setSaludDe(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
                       <Heart className="w-3.5 h-3.5" />Salud
                     </button>
+                    <button onClick={() => setCobroDe({ alumnoId: a.alumnoId, nombre: nombreDe(a.usuario) })} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
+                      <Wallet className="w-3.5 h-3.5" />Cobros
+                    </button>
                     <button onClick={() => setAbierto(a)} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 rounded-lg cursor-pointer">
                       <Users className="w-3.5 h-3.5" />Encargados
                     </button>
@@ -156,6 +161,8 @@ export default function AlumnosView() {
       </Card>
 
       <ModalSalud alumno={saludDe ? nombreDe(saludDe.usuario) : null} salud={saludDe ?? {}} onCerrar={() => setSaludDe(null)} onGuardar={guardarSalud} />
+
+      <ModalMesesCobro alumno={cobroDe} onCerrar={() => setCobroDe(null)} onGuardado={setAviso} />
 
       <Drawer open={!!abierto} onClose={() => setAbierto(null)} title="Encargados del alumno">
         {abierto && <EncargadosAlumno alumnoId={abierto.alumnoId} onCambio={() => { cargar().catch(() => {}); }} />}

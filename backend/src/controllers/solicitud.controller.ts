@@ -60,18 +60,98 @@ const verificarSolicitudDeMiSede = async (req: AuthenticatedRequest, solicitudId
 // Público (formulario de inscripción y consulta del estado)
 // ---------------------------------------------------------------------------
 
+interface EncargadoSolicitud {
+    nombres: string;
+    apellidos: string;
+    dpi: string;
+    telefono: string;
+    correo: string;
+    parentesco: string;
+}
+
 export const crearSolicitud = async (req: Request, res: Response) => {
-    const { numero, modo, encargado, alumno, documentos, observaciones, fechaSolicitud, fechaLimite } = req.body;
+    const { numero, encargado, alumno } = req.body;
 
     if (!numero || !encargado || !alumno) {
         return res.status(400).json({ status: "error", message: "Faltan campos obligatorios para registrar la solicitud" });
     }
+    return registrarSolicitud(res, req.body, encargado);
+};
+
+// Datos del encargado logueado para una solicitud: nombre y correo de su cuenta, y DPI, teléfono y
+// parentesco de su solicitud anterior (la cuenta no los guarda). Lo que falte se le pide en el formulario.
+const datosDelEncargado = async (usuarioId: number) => {
+    const usuario = await prisma.usuario.findUnique({
+        where: { usuarioId },
+        include: {
+            encargado: {
+                include: { alumnosEncargado: { where: { parentesco: { not: null } }, orderBy: { createdAt: "desc" }, take: 1 } },
+            },
+        },
+    });
+    if (!usuario) throw new ReglaNegocioError("No se encontró su cuenta.", 404);
+
+    const anterior = await prisma.solicitud.findFirst({
+        where: { encargadoCorreo: usuario.email },
+        orderBy: { fechaSolicitud: "desc" },
+        select: { encargadoDpi: true, encargadoTelefono: true, encargadoParentesco: true },
+    });
+
+    return {
+        nombres: usuario.nombres,
+        apellidos: usuario.apellidos,
+        correo: usuario.email,
+        dpi: anterior?.encargadoDpi ?? "",
+        telefono: anterior?.encargadoTelefono ?? "",
+        parentesco: usuario.encargado?.parentesco ?? usuario.encargado?.alumnosEncargado[0]?.parentesco ?? anterior?.encargadoParentesco ?? "",
+    };
+};
+
+// GET /api/solicitudes/mis-datos — lo que ya se sabe del encargado logueado
+export const getMisDatosSolicitud = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+        return res.json({ status: "success", data: await datosDelEncargado(Number(req.user?.id)) });
+    } catch (error) {
+        return responderError(res, error, "No se pudieron obtener sus datos.");
+    }
+};
+
+// POST /api/solicitudes/mia — un encargado con cuenta inscribe a otro hijo. La solicitud queda a nombre
+// de su cuenta (mismo correo), así que al aprobarla el alumno se vincula a ella en vez de crear otra.
+// { numero, alumno, documentos, fechaSolicitud, fechaLimite, dpi?, telefono?, parentesco? }
+export const crearSolicitudPropia = async (req: AuthenticatedRequest, res: Response) => {
+    const { numero, alumno } = req.body;
+    if (!numero || !alumno) {
+        return res.status(400).json({ status: "error", message: "Faltan campos obligatorios para registrar la solicitud" });
+    }
+
+    try {
+        const datos = await datosDelEncargado(Number(req.user?.id));
+        // Solo se toma del formulario lo que la cuenta no tiene
+        const encargado: EncargadoSolicitud = {
+            ...datos,
+            dpi: datos.dpi || String(req.body.dpi ?? "").trim(),
+            telefono: datos.telefono || String(req.body.telefono ?? "").trim(),
+            parentesco: datos.parentesco || String(req.body.parentesco ?? "").trim(),
+        };
+        if (!/^\d{13}$/.test(encargado.dpi)) throw new ReglaNegocioError("El DPI debe tener 13 dígitos.", 400);
+        if (!/^\d{8}$/.test(encargado.telefono)) throw new ReglaNegocioError("El teléfono debe tener 8 dígitos.", 400);
+        if (!encargado.parentesco) throw new ReglaNegocioError("Indique el parentesco con el alumno.", 400);
+
+        return registrarSolicitud(res, { ...req.body, modo: "publico" }, encargado);
+    } catch (error) {
+        return responderError(res, error, "No se pudo crear la solicitud");
+    }
+};
+
+const registrarSolicitud = async (res: Response, body: any, encargado: EncargadoSolicitud) => {
+    const { numero, modo, alumno, documentos, observaciones, fechaSolicitud, fechaLimite } = body;
 
     try {
         const salud = leerSalud(alumno);
         let sedeId: number | null = null;
         if (alumno.sede) {
-            const sedeDB = await prisma.sede.findFirst({ where: { nombre: alumno.sede, deletedAt: null } });
+            const sedeDB = await prisma.sede.findFirst({ where: { nombre: alumno.sede, activo: true, deletedAt: null } });
             if (sedeDB) sedeId = sedeDB.sedeId;
         }
 
