@@ -3,14 +3,15 @@
 # panel de Render al crear el Blueprint.
 services:
   - type: web
-    name: colegio-vanguardia
+    name: colegio-vanguardia-api
     runtime: node
     plan: free
     # Primero el frontend (con la URL del propio servicio, que Render da en RENDER_EXTERNAL_URL) y luego la API.
     # --include=dev: vite, tsc y prisma son devDependencies y NODE_ENV=production las omitiría
     buildCommand: >-
       cd frontend && npm ci --include=dev &&
-      VITE_API_URL=$RENDER_EXTERNAL_URL VITE_SITE_URL=$RENDER_EXTERNAL_URL npm run build &&
+      URL_APP=${RENDER_EXTERNAL_URL:-https://colegio-vanguardia-api.onrender.com} &&
+      VITE_API_URL=$URL_APP VITE_SITE_URL=$URL_APP npm run build &&
       cd ../backend && npm ci --include=dev && npx prisma generate && npm run build
     startCommand: cd backend && npm start
     healthCheckPath: /
