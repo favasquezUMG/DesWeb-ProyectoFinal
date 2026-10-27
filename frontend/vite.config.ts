@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      sitioPublico(env.VITE_SITE_URL || 'https://colegio-vanguardia.netlify.app'),
+      sitioPublico(env.VITE_SITE_URL || 'https://colegio-vanguardia.onrender.com'),
     ],
     resolve: {
       alias: {
@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
 })
 
 /**
- * SEO del sitio público. Con VITE_SITE_URL (URL pública del frontend; por defecto https://colegio-vanguardia.netlify.app)
+ * SEO del sitio público. Con VITE_SITE_URL (URL pública del frontend; por defecto https://colegio-vanguardia.onrender.com)
  * agrega canonical, og:url, la imagen social con URL absoluta y genera sitemap.xml; sin ella solo
  * se generan robots.txt y los datos estructurados sin URL.
  */
