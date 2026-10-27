@@ -123,3 +123,15 @@ export function generarCargaHorariaPdf(catedraticos: CatedraticoSedeDto[], sede:
     filas);
   doc.save(`carga-horaria-${archivo(sede)}-${anio}.pdf`);
 }
+
+// Libreta de un curso del catedrático: alumno, nota por unidad, nota final, estado y asistencia
+export function generarNotasCursoPdf(curso: string, subtitulo: string, unidades: string[], filas: string[][]): void {
+  const doc = new jsPDF({ unit: "mm", format: "letter" });
+  const y = encabezado(doc, `Notas de ${curso}`, subtitulo);
+  const titulos = [...unidades, "Nota final", "Estado", "Asist."];
+  const ancho = (ANCHO - MARGEN * 2 - 58) / titulos.length;
+  tabla(doc, y,
+    [{ titulo: "Alumno", x: 0 }, ...titulos.map((titulo, i) => ({ titulo, x: 58 + ancho * i }))],
+    filas);
+  doc.save(`notas-${archivo(curso)}.pdf`);
+}

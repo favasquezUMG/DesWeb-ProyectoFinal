@@ -6,6 +6,7 @@ import {
   type ActividadDto, type LibretaDto, type ResumenAsistenciaDto, type TipoActividad,
 } from "../../lib/api";
 import ActividadModal, { type ActividadEnEdicion } from "./ActividadModal";
+import { generarNotasCursoPdf } from "../../lib/reportesPdf";
 import { IndicadorSalud, ModalSalud, tieneSalud } from "../../components/InfoSalud";
 import {
   Cargando, CursoSelect, EstadoNota, NOTA_APROBACION, PUNTEO_POR_TIPO, TIPO_LABEL, UNIDAD_LABEL,
@@ -13,36 +14,22 @@ import {
   type TotalesAlumno,
 } from "./shared";
 
-// Descarga la libreta del curso como CSV (lo abre Excel). El BOM hace que respete las tildes.
-function exportarCsv(nombreArchivo: string, libreta: LibretaDto, totales: Map<number, TotalesAlumno>, resumen: ResumenAsistenciaDto | null) {
+// Descarga la libreta del curso como PDF
+function exportarPdf(curso: string, subtitulo: string, libreta: LibretaDto, totales: Map<number, TotalesAlumno>, resumen: ResumenAsistenciaDto | null) {
   const asistencia = new Map((resumen?.alumnos ?? []).map((a) => [a.alumnoId, a.porcentaje]));
-  const celda = (v: string | number) => {
-    const t = String(v);
-    return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-  };
-  const encabezado = [
-    "Apellidos", "Nombres",
-    ...libreta.unidades.map((u) => UNIDAD_LABEL[u.numero] ?? `Unidad ${u.numero}`),
-    "Nota final", "Estado", "% asistencia",
-  ];
   const filas = libreta.alumnos.map((a) => {
     const t = totales.get(a.alumnoId);
     const estado = !t?.conNotas ? "Sin notas" : { aprobado: "Aprobado", reprobado: "Reprobado", "en-curso": "En curso" }[estadoAcademico(t)];
+    const pct = asistencia.get(a.alumnoId);
     return [
-      a.apellidos, a.nombres,
-      ...libreta.unidades.map((_, i) => (t?.conNotas ? redondear(t.unidades[i].total) : "")),
-      t?.conNotas ? redondear(t.total) : "",
+      `${a.apellidos}, ${a.nombres}`,
+      ...libreta.unidades.map((_, i) => (t?.conNotas ? String(redondear(t.unidades[i].total)) : "—")),
+      t?.conNotas ? String(redondear(t.total)) : "—",
       estado,
-      asistencia.get(a.alumnoId) ?? "",
+      pct !== undefined ? `${pct}%` : "—",
     ];
   });
-  const csv = "﻿" + [encabezado, ...filas].map((f) => f.map(celda).join(",")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = nombreArchivo;
-  link.click();
-  URL.revokeObjectURL(url);
+  generarNotasCursoPdf(curso, subtitulo, libreta.unidades.map((u) => UNIDAD_LABEL[u.numero] ?? `Unidad ${u.numero}`), filas);
 }
 
 const TABS = ["Estudiantes", "Notas", "Asistencia", "Actividades"];
@@ -105,7 +92,7 @@ export default function MisCursos() {
           <CursoSelect cursos={cursos} value={seleccion} onChange={setSeleccion} />
           <Btn variant="outline" size="sm" icon={<Download className="w-4 h-4" />}
             disabled={!libreta || cargando || libreta.alumnos.length === 0}
-            onClick={() => libreta && exportarCsv(`Notas ${titulo.replace(/[\\/:*?"<>|]/g, "")}.csv`, libreta, totales, resumen)}>
+            onClick={() => libreta && exportarPdf(titulo, subtitulo || "Libreta del curso", libreta, totales, resumen)}>
             Exportar notas
           </Btn>
         </div>
