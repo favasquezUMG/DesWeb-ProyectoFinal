@@ -1,16 +1,31 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { AppUser, View } from "./types";
 import { Layout, vistasPermitidas } from "./components/Layout";
-import Login, { type Screen } from "./views/Login";
+import type { Screen } from "./views/Login";
 import Home, { type Portal } from "./views/Home";
-import AdminGeneral from "./views/AdminGeneral";
-import AdminSede from "./views/admin-sede";
-import Catedratico from "./views/Catedratico";
-import Alumno from "./views/Alumno";
-import Padre from "./views/Padre";
+import { PantallaSkeleton, Skeleton } from "./components/Ui";
 import { buildAppUser, clearSession, getSession, saveSession } from "./lib/auth";
 import { cambiarRol } from "./lib/api";
-import { guardarCircularPendiente, hayCircularPendiente } from "./views/CircularesPadre";
+import { guardarCircularPendiente, hayCircularPendiente } from "./lib/circularPendiente";
+
+// Cada portal se descarga solo cuando se usa: quien visita el inicio no baja las pantallas de todos los roles
+const Login = lazy(() => import("./views/Login"));
+const AdminGeneral = lazy(() => import("./views/AdminGeneral"));
+const AdminSede = lazy(() => import("./views/admin-sede"));
+const Catedratico = lazy(() => import("./views/Catedratico"));
+const Alumno = lazy(() => import("./views/Alumno"));
+const Padre = lazy(() => import("./views/Padre"));
+
+const TITULO_ACCESO: Record<Screen, string> = {
+  login: "Iniciar sesión",
+  solicitud: "Solicitud de inscripción",
+  consulta: "Consultar solicitud",
+  forgot: "Recuperar contraseña",
+  reset: "Restablecer contraseña",
+};
+
+// La app vive en "/"; cualquier otra ruta es una página que no existe
+const rutaValida = () => ["/", "/index.html"].includes(window.location.pathname);
 
 // Si el padre llegó desde el enlace de una circular, entra directo a Circulares (que la abre).
 // El personal de sede entra a la primera pestaña que tiene permitida (la secretaría no ve el Dashboard).
@@ -90,6 +105,16 @@ export default function App() {
     setAcceso(null);
   }
 
+  // Título de la pestaña en el inicio y en las pantallas de acceso (las del sistema lo pone Layout)
+  useEffect(() => {
+    if (user) return;
+    if (!rutaValida()) document.title = "Página no encontrada · Colegio Vanguardia";
+    else if (acceso) document.title = `${TITULO_ACCESO[acceso.screen]} · Colegio Vanguardia`;
+    else document.title = "Colegio Vanguardia · Preprimaria a Diversificado en Guatemala";
+  }, [user, acceso]);
+
+  if (!rutaValida()) return <NoEncontrada />;
+
   if (!user) {
     if (!acceso) {
       return (
@@ -101,14 +126,16 @@ export default function App() {
       );
     }
     return (
-      <Login
-        key={`${acceso.portal}-${acceso.screen}`}
-        initialPortal={acceso.portal}
-        initialScreen={acceso.screen}
-        resetToken={resetToken ?? undefined}
-        onLogin={handleLogin}
-        onBack={() => setAcceso(null)}
-      />
+      <Suspense fallback={<AccesoSkeleton />}>
+        <Login
+          key={`${acceso.portal}-${acceso.screen}`}
+          initialPortal={acceso.portal}
+          initialScreen={acceso.screen}
+          resetToken={resetToken ?? undefined}
+          onLogin={handleLogin}
+          onBack={() => setAcceso(null)}
+        />
+      </Suspense>
     );
   }
 
@@ -138,8 +165,39 @@ export default function App() {
       onCambiarRol={handleCambiarRol}
       sede={sede}
     >
-      {renderView()}
+      <Suspense fallback={<PantallaSkeleton />}>{renderView()}</Suspense>
     </Layout>
+  );
+}
+
+function AccesoSkeleton() {
+  return (
+    <div role="status" className="min-h-screen bg-sand-100 flex items-center justify-center p-6">
+      <span className="sr-only">Cargando…</span>
+      <div className="w-full max-w-md space-y-4">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-12 rounded-2xl" />
+        <Skeleton className="h-12 rounded-2xl" />
+        <Skeleton className="h-12 w-40 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+function NoEncontrada() {
+  return (
+    <main className="min-h-screen bg-sand-100 text-stone-900 flex items-center justify-center px-4 py-16">
+      <div className="max-w-lg text-center">
+        <p className="font-display font-extrabold text-[7rem] leading-none text-anil-800 tabular-nums" aria-hidden="true">404</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold mt-4">Esta página no existe</h1>
+        <p className="text-[17px] text-stone-600 mt-3 leading-relaxed">
+          Puede que el enlace esté incompleto o que la página se haya movido. Desde el inicio encontrará el portal, las inscripciones y la información del colegio.
+        </p>
+        <a href="/" className="inline-flex items-center mt-8 px-6 py-3 rounded-full bg-anil-800 text-white font-bold hover:bg-anil-900 transition-colors">
+          Ir al inicio
+        </a>
+      </div>
+    </main>
   );
 }
 

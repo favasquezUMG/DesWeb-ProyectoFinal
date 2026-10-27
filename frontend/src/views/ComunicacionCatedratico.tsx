@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Send, Trash2, CheckCircle2, Clock, Mail } from "../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, EmptyState, AlAparecer } from "../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, EmptyState, AlAparecer, ListaSkeleton } from "../components/Ui";
 import { getSession } from "../lib/auth";
 import {
   getCursosDeCatedratico,
@@ -242,10 +242,7 @@ function ReportesConductaTab({ cursos }: { cursos: CursoSeccionDto[] }) {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-          <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-          Cargando reportes…
-        </div>
+        <ListaSkeleton />
       ) : reportes.length === 0 ? (
         <EmptyState icon={<Mail className="w-10 h-10" />} title="Sin reportes" description="Aún no ha enviado reportes de conducta." />
       ) : (

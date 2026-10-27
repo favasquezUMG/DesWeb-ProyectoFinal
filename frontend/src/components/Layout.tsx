@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Role, View } from "../types";
 import type { AppUser } from "../types";
 import NotificacionesMenu from "./NotificacionesMenu";
@@ -113,6 +113,15 @@ function navDe(user: AppUser): NavItem[] {
 }
 
 /** Pantallas que el usuario puede abrir (las de su menú) */
+// Nombre de una pantalla tal como aparece en el menú (para el título de la pestaña)
+export function tituloDeVista(view: View): string | undefined {
+  for (const items of Object.values(NAV)) {
+    const item = items.find((i) => i.view === view);
+    if (item) return item.label;
+  }
+  return undefined;
+}
+
 export function vistasPermitidas(user: AppUser): View[] {
   return navDe(user).map((item) => item.view);
 }
@@ -336,14 +345,23 @@ export function Layout({ user, currentView, onNavigate, onLogout, onCambiarRol, 
   const [mobileOpen, setMobileOpen] = useState(false);
   const navItems = navDe(user);
 
+  // Cada pantalla con su propio título en la pestaña del navegador
+  useEffect(() => {
+    const titulo = tituloDeVista(currentView);
+    document.title = titulo ? `${titulo} · Colegio Vanguardia` : "Colegio Vanguardia";
+  }, [currentView]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-anil-800">
+      <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:px-4 focus:py-2.5 focus:rounded-full focus:bg-white focus:text-stone-900 focus:font-semibold focus:shadow-lg">
+        Saltar al contenido
+      </a>
       <Sidebar user={user} currentView={currentView} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
       <MobileSidebar user={user} currentView={currentView} onNavigate={onNavigate} open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-sand-100 lg:rounded-l-[28px]">
         <Topbar user={user} currentView={currentView} navItems={navItems} sede={sede} onNavigate={onNavigate} onLogout={onLogout} onMenuOpen={() => setMobileOpen(true)} onCambiarRol={onCambiarRol} />
-        <main className="flex-1 overflow-y-auto">
+        <main id="contenido" tabIndex={-1} className="flex-1 overflow-y-auto focus:outline-none">
           <div className="px-4 pb-10 pt-2 md:px-8 max-w-[1240px] mx-auto">
             {children}
           </div>

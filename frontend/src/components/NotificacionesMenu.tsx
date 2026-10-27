@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ListaSkeleton } from "./Ui";
 import { Bell, AlertTriangle, CheckCheck } from "./Iconos";
 import {
   getMisNotificaciones,
@@ -117,10 +118,7 @@ export default function NotificacionesMenu() {
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-stone-500">
-                <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-                Cargando…
-              </div>
+              <ListaSkeleton filas={3} />
             ) : error && notificaciones.length === 0 ? (
               <p className="px-4 py-6 text-sm text-danger-700 text-center">{error}</p>
             ) : notificaciones.length === 0 ? (

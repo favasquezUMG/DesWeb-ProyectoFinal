@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, FileCheck2, XCircle } from "../../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, Textarea, EmptyState } from "../../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Tabs, Textarea, EmptyState, ListaSkeleton } from "../../components/Ui";
 import { getJustificaciones, revisarJustificacion, type EstadoJustificacion, type JustificacionAdminDto } from "../../lib/api";
 
 const TABS: Array<{ label: string; estado: EstadoJustificacion }> = [
@@ -76,10 +76,7 @@ export default function JustificacionesView() {
       <Tabs tabs={TABS.map((t) => t.label)} active={tab} onChange={(t) => { setTab(t); setExito(""); }} />
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-          <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-          Cargando solicitudes…
-        </div>
+        <ListaSkeleton />
       ) : lista.length === 0 ? (
         <EmptyState icon={<FileCheck2 className="w-10 h-10" />} title="Sin solicitudes" description={estado === "Pendiente" ? "No hay solicitudes por revisar." : "No hay solicitudes en esta categoría."} />
       ) : (

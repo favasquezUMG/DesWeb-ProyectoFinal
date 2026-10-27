@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Bell, Send, FileText } from "../../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, AlAparecer } from "../../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, AlAparecer, ListaSkeleton } from "../../components/Ui";
 import {
   getComunicados,
   enviarComunicado,
@@ -201,10 +201,7 @@ export default function NotificacionesView() {
       <h3 className="text-[13px] font-semibold text-stone-500">Historial de envíos</h3>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-          <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-          Cargando comunicados…
-        </div>
+        <ListaSkeleton />
       ) : comunicados.length === 0 ? (
         <Card className="p-10 text-center text-sm text-stone-500">Aún no se han enviado comunicados.</Card>
       ) : (

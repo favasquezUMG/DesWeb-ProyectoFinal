@@ -5,7 +5,7 @@ import {
   getPerfilAlumno, getMisNotasAlumno, getMiHorarioAlumno, getMiAsistenciaAlumno, getEventos, getMisNotificaciones, getTableroTareas,
   type PerfilAlumnoDto, type BoletinHijoDto, type ClaseAlumnoDto, type AsistenciaAlumnoDto, type EventoDto, type NotificacionDto,
 } from "../lib/api";
-import { Card, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState, CursoMarca, colorDeCurso, Anillo, FechaBloque, CardTitulo, LinkAccion } from "../components/Ui";
+import { Card, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState, CursoMarca, colorDeCurso, Anillo, FechaBloque, CardTitulo, LinkAccion, LineasSkeleton } from "../components/Ui";
 import CalendarioEventos from "../components/CalendarioEventos";
 import HorarioSemanal, { DIAS, asuetosDeLaSemana } from "../components/HorarioSemanal";
 import TableroTareas, { textoLimite } from "../components/TableroTareas";
@@ -145,7 +145,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6 lg:col-span-2">
           <CardTitulo titulo="Mis cursos" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-notas")}>Ver todas las notas</LinkAccion>} />
           {!boletin || boletin.cursos.length === 0 ? (
-            <p className="text-sm text-stone-500">{notas.loading ? "Cargando…" : "Aún no tienes cursos asignados."}</p>
+            notas.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">Aún no tienes cursos asignados.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {boletin.cursos.slice(0, 8).map((c) => {
@@ -172,7 +172,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6 flex flex-col">
           <CardTitulo titulo="Asistencia" />
           {porcentaje === undefined ? (
-            <p className="text-sm text-stone-500">{asistencia.loading ? "Cargando…" : "Sin registros todavía."}</p>
+            asistencia.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">Sin registros todavía.</p>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
               <Anillo valor={porcentaje} size={132} grosor={12} color={porcentaje >= 80 ? "#0f7b5f" : "#d99e00"}>
@@ -193,7 +193,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6">
           <CardTitulo titulo="Tareas por entregar" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-tareas")}>Ver tablero</LinkAccion>} />
           {porEntregar.length === 0 ? (
-            <p className="text-sm text-stone-500">{tareas.loading ? "Cargando…" : "No tienes tareas pendientes."}</p>
+            tareas.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No tienes tareas pendientes.</p>
           ) : (
             <ul className="space-y-3">
               {porEntregar.map((t) => {
@@ -217,7 +217,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6">
           <CardTitulo titulo="Próximos eventos" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-calendario")}>Abrir calendario</LinkAccion>} />
           {proximosEventos.length === 0 ? (
-            <p className="text-sm text-stone-500">{eventos.loading ? "Cargando…" : "No hay eventos próximos."}</p>
+            eventos.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No hay eventos próximos.</p>
           ) : (
             <ul className="space-y-3">
               {proximosEventos.map((e, i) => (
@@ -236,7 +236,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6">
           <CardTitulo titulo="Avisos recientes" />
           {(avisos.data ?? []).length === 0 ? (
-            <p className="text-sm text-stone-500">{avisos.loading ? "Cargando…" : "No tienes avisos."}</p>
+            avisos.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No tienes avisos.</p>
           ) : (
             <ul className="divide-y divide-stone-100 -my-2">
               {avisos.data!.slice(0, 4).map((n) => (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Btn, Modal, AlertBanner, Select } from "../../components/Ui";
+import { Badge, Btn, Modal, AlertBanner, Select, ListaSkeleton } from "../../components/Ui";
 import { getEstadoCuenta, setMesesCobro, type MesEstadoCuentaDto } from "../../lib/api";
 
 // Meses del ciclo en que se cobra colegiatura a un alumno. Para el que llega de otro colegio
@@ -78,7 +78,7 @@ export function ModalMesesCobro({ alumno, onCerrar, onGuardado }: {
         </p>
 
         {cargando ? (
-          <p className="text-sm text-stone-500 py-6 text-center">Cargando…</p>
+          <div className="py-4"><ListaSkeleton filas={3} /></div>
         ) : meses.length > 0 && (
           <>
             <Select label="Cobrar a partir de" value={primerCobro} onChange={(e) => cobrarDesde(Number(e.target.value))}>

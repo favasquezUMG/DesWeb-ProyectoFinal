@@ -4,7 +4,7 @@ import {
   Award, Heart, Lightbulb, Menu, X, FileSearch, ClipboardEdit,
   Target, Binoculars, School, Caminar, Avanzar,
 } from "../components/Iconos";
-import { Btn } from "../components/Ui";
+import { Btn, Skeleton } from "../components/Ui";
 import { getInfoInicio, type InfoInicioDto } from "../lib/api";
 
 const RecorridoVirtual = lazy(() => import("../components/RecorridoVirtual"));
@@ -430,7 +430,14 @@ function SectionTitle({ titulo, texto }: { titulo: string; texto?: string }) {
 }
 
 function EstadoCarga({ cargando, error, vacio, textoVacio }: { cargando: boolean; error: string | null; vacio: boolean; textoVacio: string }) {
-  if (cargando) return <p className="text-sm text-stone-400 mt-8">Cargando…</p>;
+  if (cargando) {
+    return (
+      <div role="status" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-10">
+        <span className="sr-only">Cargando…</span>
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className={`h-48 rounded-[24px] ${i > 1 ? "hidden lg:block" : i > 0 ? "hidden sm:block" : ""}`} />)}
+      </div>
+    );
+  }
   if (error) return <p className="text-sm text-danger-700 mt-8">{error}</p>;
   if (vacio) return <p className="text-sm text-stone-500 mt-8">{textoVacio}</p>;
   return null;

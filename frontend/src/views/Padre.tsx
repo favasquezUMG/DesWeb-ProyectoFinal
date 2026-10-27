@@ -21,7 +21,7 @@ import HorarioSemanal, { asuetosDeLaSemana, diaSemanaHoy, jornadaPorDia } from "
 import {
   Card, MetricCard, SectionHeader, Btn, Badge, PagoBadge, EstadoBadge,
   AlertBanner, Stepper, TH, TD, Select, EmptyState, Input, Toggle, Modal,
-  CursoMarca, Anillo, CardTitulo, LinkAccion, TablaResponsiva,
+  CursoMarca, Anillo, CardTitulo, LinkAccion, TablaResponsiva, LineasSkeleton
 } from "../components/Ui";
 import AvisosPadre from "./AvisosPadre";
 import AsistenciaPadre from "./AsistenciaPadre";
@@ -264,7 +264,7 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
           {!hijo?.puedeVerNotas ? (
             <p className="text-sm text-stone-500">Su vínculo con este alumno no incluye la consulta de notas.</p>
           ) : !boletin || boletin.cursos.length === 0 ? (
-            <p className="text-sm text-stone-500">{cargando ? "Cargando…" : "El alumno aún no tiene cursos asignados."}</p>
+            cargando ? <LineasSkeleton /> : <p className="text-sm text-stone-500">El alumno aún no tiene cursos asignados.</p>
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
               {boletin.cursos.slice(0, 8).map((c) => (
@@ -285,7 +285,7 @@ function DashboardPadre({ user, onNavigate }: { user?: AppUser; onNavigate?: (v:
           {!hijo?.puedeVerPagos ? (
             <p className="text-sm text-stone-500">Su vínculo con este alumno no incluye la consulta de pagos.</p>
           ) : recientes.length === 0 ? (
-            <p className="text-sm text-stone-500">{cargando ? "Cargando…" : "No hay colegiaturas registradas para este ciclo."}</p>
+            cargando ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No hay colegiaturas registradas para este ciclo.</p>
           ) : (
             <ol className="relative">
               {recientes.map((m, i) => (

@@ -43,7 +43,7 @@ export function ListaArchivos({ archivos, onQuitar, onError, vacio }: {
   onError?: (mensaje: string) => void;
   vacio?: string;
 }) {
-  if (archivos.length === 0) return vacio ? <p className="text-sm text-stone-400">{vacio}</p> : null;
+  if (archivos.length === 0) return vacio ? <p className="text-sm text-stone-500">{vacio}</p> : null;
   return (
     <ul className="flex flex-col gap-2">
       {archivos.map((a) => (
@@ -57,10 +57,10 @@ export function ListaArchivos({ archivos, onQuitar, onError, vacio }: {
           >
             {a.nombre}
           </button>
-          <span className="text-xs text-stone-400 shrink-0 tabular-nums">{formatBytes(a.bytes)}</span>
+          <span className="text-xs text-stone-500 shrink-0 tabular-nums">{formatBytes(a.bytes)}</span>
           {onQuitar && (
             <button type="button" onClick={() => onQuitar(a)} aria-label={`Quitar ${a.nombre}`}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-danger-700 hover:bg-danger-50 cursor-pointer shrink-0">
+              className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 hover:text-danger-700 hover:bg-danger-50 cursor-pointer shrink-0">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -81,7 +81,7 @@ export function ArchivosPorSubir({ archivos, onQuitar }: { archivos: File[]; onQ
           <span className="flex-1 min-w-0 text-sm font-semibold text-stone-800 truncate">{f.name}</span>
           <span className="text-xs text-stone-500 shrink-0 tabular-nums">{formatBytes(f.size)}</span>
           <button type="button" onClick={() => onQuitar(i)} aria-label={`Quitar ${f.name}`}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 hover:text-danger-700 hover:bg-danger-50 cursor-pointer shrink-0">
+            className="w-8 h-8 rounded-full flex items-center justify-center text-stone-500 hover:text-danger-700 hover:bg-danger-50 cursor-pointer shrink-0">
             <X className="w-4 h-4" />
           </button>
         </li>

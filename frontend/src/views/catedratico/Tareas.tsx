@@ -150,7 +150,7 @@ function TarjetaTarea({ tarea, activa, onClick }: { tarea: ActividadDto; activa:
       <p className={`text-[13px] mt-1.5 ${vencida ? "text-stone-500" : "text-stone-700 font-semibold"}`}>
         {tarea.fechaLimite ? `${vencida ? "Cerró" : "Vence"}: ${formatLimite(tarea.fechaLimite)}` : "Sin fecha límite"}
       </p>
-      <p className="text-xs text-stone-400 mt-0.5">{tarea.puntosMaximos} pts</p>
+      <p className="text-xs text-stone-500 mt-0.5">{tarea.puntosMaximos} pts</p>
     </button>
   );
 }
@@ -246,7 +246,7 @@ function BandejaTarea({ actividadId, onEditar, onCambio }: { actividadId: number
       <Tabs tabs={FILTROS.map((f) => f.label)} active={filtro} onChange={setFiltro} />
 
       {visibles.length === 0 ? (
-        <p className="text-sm text-stone-400 py-6 text-center">No hay alumnos en este filtro.</p>
+        <p className="text-sm text-stone-500 py-6 text-center">No hay alumnos en este filtro.</p>
       ) : (
         <Card className="overflow-hidden">
           <ul className="divide-y divide-stone-100">
@@ -265,7 +265,7 @@ function BandejaTarea({ actividadId, onEditar, onCambio }: { actividadId: number
                   </span>
                   <span className="hidden sm:block"><EstadoTareaBadge estado={a.estado} tarde={a.entrega?.tarde} vista="catedratico" /></span>
                   <span className="w-14 text-right font-display font-bold tabular-nums text-stone-900 shrink-0">
-                    {a.nota ?? <span className="text-stone-300">—</span>}
+                    {a.nota ?? <><span className="text-stone-400" aria-hidden="true">—</span><span className="sr-only">Sin nota</span></>}
                   </span>
                 </button>
               </li>

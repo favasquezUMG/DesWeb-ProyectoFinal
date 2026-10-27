@@ -5,28 +5,13 @@ import { PagoStripeModal, formatoQ } from "../components/PagoColegiatura";
 import { ResumenOrden } from "../components/CargosPendientes";
 import { crearIntentOrden, getCirculares, responderCircular, verificarOrden, type CircularDto, type EstadoAutorizacion } from "../lib/api";
 import type { View } from "../types";
+import { leerCircularPendiente, limpiarCircularPendiente } from "../lib/circularPendiente";
 
 const formatoFecha = (iso: string) =>
   new Date(iso).toLocaleDateString("es-GT", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 type AlumnoCircular = CircularDto["alumnos"][number];
 
-// Circular que el encargado abrió desde el enlace del correo; sobrevive al inicio de sesión
-const CLAVE_CIRCULAR_PENDIENTE = "circularPendiente";
-
-export function guardarCircularPendiente(eventoId: number) {
-  try { sessionStorage.setItem(CLAVE_CIRCULAR_PENDIENTE, String(eventoId)); } catch { /* sin storage: solo no se abre sola */ }
-}
-
-function leerCircularPendiente(): number | null {
-  try { return Number(sessionStorage.getItem(CLAVE_CIRCULAR_PENDIENTE)) || null; } catch { return null; }
-}
-
-export const hayCircularPendiente = () => leerCircularPendiente() !== null;
-
-function limpiarCircularPendiente() {
-  try { sessionStorage.removeItem(CLAVE_CIRCULAR_PENDIENTE); } catch { /* nada que limpiar */ }
-}
 
 // Participaciones autorizadas que este encargado puede pagar ya
 const pagables = (c: CircularDto) =>

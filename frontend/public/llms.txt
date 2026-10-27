@@ -1,0 +1,21 @@
+# Colegio Vanguardia
+
+> Red de colegios en Guatemala con educación de Preprimaria a Diversificado. Este sitio es su página pública y la entrada al portal académico.
+
+## Página pública (sin cuenta)
+
+- Inicio: presentación del colegio, misión y visión, niveles que imparte (con sus grados), sedes con dirección y teléfono, y datos de contacto.
+- Recorrido virtual 360°: visita por la entrada, recepción, aulas, laboratorio, biblioteca, cafetería y cancha.
+- Inscripciones: solicitud en línea para un alumno de primer ingreso y consulta del estado de una solicitud con su número.
+
+## Portal académico (requiere cuenta)
+
+- Alumnos: notas por unidad, tareas en línea, horario, asistencia y calendario.
+- Familias: notas y boletas, tareas de sus hijos, asistencia y justificaciones, pagos de colegiatura, circulares y becas.
+- Catedráticos: libreta de notas, tareas y entregas, asistencia y comunicación con las familias.
+- Administración: alumnos, cursos, horarios, becas, pagos y reportes por sede.
+
+## Contacto
+
+- Correo: info@colegiovanguardia.edu.gt
+- Horario de atención: lunes a viernes, de 7:00 a 15:00

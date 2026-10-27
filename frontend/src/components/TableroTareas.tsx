@@ -8,7 +8,7 @@ import {
   getTableroTareas, getTareaAlumno, guardarEntrega, subirArchivosTarea,
   type ArchivoTareaDto, type EstadoTarea, type TableroTareasDto, type TareaAlumnoDto,
 } from "../lib/api";
-import { AlertBanner, Btn, Card, CursoMarca, Drawer, EmptyState, Tabs, Textarea } from "./Ui";
+import { AlertBanner, Btn, Card, CursoMarca, Drawer, EmptyState, ListaSkeleton, Skeleton, Tabs, Textarea } from "./Ui";
 import { ArchivosPorSubir, ElegirArchivos, EstadoTareaBadge, ListaArchivos, formatFechaHora } from "./Tareas";
 import { CheckCircle2, Tablero } from "./Iconos";
 
@@ -90,9 +90,9 @@ export default function TableroTareas({ alumnoId }: { alumnoId: number }) {
         <h3 className="flex items-center gap-2 px-1 pt-1 font-display font-bold text-stone-900">
           <span className={`w-2.5 h-2.5 rounded-full ${c.acento}`} aria-hidden="true" />
           {c.titulo}
-          <span className="ml-auto text-sm font-semibold text-stone-400 tabular-nums">{tareas.length}</span>
+          <span className="ml-auto text-sm font-semibold text-stone-500 tabular-nums">{tareas.length}</span>
         </h3>
-        {tareas.length === 0 ? <p className="text-sm text-stone-400 px-1 pb-2">{c.vacio}</p> : tareas.map((t) => (
+        {tareas.length === 0 ? <p className="text-sm text-stone-500 px-1 pb-2">{c.vacio}</p> : tareas.map((t) => (
           <TarjetaTarea key={t.actividadId} tarea={t} onClick={() => setAbierta(t)} />
         ))}
       </section>
@@ -147,7 +147,7 @@ function TarjetaTarea({ tarea, onClick }: { tarea: TareaTablero; onClick: () => 
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
         {tarea.estado === "Calificada" ? (
-          <span className="font-display font-bold text-lg tabular-nums text-stone-900">{tarea.nota}<span className="text-sm text-stone-400"> / {tarea.puntosMaximos}</span></span>
+          <span className="font-display font-bold text-lg tabular-nums text-stone-900">{tarea.nota}<span className="text-sm text-stone-500"> / {tarea.puntosMaximos}</span></span>
         ) : (
           <span className={`text-[13px] ${pendiente && limite.urgente ? "text-danger-700 font-bold" : "text-stone-500"}`}>
             {pendiente ? limite.texto : tarea.fechaEntrega ? `Entregada ${formatFechaHora(tarea.fechaEntrega)}` : ""}
@@ -231,7 +231,13 @@ function DetalleTarea({ alumnoId, resumen, onClose, onEntregada }: {
       ) : undefined}
     >
       {!detalle ? (
-        error ? <AlertBanner type="error" message={error} /> : <p className="text-sm text-stone-500 py-6">Cargando...</p>
+        error ? <AlertBanner type="error" message={error} /> : (
+          <div className="space-y-5">
+            <Skeleton className="h-12 w-56" />
+            <Skeleton className="h-20" />
+            <ListaSkeleton filas={2} />
+          </div>
+        )
       ) : (
         <div className="space-y-5">
           {error && <AlertBanner type="error" message={error} onClose={() => setError("")} />}
