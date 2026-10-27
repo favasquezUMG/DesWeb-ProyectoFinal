@@ -1,0 +1,87 @@
+# Blueprint de Render: API (Express + Prisma) y frontend (sitio estático de Vite).
+# Las variables con sync: false se llenan en el panel de Render al crear el Blueprint.
+services:
+  - type: web
+    name: colegio-vanguardia-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    # --include=dev: tsc y prisma son devDependencies y NODE_ENV=production las omitiría
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: NODE_ENV
+        value: production
+      # Chrome de puppeteer (PDFs) dentro del proyecto: lo que queda fuera no llega a la ejecución
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/src/backend/.cache/puppeteer
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      # URL del frontend en Render, p. ej. https://colegio-vanguardia.onrender.com
+      - key: CORS_ORIGIN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_DOMINIOS_PERMITIDOS
+        sync: false
+      - key: COLEGIO_NOMBRE
+        value: Colegio Vanguardia
+      - key: COLEGIO_ZONA_HORARIA
+        value: America/Guatemala
+      - key: RECORDATORIOS_HORA
+        value: "7"
+      - key: COLEGIATURA_MENSUAL
+        value: "500"
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: web
+    name: colegio-vanguardia
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      # URL de la API en Render, p. ej. https://colegio-vanguardia-api.onrender.com
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_SITE_URL
+        value: https://colegio-vanguardia.onrender.com
+    routes:
+      # SPA: toda ruta la resuelve React (incluida la página 404)
+      - type: rewrite
+        source: /*
+        destination: /index.html
