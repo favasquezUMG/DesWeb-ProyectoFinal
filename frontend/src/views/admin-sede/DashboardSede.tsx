@@ -14,11 +14,11 @@ export default function DashboardSede() {
       .catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar el resumen de la sede."));
   }, []);
 
-  if (error) return <div className="space-y-6"><SectionHeader title="Dashboard" /><AlertBanner type="error" message={error} /></div>;
+  if (error) return <div className="space-y-6"><SectionHeader title="Resumen de la sede" /><AlertBanner type="error" message={error} /></div>;
   if (!data) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Dashboard" />
+        <SectionHeader title="Resumen de la sede" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-[20px] bg-white border border-stone-200/80 animate-pulse" />)}
         </div>

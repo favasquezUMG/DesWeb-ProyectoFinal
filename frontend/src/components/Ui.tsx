@@ -260,7 +260,7 @@ export function ListaSkeleton({ filas = 4 }: { filas?: number }) {
   );
 }
 
-/** Unas cuantas filas para las tarjetas del dashboard */
+/** Unas cuantas filas para las tarjetas del inicio */
 export function LineasSkeleton({ lineas = 3 }: { lineas?: number }) {
   return (
     <div role="status" className="space-y-3">
@@ -283,8 +283,9 @@ const METRIC_CFG = {
   danger: { num: "text-danger-700", icon: "bg-danger-600 text-white" },
 };
 
-export function MetricCard({ label, value, sub, icon, variant = "default" }: {
-  label: string; value: string | number; sub?: string; icon?: ReactNode; variant?: "default" | "success" | "warning" | "danger";
+// cargando: muestra la silueta del valor mientras llega el dato
+export function MetricCard({ label, value, sub, icon, variant = "default", cargando = false }: {
+  label: string; value: string | number; sub?: string; icon?: ReactNode; variant?: "default" | "success" | "warning" | "danger"; cargando?: boolean;
 }) {
   const c = METRIC_CFG[variant];
   return (
@@ -293,12 +294,20 @@ export function MetricCard({ label, value, sub, icon, variant = "default" }: {
         {icon && <span className={`icono-color w-9 h-9 rounded-full flex items-center justify-center shrink-0 [&>svg]:w-5 [&>svg]:h-5 ${c.icon}`}>{icon}</span>}
         <p className="text-sm font-semibold text-stone-600 leading-tight">{label}</p>
       </div>
+      {cargando ? (
+        <div role="status" className="space-y-2.5">
+          <span className="sr-only">Cargando {label.toLowerCase()}…</span>
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-3.5 w-32 max-w-full" />
+        </div>
+      ) : (
       <div>
         {/* Un monto no se parte a la mitad: solo se corta en los espacios, y los valores largos
             (ej. "Q2,550.00 / Q2,500.00") van con letra más chica para caber en media pantalla */}
         <p className={`font-display font-bold tabular-nums tracking-tight ${String(value).length > 9 ? "text-[clamp(1.25rem,2vw,1.9rem)] leading-tight" : "text-[clamp(1.7rem,2.6vw,2.4rem)] leading-none"} ${c.num}`}>{value}</p>
         {sub && <p className="text-[13px] text-stone-500 mt-2 leading-snug">{sub}</p>}
       </div>
+      )}
     </Card>
   );
 }

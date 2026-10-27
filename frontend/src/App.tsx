@@ -30,7 +30,7 @@ const TITULO_ACCESO: Record<Screen, string> = {
 const rutaValida = () => ["/", "/index.html"].includes(window.location.pathname);
 
 // Si el padre llegó desde el enlace de una circular, entra directo a Circulares (que la abre).
-// El personal de sede entra a la primera pestaña que tiene permitida (la secretaría no ve el Dashboard).
+// El personal de sede entra a la primera pestaña que tiene permitida (la secretaría no ve el Inicio).
 const vistaInicial = (user: AppUser): View => {
   if (user.role === "padre" && hayCircularPendiente()) return "pad-circulares";
   if (user.role === "admin-sede") return vistasPermitidas(user)[0] ?? DEFAULT_VIEWS[user.role];
