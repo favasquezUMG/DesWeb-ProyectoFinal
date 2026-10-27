@@ -74,7 +74,7 @@ export function generarResumenSedePdf(d: DashboardSedeDto): void {
   const datos: [string, string][] = [
     ["Alumnos inscritos", `${d.alumnos.total} (ciclo anterior: ${d.alumnos.anterior})`],
     ["Tasa de aprobación", d.aprobacion.porcentaje !== null ? `${d.aprobacion.porcentaje}% · promedio ${d.aprobacion.promedio}` : "Sin notas"],
-    ["Cuentas con pagos vencidos", `${d.mora.alumnos} (${d.mora.porcentaje}%)`],
+    ["Alumnos con pagos pendientes", `${d.mora.alumnos} (${d.mora.porcentaje}%)`],
     ["Becas activas", `${d.becas.activas} (${d.becas.porcentaje}% del alumnado)`],
     ["Pendientes", `${d.pendientes.solicitudes} solicitudes · ${d.pendientes.justificaciones} justificaciones · ${d.pendientes.sinEncargado} alumnos sin encargado`],
   ];

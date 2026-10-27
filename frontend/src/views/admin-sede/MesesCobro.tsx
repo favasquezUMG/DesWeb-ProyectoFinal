@@ -74,7 +74,7 @@ export function ModalMesesCobro({ alumno, onCerrar, onGuardado }: {
       <div className="space-y-4">
         <p className="text-sm text-stone-600">
           <span className="font-semibold text-stone-900">{alumno?.nombre}</span>. Los meses deshabilitados no se le cobran
-          ni cuentan como mora; el encargado los ve como "No aplica".
+          ni cuentan como pendientes; el encargado los ve como "No aplica".
         </p>
 
         {cargando ? (

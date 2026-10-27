@@ -424,6 +424,7 @@ export const getTendenciaNotas = async (_req: AuthenticatedRequest, res: Respons
       select: {
         valor: true,
         fechaRegistro: true,
+        actividad: { select: { puntosMaximos: true } },
       },
     });
 
@@ -432,24 +433,28 @@ export const getTendenciaNotas = async (_req: AuthenticatedRequest, res: Respons
       "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
     ];
 
-    // Acumulamos sumas y conteos por cada mes (0-11)
+    // Acumulamos sumas y conteos por cada mes (0-11). Cada nota cuenta como porcentaje de su
+    // actividad (una tarea de 15 y un examen de 40 quedan en la misma escala de 0 a 100)
     const acumuladorMeses: Record<number, { suma: number; total: number }> = {};
 
     notas.forEach((nota) => {
+      const maximo = Number(nota.actividad.puntosMaximos);
+      if (!maximo) return;
       const mesIndex = new Date(nota.fechaRegistro).getMonth();
       if (!acumuladorMeses[mesIndex]) {
         acumuladorMeses[mesIndex] = { suma: 0, total: 0 };
       }
-      acumuladorMeses[mesIndex].suma += Number(nota.valor);
+      acumuladorMeses[mesIndex].suma += (Number(nota.valor) / maximo) * 100;
       acumuladorMeses[mesIndex].total += 1;
     });
 
-    // Formateamos los datos requeridos por la gráfica (Recharts)
+    // Formateamos los datos requeridos por la gráfica (Recharts). Los meses sin notas van en
+    // null para que la gráfica no caiga a 0
     const data = mesesNombres.map((nombre, index) => {
       const registro = acumuladorMeses[index];
       const promedio = registro && registro.total > 0
-        ? Math.round(registro.suma / registro.total)
-        : 0;
+        ? Math.round((registro.suma / registro.total) * 10) / 10
+        : null;
 
       return {
         mes: nombre,
@@ -459,6 +464,6 @@ export const getTendenciaNotas = async (_req: AuthenticatedRequest, res: Respons
 
     return res.json({ status: "success", data });
   } catch (error) {
-
+    return res.status(500).json({ status: "error", message: "Error al calcular la tendencia de notas.", error });
   }
 }

@@ -88,7 +88,7 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
       sub: datos.aprobacion ? limpiarTexto(datos.aprobacion.subtexto) : "Sin datos",
     },
     {
-      label: "PORCENTAJE DE MORA",
+      label: "PAGOS PENDIENTES",
       val: datos.mora ? `${datos.mora.porcentajeMora}%` : "0%",
       sub: datos.mora ? limpiarTexto(datos.mora.subtexto) : "Sin datos",
     },
@@ -159,7 +159,7 @@ export function generarReporteConsolidadoPdf(datos: DatosReporteConsolidado): vo
 
   meses.forEach((_, idx) => {
     const item = datos.tendencia[idx];
-    const valStr = item ? `${item.promedio} pts` : "0 pts";
+    const valStr = item?.promedio != null ? `${item.promedio} pts` : "—";
     doc.text(valStr, margenX + idx * anchoCol + anchoCol / 2, y + 4.8, { align: "center" });
   });
 
