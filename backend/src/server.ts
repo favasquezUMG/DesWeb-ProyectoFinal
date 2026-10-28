@@ -44,8 +44,12 @@ import { closeBrowser } from "./services/pdf.service.js";
 dotenv.config();
 const app = express();
 
-// En Render la API también sirve el frontend: los enlaces de los correos apuntan a la misma URL
-if (process.env.RENDER_EXTERNAL_URL) process.env.FRONTEND_URL ||= process.env.RENDER_EXTERNAL_URL;
+// En Render la API también sirve el frontend: los enlaces de los correos apuntan a la misma URL.
+// Una FRONTEND_URL local (copiada del .env al panel) se ignora, si no los correos llevarían a localhost.
+const esUrlLocal = (url?: string) => !url || /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url);
+if (process.env.RENDER_EXTERNAL_URL && esUrlLocal(process.env.FRONTEND_URL)) {
+  process.env.FRONTEND_URL = process.env.RENDER_EXTERNAL_URL;
+}
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
