@@ -1,17 +1,30 @@
-import nodemailer from "nodemailer";
+import { resolve4 } from "node:dns/promises";
+import nodemailer, { type Transporter } from "nodemailer";
 import { prisma } from "../lib/prisma.js";
 
-const transporter = nodemailer.createTransport({
-    // pool reutiliza la conexion SMTP en los envios masivos (comunicados, boletas, recordatorios)
-    pool: true,
-    host: process.env.MAIL_HOST,
-    port: Number(process.env.MAIL_PORT) || 587,
-    secure: Number(process.env.MAIL_PORT) === 465,
-    auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASSWORD,
-    },
-});
+// nodemailer elige al azar entre las IP del host (IPv4 e IPv6) y Render no tiene salida por IPv6:
+// la mitad de los envios fallaba con ENETUNREACH. Se conecta siempre por IPv4 y el nombre real
+// del host va en servername para que el certificado TLS se valide igual.
+const crearTransporter = async (): Promise<Transporter> => {
+    const host = process.env.MAIL_HOST;
+    const [ipv4] = host ? await resolve4(host).catch(() => []) : [];
+
+    return nodemailer.createTransport({
+        // pool reutiliza la conexion SMTP en los envios masivos (comunicados, boletas, recordatorios)
+        pool: true,
+        host: ipv4 ?? host,
+        port: Number(process.env.MAIL_PORT) || 587,
+        secure: Number(process.env.MAIL_PORT) === 465,
+        ...(host ? { tls: { servername: host } } : {}),
+        auth: {
+            user: process.env.MAIL_USER,
+            pass: process.env.MAIL_PASSWORD,
+        },
+    });
+};
+
+let transporter: Promise<Transporter> | null = null;
+const getTransporter = () => (transporter ??= crearTransporter());
 
 const htmlATextoPlano = (html: string): string =>
     html
@@ -47,7 +60,7 @@ export const sendMail = async ({ to, subject, html, usuarioId, mensaje, tipo }: 
     if (!correoPermitido(to)) {
         console.log(`↷ Correo omitido (dominio no permitido): ${to}`);
     } else try {
-        await transporter.sendMail({
+        await (await getTransporter()).sendMail({
             from: process.env.MAIL_FROM || `"${process.env.COLEGIO_NOMBRE || 'Colegio Vanguardia'}" <${process.env.MAIL_USER}>`,
             to,
             subject,
