@@ -32,6 +32,25 @@ const htmlATextoPlano = (html: string): string =>
         .replace(/\s+/g, " ")
         .trim();
 
+const remitente = () =>
+    process.env.MAIL_FROM || `"${process.env.COLEGIO_NOMBRE || 'Colegio Vanguardia'}" <${process.env.MAIL_USER}>`;
+
+// El plan gratis de Render bloquea los puertos SMTP. Con MAIL_RELAY_URL el correo va por HTTPS a un
+// script de Google Apps Script (backend/scripts/relay-correo.gs) que lo envia desde la cuenta de Gmail.
+const enviarPorRelay = async (to: string, subject: string, html: string): Promise<void> => {
+    const nombre = remitente().replace(/<[^>]*>/, "").replace(/"/g, "").trim();
+    const respuesta = await fetch(process.env.MAIL_RELAY_URL!, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: process.env.MAIL_RELAY_TOKEN, to, subject, html, texto: htmlATextoPlano(html), nombre }),
+        signal: AbortSignal.timeout(30_000),
+    });
+    const body = (await respuesta.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!respuesta.ok || !body?.ok) {
+        throw new Error(`Relay de correo: ${body?.error ?? `HTTP ${respuesta.status}`}`);
+    }
+};
+
 // Con MAIL_DOMINIOS_PERMITIDOS (ej. "gmail.com") solo se envia a esos dominios: en desarrollo evita
 // gastar la cuota de Gmail en los correos ficticios del seed. Sin la variable se envia a todos.
 export const correoPermitido = (email: string): boolean => {
@@ -60,12 +79,11 @@ export const sendMail = async ({ to, subject, html, usuarioId, mensaje, tipo }: 
     if (!correoPermitido(to)) {
         console.log(`↷ Correo omitido (dominio no permitido): ${to}`);
     } else try {
-        await (await getTransporter()).sendMail({
-            from: process.env.MAIL_FROM || `"${process.env.COLEGIO_NOMBRE || 'Colegio Vanguardia'}" <${process.env.MAIL_USER}>`,
-            to,
-            subject,
-            html,
-        });
+        if (process.env.MAIL_RELAY_URL) {
+            await enviarPorRelay(to, subject, html);
+        } else {
+            await (await getTransporter()).sendMail({ from: remitente(), to, subject, html });
+        }
         enviado = true;
     } catch (error) {
         console.error(`❌ Error al enviar correo a ${to}:`, error);

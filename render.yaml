@@ -43,6 +43,11 @@ services:
         sync: false
       - key: MAIL_DOMINIOS_PERMITIDOS
         sync: false
+      # Render gratis bloquea SMTP: los correos salen por el script backend/scripts/relay-correo.gs
+      - key: MAIL_RELAY_URL
+        sync: false
+      - key: MAIL_RELAY_TOKEN
+        sync: false
       - key: COLEGIO_NOMBRE
         value: Colegio Vanguardia
       - key: COLEGIO_ZONA_HORARIA
