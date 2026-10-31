@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSession } from "../../lib/auth";
 import { getCursosDeCatedratico, type ActividadDto, type CursoSeccionDto, type LibretaDto, type TipoActividad } from "../../lib/api";
-import { Badge, EstadoBadge } from "../../components/Ui";
+import { Badge, EstadoBadge, ListaSkeleton } from "../../components/Ui";
 
 export const NOTA_APROBACION = 61;
 
@@ -19,6 +19,26 @@ export function nombreCurso(c: CursoSeccionDto): string {
 export function hoyISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// ISO con hora -> "YYYY-MM-DDTHH:mm" en hora local (lo que usa <input type="datetime-local">)
+export function isoALocal(iso: string): string {
+  const d = new Date(iso);
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}T${dos(d.getHours())}:${dos(d.getMinutes())}`;
+}
+
+// Fecha límite sugerida para una tarea nueva: dentro de una semana a las 23:59
+export function limitePorDefecto(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  d.setHours(23, 59, 0, 0);
+  return isoALocal(d.toISOString());
+}
+
+// "lunes 3 de noviembre, 23:59"
+export function formatLimite(iso: string): string {
+  return new Date(iso).toLocaleString("es-GT", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 }
 
 // 1 = Lunes ... 7 = Domingo, igual que el backend
@@ -182,11 +202,11 @@ export function CursoSelect({ cursos, value, onChange }: {
   );
 }
 
-export function Cargando({ texto = "Cargando..." }: { texto?: string }) {
+// El texto solo lo anuncia el lector de pantalla; a la vista queda la silueta de la lista
+export function Cargando({ texto = "Cargando…" }: { texto?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-sm text-stone-500">
-      <span className="w-4 h-4 border-2 border-stone-300 border-t-primary-700 rounded-full animate-spin" />
-      {texto}
+    <div className="py-4" aria-label={texto}>
+      <ListaSkeleton />
     </div>
   );
 }

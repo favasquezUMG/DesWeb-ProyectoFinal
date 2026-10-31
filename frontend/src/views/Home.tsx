@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
-  GraduationCap, Users2, ShieldCheck, MapPin, Phone, Mail, Clock,
-  Award, Heart, Lightbulb, Menu, X, FileSearch, ClipboardEdit,
-  Target, Binoculars, School,
-} from "../components/Iconos";
-import { Btn } from "../components/Ui";
+  MapPin, Phone, Menu, X, FileSearch, ClipboardEdit, Avanzar,
+} from "../components/iconos/publicos";
+import { Btn, Skeleton } from "../components/Ui";
 import { getInfoInicio, type InfoInicioDto } from "../lib/api";
+
+const RecorridoVirtual = lazy(() => import("../components/RecorridoVirtual"));
 
 export type Portal = "estudiante" | "personal";
 
@@ -18,15 +18,10 @@ interface HomeProps {
 const NAV_LINKS = [
   { label: "Nosotros", href: "#nosotros" },
   { label: "Niveles", href: "#niveles" },
+  { label: "Recorrido", href: "#recorrido" },
   { label: "Sedes", href: "#sedes" },
   { label: "Admisiones", href: "#admisiones" },
   { label: "Contacto", href: "#contacto" },
-];
-
-const VALORES = [
-  { Icon: Award, titulo: "Excelencia", texto: "Exigencia académica acompañada de seguimiento cercano a cada alumno." },
-  { Icon: Heart, titulo: "Formación integral", texto: "Valores, deporte, arte y convivencia como parte del día a día." },
-  { Icon: Lightbulb, titulo: "Innovación", texto: "Tecnología al servicio del aprendizaje y de la comunicación con las familias." },
 ];
 
 // Textos descriptivos por nivel; los niveles y grados vienen de la base de datos
@@ -36,6 +31,9 @@ const DESCRIPCION_NIVEL: Record<string, string> = {
   "Básico": "Desarrollo del pensamiento crítico, trabajo en equipo y orientación vocacional temprana.",
   Diversificado: "Preparación universitaria, proyectos de investigación y prácticas con enfoque profesional.",
 };
+
+// Teléfono para los datos estructurados: los de 8 dígitos son de Guatemala
+const internacional = (telefono: string) => (/^\d{8}$/.test(telefono) ? `+502 ${telefono}` : telefono);
 
 function formatearTelefono(telefono: string | null): string | null {
   if (!telefono) return null;
@@ -52,6 +50,7 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
   const [info, setInfo] = useState<InfoInicioDto | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recorridoAbierto, setRecorridoAbierto] = useState(false);
 
   useEffect(() => {
     getInfoInicio()
@@ -62,10 +61,30 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 
   const sedes = info?.sedes ?? [];
   const niveles = info?.niveles ?? [];
+  const totalGrados = niveles.reduce((total, n) => total + n.grados.length, 0);
   const rangoNiveles = niveles.length > 1
     ? `de ${niveles[0].nivel} a ${niveles[niveles.length - 1].nivel}`
     : niveles.length === 1 ? `de ${niveles[0].nivel}` : "";
-  const telefonoContacto = formatearTelefono(sedes.find(s => s.telefono)?.telefono ?? null);
+
+  // Agrega las sedes a los datos estructurados de index.html (las sedes viven en la base de datos)
+  useEffect(() => {
+    const script = document.getElementById("datos-colegio");
+    if (!script || !info?.sedes.length) return;
+    try {
+      const datos = JSON.parse(script.textContent ?? "{}");
+      datos.department = info.sedes.map((s) => ({
+        "@type": "School",
+        name: `Colegio Vanguardia, ${s.nombre}`,
+        ...(s.direccion ? { address: { "@type": "PostalAddress", streetAddress: s.direccion, addressCountry: "GT" } } : {}),
+        ...(s.telefono ? { telephone: internacional(s.telefono) } : {}),
+      }));
+      const telefono = info.sedes.find((s) => s.telefono)?.telefono;
+      if (telefono) datos.telephone = internacional(telefono);
+      script.textContent = JSON.stringify(datos);
+    } catch {
+      // Si el JSON no se puede leer se deja como vino en el HTML
+    }
+  }, [info]);
 
   return (
     <div className="min-h-screen bg-sand-100 text-stone-900">
@@ -110,11 +129,11 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
         <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           <div className="lg:col-span-7">
             <h1 className="font-display font-extrabold text-[2.9rem] sm:text-6xl lg:text-[4.6rem] leading-[0.98] tracking-tight">
-              Formamos a los líderes del mañana
+              De Preprimaria a Diversificado
             </h1>
             <p className="text-stone-600 mt-6 text-lg leading-relaxed max-w-xl">
-              Colegio Vanguardia ofrece educación {rangoNiveles} en sedes de todo el país,
-              con un sistema académico en línea que mantiene a alumnos, familias y docentes conectados.
+              Colegio Vanguardia{sedes.length > 0 ? `, con ${sedes.length} ${sedes.length === 1 ? "sede" : "sedes"} en Guatemala` : ", en Guatemala"}.
+              Notas, tareas, horario, asistencia y pagos de cada alumno se consultan en línea, en el mismo portal para alumnos, familias y docentes.
             </p>
             <div className="flex flex-wrap gap-3 mt-8">
               <Btn variant="secondary" size="lg" onClick={onSolicitud} icon={<ClipboardEdit className="w-5 h-5" />}>Solicitar inscripción</Btn>
@@ -138,93 +157,50 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
                   </div>
                 ))}
               </div>
-              <div className="relative mt-9 mx-4 rounded-[22px] bg-anil-800 text-white px-5 py-4 flex items-center gap-4 rotate-[-1.5deg]">
-                <GraduationCap className="w-7 h-7 text-subject-social shrink-0" />
-                <p className="text-sm font-semibold leading-snug">Notas, horario, asistencia y pagos en un solo lugar para toda la familia.</p>
-              </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Accesos al portal */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16">
-        <div className="grid md:grid-cols-2 gap-4">
-          <PortalButton
-            Icon={GraduationCap}
-            titulo="Estudiantes y familias"
-            texto="Notas, horario, pagos y avisos"
-            onClick={() => onLogin("estudiante")}
-            destacado
-          />
-          <PortalButton
-            Icon={ShieldCheck}
-            titulo="Catedráticos y administración"
-            texto="Gestión académica y de sede"
-            onClick={() => onLogin("personal")}
-          />
         </div>
       </section>
 
       {/* Nosotros */}
       <section id="nosotros" className="scroll-mt-20 bg-white relative">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-end">
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start">
             <div className="lg:col-span-7">
-              <SectionTitle titulo="Una institución con visión de futuro" texto="Acompañamos a cada alumno desde sus primeros años hasta la universidad, de la mano de su familia y de docentes que lo conocen por su nombre." />
+              <SectionTitle titulo="Quiénes somos" texto="Acompañamos a cada alumno desde sus primeros años hasta la universidad, de la mano de su familia y de docentes que lo conocen por su nombre." />
             </div>
             {(sedes.length > 0 || niveles.length > 0) && (
-              <dl className="lg:col-span-5 grid grid-cols-2 gap-3">
+              <dl className="lg:col-span-5 grid grid-cols-3 gap-3">
                 {sedes.length > 0 && (
-                  <div className="rounded-[22px] bg-sand-100 px-5 py-4">
-                    <dd className="font-display font-extrabold text-5xl leading-none tabular-nums text-primary-800">{sedes.length}</dd>
-                    <dt className="text-sm font-semibold text-stone-600 mt-2">{sedes.length === 1 ? "sede en el país" : "sedes en el país"}</dt>
-                  </div>
+                  <Dato valor={sedes.length} texto={sedes.length === 1 ? "sede" : "sedes"} />
                 )}
                 {niveles.length > 0 && (
-                  <div className="rounded-[22px] bg-sand-100 px-5 py-4">
-                    <dd className="font-display font-extrabold text-5xl leading-none tabular-nums text-action-600">{niveles.length}</dd>
-                    <dt className="text-sm font-semibold text-stone-600 mt-2">{niveles.length === 1 ? "nivel educativo" : "niveles educativos"}</dt>
-                  </div>
+                  <Dato valor={niveles.length} texto={niveles.length === 1 ? "nivel" : "niveles"} />
+                )}
+                {totalGrados > 0 && (
+                  <Dato valor={totalGrados} texto={totalGrados === 1 ? "grado" : "grados"} />
                 )}
               </dl>
             )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-5 mt-12">
-            <article className="relative overflow-hidden rounded-[28px] bg-anil-800 textile-pattern text-white p-8 sm:p-10 min-h-[280px] flex flex-col">
-              <span className="icono-color w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center [&>svg]:w-8 [&>svg]:h-8"><Target /></span>
-              <h3 className="font-display text-3xl font-bold mt-6">Misión</h3>
+            <article className="relative overflow-hidden rounded-[28px] bg-anil-800 textile-pattern text-white p-8 sm:p-10 flex flex-col">
+              <h3 className="font-display text-3xl font-bold">Misión</h3>
               <p className="text-[17px] text-white/80 leading-relaxed mt-3 max-w-md">
                 Brindar una educación integral y de calidad que desarrolle las capacidades académicas, humanas y
                 sociales de nuestros alumnos, en alianza con las familias y con el apoyo de docentes comprometidos.
               </p>
             </article>
-            <article className="relative overflow-hidden rounded-[28px] bg-subject-social text-stone-900 p-8 sm:p-10 min-h-[280px] flex flex-col">
-              <span className="icono-color-granate w-14 h-14 rounded-2xl bg-white/60 flex items-center justify-center [&>svg]:w-8 [&>svg]:h-8 text-stone-900"><Binoculars /></span>
-              <h3 className="font-display text-3xl font-bold mt-6">Visión</h3>
+            <article className="relative overflow-hidden rounded-[28px] bg-subject-social text-stone-900 p-8 sm:p-10 flex flex-col">
+              <h3 className="font-display text-3xl font-bold">Visión</h3>
               <p className="text-[17px] text-stone-800 leading-relaxed mt-3 max-w-md">
                 Ser la red de colegios referente en Guatemala por su excelencia académica, su innovación
                 pedagógica y la formación de ciudadanos responsables con su comunidad.
               </p>
-              <span className="absolute -right-16 -bottom-24 w-44 h-44 rounded-full border-[16px] border-white/25" aria-hidden="true" />
             </article>
           </div>
 
-          <div className="mt-14">
-            <h3 className="font-display text-2xl font-bold">Lo que nos mueve</h3>
-            <ul className="grid sm:grid-cols-3 gap-x-8 gap-y-8 mt-6">
-              {VALORES.map(({ Icon, titulo, texto }, i) => (
-                <li key={titulo} className="flex gap-4">
-                  <span className={`icono-color w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 [&>svg]:w-6 [&>svg]:h-6 ${["bg-action-600", "bg-success-600", "bg-subject-english"][i % 3]}`}><Icon /></span>
-                  <div>
-                    <p className="font-display text-xl font-bold leading-tight">{titulo}</p>
-                    <p className="text-[15px] text-stone-600 mt-1.5 leading-relaxed">{texto}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </section>
 
@@ -235,9 +211,8 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
           <EstadoCarga cargando={cargando} error={error} vacio={!!info && niveles.length === 0} textoVacio="Aún no hay niveles registrados." />
           <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-10">
             {niveles.map((n, i) => (
-              <li key={n.nivel} className="relative rounded-[24px] bg-white border border-stone-200/80 p-6 pt-14 flex flex-col overflow-hidden">
+              <li key={n.nivel} className="relative rounded-[24px] bg-white border border-stone-200/80 p-6 pt-8 flex flex-col overflow-hidden">
                 <span className={`absolute top-0 left-0 right-0 h-2 ${["bg-subject-social", "bg-subject-science", "bg-subject-math", "bg-subject-english"][i % 4]}`} />
-                <span className="absolute top-5 left-6 font-display font-extrabold text-sm text-stone-400">Etapa {i + 1}</span>
                 <h3 className="font-display text-[1.7rem] leading-tight font-bold">{n.nivel}</h3>
                 <p className="text-sm font-semibold text-primary-700 mt-1">{rangoGrados(n.grados)}</p>
                 <p className="text-[15px] text-stone-600 leading-relaxed mt-4">
@@ -246,6 +221,34 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      {/* Recorrido virtual */}
+      <section id="recorrido" className="scroll-mt-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+          <SectionTitle titulo="Recorra el colegio desde casa" texto="Camine por la recepción, las aulas, el laboratorio, la biblioteca y la cancha como si estuviera aquí. Arrastre para mirar alrededor y use las flechas para avanzar." />
+          <div className="mt-10">
+            {recorridoAbierto ? (
+              <Suspense fallback={<div className="w-full h-[68vh] min-h-[420px] max-h-[720px] rounded-[28px] bg-stone-900" />}>
+                <RecorridoVirtual />
+              </Suspense>
+            ) : (
+              <button type="button" onClick={() => setRecorridoAbierto(true)}
+                className="group relative w-full h-[340px] sm:h-[420px] rounded-[28px] overflow-hidden bg-anil-800 textile-pattern text-white text-left cursor-pointer">
+                <PortadaRecorrido />
+                <span className="absolute inset-x-0 bottom-0 p-6 sm:p-10 flex flex-col sm:flex-row sm:items-end justify-between gap-5 bg-gradient-to-t from-stone-900/80 to-transparent">
+                  <span>
+                    <span className="block font-display text-3xl sm:text-4xl font-bold leading-tight">9 espacios en 360°</span>
+                    <span className="block text-white/75 text-[15px] mt-1">De la entrada a la cancha, en computadora o en celular.</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2 self-start sm:self-auto px-6 py-3 rounded-full bg-action-500 group-hover:bg-action-600 transition-colors font-bold">
+                    Iniciar recorrido<Avanzar className="w-4 h-4 rotate-90" />
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -259,16 +262,12 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
               const tono = TONOS_SEDE[i % TONOS_SEDE.length];
               return (
                 <li key={s.sedeId} className="rounded-[26px] border border-stone-200/80 bg-white overflow-hidden flex flex-col">
-                  <div className={`relative h-36 ${tono.fondo} overflow-hidden`} aria-hidden="true">
-                    <MapaSede trazo={tono.trazo} />
-                    <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[70%] w-14 h-14 rounded-full rounded-br-none rotate-45 flex items-center justify-center ${tono.pin}`}>
-                      <span className="-rotate-45 icono-color [&>svg]:w-6 [&>svg]:h-6"><School /></span>
-                    </span>
+                  <div className={`${tono.fondo} ${tono.texto} px-6 pt-10 pb-6`}>
+                    <h3 className="font-display text-[1.9rem] font-bold leading-tight">{s.nombre}</h3>
                   </div>
                   <div className="p-6 flex flex-col flex-1">
-                    <h3 className="font-display text-2xl font-bold leading-tight">{s.nombre}</h3>
                     {s.direccion && (
-                      <p className="text-[15px] text-stone-600 flex items-start gap-2 mt-3 leading-snug">
+                      <p className="text-[15px] text-stone-600 flex items-start gap-2 leading-snug">
                         <MapPin className="w-5 h-5 text-action-600 shrink-0" />{s.direccion}
                       </p>
                     )}
@@ -316,29 +315,42 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
         </div>
       </section>
 
-      {/* Contacto */}
-      <section id="contacto" className="scroll-mt-20 max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-        <SectionTitle titulo="Estamos para servirle" />
-        <div className="grid sm:grid-cols-3 gap-4 mt-8">
-          {telefonoContacto && <ContactItem Icon={Phone} titulo="Teléfono" texto={telefonoContacto} />}
-          <ContactItem Icon={Mail} titulo="Correo" texto="info@colegiovanguardia.edu.gt" />
-          <ContactItem Icon={Clock} titulo="Horario de atención" texto="Lunes a viernes, de 7:00 a 15:00" />
-        </div>
-      </section>
-
-      <footer className="bg-stone-900 text-white/70">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row gap-6 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="w-9 h-9 rounded-xl bg-action-500 text-white flex items-center justify-center font-display font-extrabold rotate-[-4deg]">V</span>
-            <div>
-              <p className="font-display font-bold text-white">Colegio Vanguardia</p>
-              <p className="text-xs text-white/50 mt-0.5">© {new Date().getFullYear()} Colegio Vanguardia. Todos los derechos reservados.</p>
+      {/* Pie con el contacto: es donde se busca la dirección y el teléfono */}
+      <footer id="contacto" className="scroll-mt-20 bg-stone-900 text-white/70">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid gap-10 md:grid-cols-12">
+          <div className="md:col-span-4">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-action-500 text-white flex items-center justify-center font-display font-extrabold rotate-[-4deg]">V</span>
+              <p className="font-display font-bold text-white text-lg">Colegio Vanguardia</p>
             </div>
+            <dl className="mt-6 space-y-3 text-[15px]">
+              <div>
+                <dt className="text-xs font-semibold text-white/50">Correo</dt>
+                <dd><a href="mailto:info@colegiovanguardia.edu.gt" className="text-white font-semibold hover:underline [overflow-wrap:anywhere]">info@colegiovanguardia.edu.gt</a></dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold text-white/50">Horario de atención</dt>
+                <dd className="text-white">Lunes a viernes, de 7:00 a 15:00</dd>
+              </div>
+            </dl>
           </div>
-          <div className="flex items-center gap-5 text-sm font-semibold">
-            <button type="button" onClick={() => onLogin("estudiante")} className="hover:text-white flex items-center gap-1.5 cursor-pointer"><Users2 className="w-4 h-4" />Estudiantes</button>
-            <button type="button" onClick={() => onLogin("personal")} className="hover:text-white flex items-center gap-1.5 cursor-pointer"><ShieldCheck className="w-4 h-4" />Personal</button>
-          </div>
+          {sedes.length > 0 && (
+            <div className="md:col-span-8">
+              <h2 className="text-xs font-semibold text-white/50">Sedes</h2>
+              <ul className="mt-3 grid sm:grid-cols-2 gap-x-8 gap-y-4 text-[15px]">
+                {sedes.map((s) => (
+                  <li key={s.sedeId}>
+                    <p className="font-semibold text-white">{s.nombre}</p>
+                    {s.direccion && <p className="leading-snug">{s.direccion}</p>}
+                    {s.telefono && <a href={`tel:${internacional(s.telefono).replace(/\s/g, "")}`} className="tabular-nums hover:text-white">{formatearTelefono(s.telefono)}</a>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-white/10">
+          <p className="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-white/50">© {new Date().getFullYear()} Colegio Vanguardia</p>
         </div>
       </footer>
     </div>
@@ -346,24 +358,27 @@ export default function Home({ onLogin, onSolicitud, onConsulta }: HomeProps) {
 }
 
 const TONOS_SEDE = [
-  { fondo: "bg-anil-800", trazo: "rgba(255,255,255,0.18)", pin: "bg-subject-social text-stone-900" },
-  { fondo: "bg-action-600", trazo: "rgba(255,255,255,0.2)", pin: "bg-white text-action-700" },
-  { fondo: "bg-success-600", trazo: "rgba(255,255,255,0.2)", pin: "bg-subject-social text-stone-900" },
-  { fondo: "bg-subject-social", trazo: "rgba(52,68,154,0.18)", pin: "bg-anil-800 text-white" },
+  { fondo: "bg-anil-800", texto: "text-white" },
+  { fondo: "bg-action-600", texto: "text-white" },
+  { fondo: "bg-success-600", texto: "text-white" },
+  { fondo: "bg-subject-social", texto: "text-stone-900" },
 ];
 
-/** Plano de calles ilustrativo (no es un mapa real) */
-function MapaSede({ trazo }: { trazo: string }) {
+/** Ilustración de la portada del recorrido: pasillo en perspectiva con flechas en el piso */
+function PortadaRecorrido() {
   return (
-    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 144" preserveAspectRatio="xMidYMid slice" fill="none">
-      <g stroke={trazo} strokeLinecap="round">
-        <path d="M-10 40 H330 M-10 98 H330" strokeWidth="10" />
-        <path d="M60 -10 V160 M170 -10 V160 M262 -10 V160" strokeWidth="8" />
-        <path d="M-10 140 L120 10 M200 160 L330 30" strokeWidth="5" />
-        <path d="M100 0 V40 M220 98 V144 M20 70 H60 M262 70 H320" strokeWidth="3" />
+    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid slice" fill="none" aria-hidden="true">
+      <path d="M0 0 L330 150 L470 150 L800 0 Z" fill="rgba(255,255,255,0.06)" />
+      <path d="M0 420 L330 250 L470 250 L800 420 Z" fill="rgba(255,255,255,0.1)" />
+      <rect x="330" y="150" width="140" height="100" fill="rgba(242,183,5,0.85)" />
+      <g stroke="rgba(255,255,255,0.22)" strokeWidth="2">
+        <path d="M0 0 L330 150 M800 0 L470 150 M0 420 L330 250 M800 420 L470 250" />
+        <path d="M120 55 V365 M220 100 V310 M290 132 V268 M680 55 V365 M580 100 V310 M510 132 V268" />
       </g>
-      <circle cx="290" cy="122" r="14" fill={trazo} />
-      <circle cx="28" cy="18" r="9" fill={trazo} />
+      <g fill="#ffffff">
+        <path d="M400 268 L440 300 L418 300 L418 330 L382 330 L382 300 L360 300 Z" opacity="0.95" />
+        <path d="M400 222 L418 236 L408 236 L408 248 L392 248 L392 236 L382 236 Z" opacity="0.6" />
+      </g>
     </svg>
   );
 }
@@ -378,35 +393,25 @@ function SectionTitle({ titulo, texto }: { titulo: string; texto?: string }) {
 }
 
 function EstadoCarga({ cargando, error, vacio, textoVacio }: { cargando: boolean; error: string | null; vacio: boolean; textoVacio: string }) {
-  if (cargando) return <p className="text-sm text-stone-400 mt-8">Cargando…</p>;
+  if (cargando) {
+    return (
+      <div role="status" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-10">
+        <span className="sr-only">Cargando…</span>
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className={`h-48 rounded-[24px] ${i > 1 ? "hidden lg:block" : i > 0 ? "hidden sm:block" : ""}`} />)}
+      </div>
+    );
+  }
   if (error) return <p className="text-sm text-danger-700 mt-8">{error}</p>;
   if (vacio) return <p className="text-sm text-stone-500 mt-8">{textoVacio}</p>;
   return null;
 }
 
-function PortalButton({ Icon, titulo, texto, onClick, destacado = false }: { Icon: typeof GraduationCap; titulo: string; texto: string; onClick: () => void; destacado?: boolean }) {
+function Dato({ valor, texto }: { valor: number | string; texto: string }) {
   return (
-    <button type="button" onClick={onClick}
-      className={`w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-6 rounded-[24px] text-left transition-colors cursor-pointer
-        ${destacado ? "bg-anil-800 text-white hover:bg-anil-900" : "bg-white border-[1.5px] border-stone-200 hover:border-stone-900"}`}>
-      <span className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 ${destacado ? "bg-subject-social text-stone-900" : "bg-sand-100 text-primary-700"}`}><Icon className="w-6 h-6" /></span>
-      <span className="flex-1 min-w-0">
-        <span className="block font-display text-lg sm:text-xl font-bold leading-tight">{titulo}</span>
-        <span className={`block text-sm mt-0.5 ${destacado ? "text-white/70" : "text-stone-500"}`}>{texto}</span>
-      </span>
-      <span className={`text-sm font-bold shrink-0 ${destacado ? "text-subject-social" : "text-primary-700"}`}>Entrar</span>
-    </button>
-  );
-}
-
-function ContactItem({ Icon, titulo, texto }: { Icon: typeof Phone; titulo: string; texto: string }) {
-  return (
-    <div className="rounded-[22px] bg-white border border-stone-200/80 p-4 sm:p-5 flex items-center gap-3 sm:gap-4 min-w-0">
-      <span className="w-11 h-11 rounded-full bg-sand-100 text-action-500 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
-      <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-stone-500">{titulo}</p>
-        <p className="text-[15px] text-stone-900 font-semibold [overflow-wrap:anywhere]">{texto}</p>
-      </div>
+    // El número se ve arriba, pero el lector de pantalla lee primero la etiqueta (dt antes de dd)
+    <div className="rounded-[22px] bg-sand-100 px-5 py-4 flex flex-col-reverse">
+      <dt className="text-sm font-semibold text-stone-600 mt-2 leading-snug">{texto}</dt>
+      <dd className="font-display font-extrabold text-5xl leading-none tabular-nums text-primary-800">{valor}</dd>
     </div>
   );
 }

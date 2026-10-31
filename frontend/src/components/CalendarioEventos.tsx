@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "./Iconos";
-import { Card, SectionHeader, AlertBanner, EmptyState, FechaBloque } from "./Ui";
+import { Card, SectionHeader, AlertBanner, EmptyState, FechaBloque, ListaSkeleton } from "./Ui";
 import { getEventos, type EventoDto } from "../lib/api";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -74,10 +74,7 @@ export default function CalendarioEventos({ subtitle }: { subtitle?: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-        <span className="w-5 h-5 border-[2.5px] border-primary-700 border-t-transparent rounded-full animate-spin" />
-        Cargando calendario…
-      </div>
+      <ListaSkeleton />
     );
   }
 

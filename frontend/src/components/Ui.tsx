@@ -1,5 +1,5 @@
-import { Children, isValidElement, useEffect, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
-import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "./Iconos";
+import { Children, isValidElement, useEffect, useId, useLayoutEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { AlertCircle, CheckCircle2, Info, AlertTriangle, X } from "./iconos/publicos";
 
 // ─── Color por curso ─────────────────────────────────────────────────────────
 // Cada materia tiene un color estable (se calcula a partir de su nombre), así
@@ -84,9 +84,18 @@ export function Btn({ variant = "primary", size = "md", loading, icon, children,
 const CAMPO = "w-full bg-white text-stone-900 text-[15px] rounded-xl border-[1.5px] transition-colors focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-600/10";
 const LABEL = "text-[13px] font-semibold text-stone-700";
 
-function CampoError({ error }: { error?: string }) {
+function CampoError({ id, error }: { id: string; error?: string }) {
   if (!error) return null;
-  return <p className="text-xs text-danger-700 flex items-center gap-1 font-medium"><AlertCircle className="w-3.5 h-3.5" />{error}</p>;
+  return <p id={id} className="text-xs text-danger-700 flex items-center gap-1 font-medium"><AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />{error}</p>;
+}
+
+// Id único por campo (antes salía de la etiqueta y se repetía si dos campos se llamaban igual)
+// y los ids de su error y su ayuda, para ligarlos con aria-describedby
+function useCampo(id: string | undefined, error: string | undefined, hint?: string) {
+  const generado = useId();
+  const campoId = id || generado;
+  const describedBy = [error ? `${campoId}-error` : null, hint && !error ? `${campoId}-ayuda` : null].filter(Boolean).join(" ") || undefined;
+  return { campoId, errorId: `${campoId}-error`, ayudaId: `${campoId}-ayuda`, aria: { "aria-invalid": error ? true : undefined, "aria-describedby": describedBy } };
 }
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> {
@@ -98,7 +107,7 @@ interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "prefix
 }
 
 export function Input({ label, error, hint, prefix, suffix, className = "", id, ...props }: InputProps) {
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
+  const { campoId: inputId, errorId, ayudaId, aria } = useCampo(id, error, hint);
   return (
     <div className="flex flex-col gap-1.5">
       {label && <label htmlFor={inputId} className={LABEL}>{label}</label>}
@@ -106,6 +115,7 @@ export function Input({ label, error, hint, prefix, suffix, className = "", id, 
         {prefix && <span className="absolute left-3.5 text-stone-400">{prefix}</span>}
         <input
           id={inputId}
+          {...aria}
           className={`${CAMPO} placeholder-stone-400
             ${error ? "border-danger-600 focus:border-danger-600 focus:ring-danger-600/10" : "border-stone-200 hover:border-stone-300"}
             ${prefix ? "pl-10" : "pl-3.5"} ${suffix ? "pr-10" : "pr-3.5"} py-2.5 ${className}`}
@@ -113,8 +123,8 @@ export function Input({ label, error, hint, prefix, suffix, className = "", id, 
         />
         {suffix && <span className="absolute right-3.5 text-stone-400">{suffix}</span>}
       </div>
-      <CampoError error={error} />
-      {hint && !error && <p className="text-xs text-stone-500">{hint}</p>}
+      <CampoError id={errorId} error={error} />
+      {hint && !error && <p id={ayudaId} className="text-xs text-stone-500">{hint}</p>}
     </div>
   );
 }
@@ -125,12 +135,13 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export function Select({ label, error, className = "", id, children, ...props }: SelectProps) {
-  const selectId = id || label?.toLowerCase().replace(/\s+/g, "-");
+  const { campoId: selectId, errorId, aria } = useCampo(id, error);
   return (
     <div className="flex flex-col gap-1.5">
       {label && <label htmlFor={selectId} className={LABEL}>{label}</label>}
       <select
         id={selectId}
+        {...aria}
         className={`${CAMPO} py-2.5 pl-3.5 pr-9 appearance-none bg-no-repeat bg-[length:16px] bg-[position:right_12px_center]
           bg-[url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7287' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")]
           ${error ? "border-danger-600" : "border-stone-200 hover:border-stone-300"} ${className}`}
@@ -138,7 +149,7 @@ export function Select({ label, error, className = "", id, children, ...props }:
       >
         {children}
       </select>
-      <CampoError error={error} />
+      <CampoError id={errorId} error={error} />
     </div>
   );
 }
@@ -149,17 +160,18 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 export function Textarea({ label, error, className = "", id, ...props }: TextareaProps) {
-  const textareaId = id || label?.toLowerCase().replace(/\s+/g, "-");
+  const { campoId: textareaId, errorId, aria } = useCampo(id, error);
   return (
     <div className="flex flex-col gap-1.5">
       {label && <label htmlFor={textareaId} className={LABEL}>{label}</label>}
       <textarea
         id={textareaId}
+        {...aria}
         rows={4}
         className={`${CAMPO} px-3.5 py-2.5 resize-none ${error ? "border-danger-600" : "border-stone-200 hover:border-stone-300"} ${className}`}
         {...props}
       />
-      <CampoError error={error} />
+      <CampoError id={errorId} error={error} />
     </div>
   );
 }
@@ -212,6 +224,52 @@ export function PagoBadge({ estado }: { estado: "pagado" | "pendiente" | "vencid
   return <span className={`${PILL} ${cfg.cls}`}>{cfg.icon}{cfg.label}</span>;
 }
 
+// ─── Esqueletos de carga ─────────────────────────────────────────────────────
+
+/** Bloque que late mientras llega el contenido; sin animación si la persona pidió menos movimiento */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <span aria-hidden="true" className={`block rounded-xl bg-stone-200/70 motion-safe:animate-pulse ${className}`} />;
+}
+
+/** Silueta de una pantalla completa: título, tarjetas y una tabla */
+export function PantallaSkeleton() {
+  return (
+    <div role="status" className="space-y-6 pt-2">
+      <span className="sr-only">Cargando…</span>
+      <div className="space-y-2.5">
+        <Skeleton className="h-9 w-64 max-w-full" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <Skeleton className="h-36 rounded-[22px]" />
+        <Skeleton className="h-36 rounded-[22px] hidden sm:block" />
+        <Skeleton className="h-36 rounded-[22px] hidden lg:block" />
+      </div>
+      <Skeleton className="h-64 rounded-[22px]" />
+    </div>
+  );
+}
+
+/** Lista de filas mientras carga (bandejas, tablas cortas) */
+export function ListaSkeleton({ filas = 4 }: { filas?: number }) {
+  return (
+    <div role="status" className="space-y-2.5">
+      <span className="sr-only">Cargando…</span>
+      {Array.from({ length: filas }, (_, i) => <Skeleton key={i} className="h-14 rounded-2xl" />)}
+    </div>
+  );
+}
+
+/** Unas cuantas filas para las tarjetas del inicio */
+export function LineasSkeleton({ lineas = 3 }: { lineas?: number }) {
+  return (
+    <div role="status" className="space-y-3">
+      <span className="sr-only">Cargando…</span>
+      {Array.from({ length: lineas }, (_, i) => <Skeleton key={i} className="h-10 rounded-2xl" />)}
+    </div>
+  );
+}
+
 // ─── Contenedores ────────────────────────────────────────────────────────────
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -225,8 +283,9 @@ const METRIC_CFG = {
   danger: { num: "text-danger-700", icon: "bg-danger-600 text-white" },
 };
 
-export function MetricCard({ label, value, sub, icon, variant = "default" }: {
-  label: string; value: string | number; sub?: string; icon?: ReactNode; variant?: "default" | "success" | "warning" | "danger";
+// cargando: muestra la silueta del valor mientras llega el dato
+export function MetricCard({ label, value, sub, icon, variant = "default", cargando = false }: {
+  label: string; value: string | number; sub?: string; icon?: ReactNode; variant?: "default" | "success" | "warning" | "danger"; cargando?: boolean;
 }) {
   const c = METRIC_CFG[variant];
   return (
@@ -235,12 +294,20 @@ export function MetricCard({ label, value, sub, icon, variant = "default" }: {
         {icon && <span className={`icono-color w-9 h-9 rounded-full flex items-center justify-center shrink-0 [&>svg]:w-5 [&>svg]:h-5 ${c.icon}`}>{icon}</span>}
         <p className="text-sm font-semibold text-stone-600 leading-tight">{label}</p>
       </div>
+      {cargando ? (
+        <div role="status" className="space-y-2.5">
+          <span className="sr-only">Cargando {label.toLowerCase()}…</span>
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-3.5 w-32 max-w-full" />
+        </div>
+      ) : (
       <div>
         {/* Un monto no se parte a la mitad: solo se corta en los espacios, y los valores largos
             (ej. "Q2,550.00 / Q2,500.00") van con letra más chica para caber en media pantalla */}
         <p className={`font-display font-bold tabular-nums tracking-tight ${String(value).length > 9 ? "text-[clamp(1.25rem,2vw,1.9rem)] leading-tight" : "text-[clamp(1.7rem,2.6vw,2.4rem)] leading-none"} ${c.num}`}>{value}</p>
         {sub && <p className="text-[13px] text-stone-500 mt-2 leading-snug">{sub}</p>}
       </div>
+      )}
     </Card>
   );
 }
@@ -321,19 +388,33 @@ function CerrarBtn({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Cierra con Esc mientras está abierto (los fondos oscuros solo responden al clic)
+function useCerrarConEsc(open: boolean, onClose: () => void) {
+  const cerrar = useRef(onClose);
+  cerrar.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === "Escape") cerrar.current(); };
+    document.addEventListener("keydown", alTeclear);
+    return () => document.removeEventListener("keydown", alTeclear);
+  }, [open]);
+}
+
 export function Modal({ open, onClose, title, children, footer }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
 }) {
+  const tituloId = useId();
+  useCerrarConEsc(open, onClose);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" aria-modal="true" role="dialog" aria-labelledby="modal-title">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" aria-modal="true" role="dialog" aria-labelledby={tituloId}>
       <div className="absolute inset-0 bg-primary-900/40" onClick={onClose} />
       <div className="relative bg-white rounded-t-[28px] sm:rounded-[28px] shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-3">
-          <h2 id="modal-title" className="font-display font-bold text-stone-900 text-[1.35rem] leading-tight">{title}</h2>
+          <h2 id={tituloId} className="font-display font-bold text-stone-900 text-[1.35rem] leading-tight">{title}</h2>
           <CerrarBtn onClose={onClose} />
         </div>
-        <div className="flex-1 overflow-y-auto px-6 pb-5 pt-1">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-5 pt-1">{children}</div>
         {footer && <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-end gap-2.5">{footer}</div>}
       </div>
     </div>
@@ -343,16 +424,18 @@ export function Modal({ open, onClose, title, children, footer }: {
 export function Drawer({ open, onClose, title, children, footer }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
 }) {
+  const tituloId = useId();
+  useCerrarConEsc(open, onClose);
   return (
     <>
       <div className={`fixed inset-0 z-40 bg-primary-900/40 transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`} onClick={onClose} />
       {/* Cerrado queda fuera de la pantalla: sin sombra (asomaba por el borde) e inerte (no recibe foco) */}
-      <div inert={!open} className={`fixed right-0 top-0 h-full z-50 w-full max-w-md bg-white sm:rounded-l-[28px] transition-transform duration-300 flex flex-col ${open ? "translate-x-0 shadow-2xl" : "translate-x-full"}`} aria-modal="true" role="dialog">
+      <div inert={!open} className={`fixed right-0 top-0 h-full z-50 w-full max-w-md bg-white sm:rounded-l-[28px] transition-transform duration-300 flex flex-col ${open ? "translate-x-0 shadow-2xl" : "translate-x-full"}`} aria-modal="true" role="dialog" aria-labelledby={tituloId}>
         <div className="flex items-center justify-between gap-4 px-6 pt-6 pb-4 shrink-0">
-          <h2 className="font-display font-bold text-stone-900 text-[1.35rem] leading-tight">{title}</h2>
+          <h2 id={tituloId} className="font-display font-bold text-stone-900 text-[1.35rem] leading-tight">{title}</h2>
           <CerrarBtn onClose={onClose} />
         </div>
-        <div className="flex-1 overflow-y-auto px-6 pb-5">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-5">{children}</div>
         {footer && <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-end gap-2.5 shrink-0">{footer}</div>}
       </div>
     </>

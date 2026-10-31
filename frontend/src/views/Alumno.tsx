@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { BookOpen, Clock } from "../components/Iconos";
 import type { View } from "../types";
 import {
-  getPerfilAlumno, getMisNotasAlumno, getMiHorarioAlumno, getMiAsistenciaAlumno, getEventos, getMisNotificaciones,
+  getPerfilAlumno, getMisNotasAlumno, getMiHorarioAlumno, getMiAsistenciaAlumno, getEventos, getMisNotificaciones, getTableroTareas,
   type PerfilAlumnoDto, type BoletinHijoDto, type ClaseAlumnoDto, type AsistenciaAlumnoDto, type EventoDto, type NotificacionDto,
 } from "../lib/api";
-import { Card, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState, CursoMarca, colorDeCurso, Anillo, FechaBloque, CardTitulo, LinkAccion } from "../components/Ui";
+import { Card, SectionHeader, Badge, EstadoBadge, TH, TD, AlertBanner, EmptyState, CursoMarca, colorDeCurso, Anillo, FechaBloque, CardTitulo, LinkAccion, LineasSkeleton } from "../components/Ui";
 import CalendarioEventos from "../components/CalendarioEventos";
 import HorarioSemanal, { DIAS, asuetosDeLaSemana } from "../components/HorarioSemanal";
+import TableroTareas, { textoLimite } from "../components/TableroTareas";
+import { getSession } from "../lib/auth";
 
 
 const errorDe = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
@@ -71,6 +73,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
   const asistencia = useCarga<AsistenciaAlumnoDto>(getMiAsistenciaAlumno, "No se pudo cargar tu asistencia.");
   const eventos = useCarga<EventoDto[]>(getEventos, "No se pudieron cargar los eventos.");
   const avisos = useCarga<NotificacionDto[]>(getMisNotificaciones, "No se pudieron cargar los avisos.");
+  const tareas = useCarga(() => getTableroTareas(Number(getSession()?.user.id)), "No se pudieron cargar tus tareas.");
 
   const error = perfil.error || notas.error;
   const boletin = notas.data;
@@ -78,6 +81,10 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
   const porcentaje = asistencia.data?.resumen.porcentaje;
   const hoy = hoyISO();
   const proximosEventos = (eventos.data ?? []).filter((e) => e.fecha.slice(0, 10) >= hoy).slice(0, 4);
+  // Lo que falta entregar: primero lo devuelto y lo atrasado (si aún se acepta), luego por fecha límite
+  const porEntregar = (tareas.data?.tareas ?? [])
+    .filter((t) => t.estado === "Pendiente" || t.estado === "Devuelta" || (t.estado === "Atrasada" && t.permiteAtrasadas))
+    .slice(0, 4);
 
   return (
     <div className="space-y-6">
@@ -138,7 +145,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6 lg:col-span-2">
           <CardTitulo titulo="Mis cursos" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-notas")}>Ver todas las notas</LinkAccion>} />
           {!boletin || boletin.cursos.length === 0 ? (
-            <p className="text-sm text-stone-500">{notas.loading ? "Cargando…" : "Aún no tienes cursos asignados."}</p>
+            notas.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">Aún no tienes cursos asignados.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {boletin.cursos.slice(0, 8).map((c) => {
@@ -165,7 +172,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6 flex flex-col">
           <CardTitulo titulo="Asistencia" />
           {porcentaje === undefined ? (
-            <p className="text-sm text-stone-500">{asistencia.loading ? "Cargando…" : "Sin registros todavía."}</p>
+            asistencia.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">Sin registros todavía.</p>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
               <Anillo valor={porcentaje} size={132} grosor={12} color={porcentaje >= 80 ? "#0f7b5f" : "#d99e00"}>
@@ -182,11 +189,35 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card className="p-6">
+          <CardTitulo titulo="Tareas por entregar" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-tareas")}>Ver tablero</LinkAccion>} />
+          {porEntregar.length === 0 ? (
+            tareas.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No tienes tareas pendientes.</p>
+          ) : (
+            <ul className="space-y-3">
+              {porEntregar.map((t) => {
+                const limite = textoLimite(t.fechaLimite);
+                return (
+                  <li key={t.actividadId} className="flex items-center gap-3">
+                    <CursoMarca nombre={t.curso} size="sm" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-stone-900 text-[15px] truncate">{t.nombre}</p>
+                      <p className={`text-[13px] ${t.estado === "Devuelta" || t.estado === "Atrasada" || limite.urgente ? "text-danger-700 font-semibold" : "text-stone-500"}`}>
+                        {t.estado === "Devuelta" ? "Devuelta para corregir" : limite.texto}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+
         <Card className="p-6">
           <CardTitulo titulo="Próximos eventos" accion={onNavigate && <LinkAccion onClick={() => onNavigate("alu-calendario")}>Abrir calendario</LinkAccion>} />
           {proximosEventos.length === 0 ? (
-            <p className="text-sm text-stone-500">{eventos.loading ? "Cargando…" : "No hay eventos próximos."}</p>
+            eventos.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No hay eventos próximos.</p>
           ) : (
             <ul className="space-y-3">
               {proximosEventos.map((e, i) => (
@@ -205,7 +236,7 @@ function DashboardAlu({ onNavigate }: { onNavigate?: (v: View) => void }) {
         <Card className="p-6">
           <CardTitulo titulo="Avisos recientes" />
           {(avisos.data ?? []).length === 0 ? (
-            <p className="text-sm text-stone-500">{avisos.loading ? "Cargando…" : "No tienes avisos."}</p>
+            avisos.loading ? <LineasSkeleton /> : <p className="text-sm text-stone-500">No tienes avisos.</p>
           ) : (
             <ul className="divide-y divide-stone-100 -my-2">
               {avisos.data!.slice(0, 4).map((n) => (
@@ -364,8 +395,19 @@ function CalendarioAlu() {
   return <CalendarioEventos subtitle="Eventos y actividades de tu sede" />;
 }
 
+function MisTareas() {
+  const alumnoId = Number(getSession()?.user.id);
+  return (
+    <div className="space-y-5">
+      <SectionHeader title="Mis Tareas" subtitle="Entregue sus tareas en línea y vea cuáles ya fueron calificadas." />
+      <TableroTareas alumnoId={alumnoId} />
+    </div>
+  );
+}
+
 export default function Alumno({ view, onNavigate }: { view: View; onNavigate?: (v: View) => void }) {
   if (view === "alu-notas") return <MisNotas />;
+  if (view === "alu-tareas") return <MisTareas />;
   if (view === "alu-horario") return <MiHorarioAlu />;
   if (view === "alu-calendario") return <CalendarioAlu />;
   return <DashboardAlu onNavigate={onNavigate} />;

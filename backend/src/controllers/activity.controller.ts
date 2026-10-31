@@ -1,8 +1,10 @@
 import type { Response, Request } from 'express';
-import type { TipoActividad } from '@prisma/client';
+import type { Prisma, TipoActividad } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 import { puedeGestionarCursoSeccion } from '../services/acceso.service.js';
+import { avisarNuevaTarea } from '../services/tareas.service.js';
+import { borrarDeCloudinary } from '../services/archivos.service.js';
 
 export const getActivities = async (_req: Request, res: Response) => {
     try {
@@ -65,8 +67,31 @@ const leerTipo = (tipo: unknown): TipoActividad | null =>
 const cargarUnidad = (unidadId: number) =>
     prisma.unidad.findUnique({
         where: { unidadId },
-        include: { cursoSeccion: { include: { seccion: { select: { sedeId: true } } } } },
+        include: { cursoSeccion: { include: { seccion: { select: { sedeId: true } }, curso: { select: { nombre: true } } } } },
     });
+
+// Campos de la tarea con entrega en linea; solo se toman los que llegan en el body.
+// fechaLimite es fecha y hora (ISO); null la quita.
+const leerCamposTarea = (body: any): { datos: Prisma.ActividadUpdateInput; error?: string } => {
+    const datos: Prisma.ActividadUpdateInput = {};
+    if (body.aceptaEntregas !== undefined) datos.aceptaEntregas = body.aceptaEntregas === true;
+    if (body.permiteAtrasadas !== undefined) datos.permiteAtrasadas = body.permiteAtrasadas === true;
+    if (body.instrucciones !== undefined) {
+        const texto = body.instrucciones === null ? '' : String(body.instrucciones).trim();
+        if (texto.length > 4000) return { datos, error: 'Las instrucciones pueden tener como máximo 4000 caracteres.' };
+        datos.instrucciones = texto || null;
+    }
+    if (body.fechaLimite !== undefined) {
+        if (body.fechaLimite === null || body.fechaLimite === '') {
+            datos.fechaLimite = null;
+        } else {
+            const fecha = new Date(body.fechaLimite);
+            if (isNaN(fecha.getTime())) return { datos, error: 'La fecha límite de entrega es inválida.' };
+            datos.fechaLimite = fecha;
+        }
+    }
+    return { datos };
+};
 
 // Suma de los punteos de un tipo ya asignados en la unidad, sin contar la actividad que se edita
 const punteoAsignado = async (unidadId: number, tipo: TipoActividad, excluirActividadId?: number) => {
@@ -111,6 +136,11 @@ export const createActivity = async (req: AuthenticatedRequest, res: Response) =
         return res.status(400).json({ status: 'error', message: 'La fecha es invalida'})
     }
 
+    const tarea = leerCamposTarea(req.body);
+    if (tarea.error) {
+        return res.status(400).json({ status: 'error', message: tarea.error })
+    }
+
     try {
         const unidad = await cargarUnidad(Number(unidadId));
         if (!unidad) {
@@ -132,8 +162,16 @@ export const createActivity = async (req: AuthenticatedRequest, res: Response) =
                 puntosMaximos: puntos,
                 fecha: parseDate,
                 tipo,
+                aceptaEntregas: tarea.datos.aceptaEntregas as boolean | undefined,
+                permiteAtrasadas: tarea.datos.permiteAtrasadas as boolean | undefined,
+                instrucciones: tarea.datos.instrucciones as string | null | undefined,
+                fechaLimite: tarea.datos.fechaLimite as Date | null | undefined,
             }
         })
+
+        if (newActivity.aceptaEntregas) {
+            await avisarNuevaTarea(newActivity, unidad.cursoSeccion.seccionId, unidad.cursoSeccion.curso.nombre);
+        }
 
         return res.status(201).json({
             status: 'success',
@@ -190,7 +228,12 @@ export const updateActivity = async (req: AuthenticatedRequest, res: Response) =
             }
         }
 
-        const dataToUpdate: any = { puntosMaximos: puntos, tipo };
+        const tarea = leerCamposTarea(req.body);
+        if (tarea.error) {
+            return res.status(400).json({ status: 'error', message: tarea.error })
+        }
+
+        const dataToUpdate: any = { ...tarea.datos, puntosMaximos: puntos, tipo };
 
         if(nombre?.trim()) dataToUpdate.nombre = nombre.trim();
         if(fecha){
@@ -206,13 +249,18 @@ export const updateActivity = async (req: AuthenticatedRequest, res: Response) =
             data: dataToUpdate
         });
 
+        // Se avisa cuando la actividad pasa a recibir entregas en linea
+        if (activityUpdated.aceptaEntregas && !actividad.aceptaEntregas) {
+            await avisarNuevaTarea(activityUpdated, unidad.cursoSeccion.seccionId, unidad.cursoSeccion.curso.nombre);
+        }
+
         return res.json({ status: 'success', data: activityUpdated })
     } catch (error) {
         return res.status(500).json({ status: 'error', message: `Error al actualizar la actividad con ID: ${id}.`, error })
     }
 }
 
-//Delete: borra tambien las notas registradas en la actividad
+//Delete: borra tambien las notas registradas en la actividad y las entregas con sus archivos
 export const deleteActivity = async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
@@ -227,10 +275,17 @@ export const deleteActivity = async (req: AuthenticatedRequest, res: Response) =
             return res.status(403).json({ status: 'error', message: 'No tiene permisos para eliminar actividades de este curso.' })
         }
 
+        // Las entregas y los registros de archivos se borran en cascada; en Cloudinary se borran aparte
+        const archivos = await prisma.archivoTarea.findMany({
+            where: { OR: [{ actividadId: Number(id) }, { entrega: { actividadId: Number(id) } }] },
+            select: { publicId: true, resourceType: true },
+        });
+
         await prisma.$transaction([
             prisma.nota.deleteMany({ where: { actividadId: Number(id) } }),
             prisma.actividad.delete({ where: { actividadId: Number(id) } }),
         ]);
+        await borrarDeCloudinary(archivos);
 
         return res.json({ status: 'success', message: `Actividad con ID: ${id} eliminada correctamente.` })
     } catch (error) {

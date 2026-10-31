@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarX2, CheckCircle2, Clock, FileCheck2, Send, Trash2, XCircle } from "../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Input, Textarea, EmptyState, Anillo, FechaBloque, colorDeCurso } from "../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Modal, Input, Textarea, EmptyState, Anillo, FechaBloque, colorDeCurso, ListaSkeleton } from "../components/Ui";
 import {
   getAsistenciaHijos, solicitarJustificacion, cancelarJustificacion,
   type AsistenciaHijoDto, type EstadoAsistencia, type JustificacionDto,
@@ -99,10 +99,7 @@ export default function AsistenciaPadre() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-        <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-        Cargando asistencia…
-      </div>
+      <ListaSkeleton />
     );
   }
 

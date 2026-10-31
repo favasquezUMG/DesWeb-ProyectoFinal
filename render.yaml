@@ -1,0 +1,71 @@
+# Blueprint de Render: un solo servicio. La API (Express + Prisma) también sirve el frontend
+# compilado, así todo queda en un mismo link. Las variables con sync: false se llenan en el
+# panel de Render al crear el Blueprint.
+services:
+  - type: web
+    name: colegio-vanguardia-api
+    runtime: node
+    plan: free
+    # Primero el frontend (con la URL del propio servicio, que Render da en RENDER_EXTERNAL_URL) y luego la API.
+    # --include=dev: vite, tsc y prisma son devDependencies y NODE_ENV=production las omitiría
+    buildCommand: >-
+      cd frontend && npm ci --include=dev &&
+      URL_APP=${RENDER_EXTERNAL_URL:-https://colegio-vanguardia-api.onrender.com} &&
+      VITE_API_URL=$URL_APP VITE_SITE_URL=$URL_APP npm run build &&
+      cd ../backend && npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: NODE_ENV
+        value: production
+      # Chrome de puppeteer (PDFs) dentro del proyecto: lo que queda fuera no llega a la ejecución
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/src/backend/.cache/puppeteer
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USER
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_DOMINIOS_PERMITIDOS
+        sync: false
+      # Render gratis bloquea SMTP: los correos salen por el script backend/scripts/relay-correo.gs
+      - key: MAIL_RELAY_URL
+        sync: false
+      - key: MAIL_RELAY_TOKEN
+        sync: false
+      - key: COLEGIO_NOMBRE
+        value: Colegio Vanguardia
+      - key: COLEGIO_ZONA_HORARIA
+        value: America/Guatemala
+      - key: RECORDATORIOS_HORA
+        value: "7"
+      - key: COLEGIATURA_MENSUAL
+        value: "500"
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Llave PUBLICABLE (pk_test_...): la usa el build del frontend
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false

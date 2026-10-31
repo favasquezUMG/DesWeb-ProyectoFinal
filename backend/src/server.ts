@@ -1,4 +1,6 @@
 import express from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import cors from "cors";
 import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
@@ -34,12 +36,20 @@ import encargadoRoutes from "./routes/encargado.routes.js";
 import portalAlumnoRoutes from "./routes/portalAlumno.routes.js";
 import gradoRoutes from "./routes/grado.routes.js";
 import circularRoutes from "./routes/circular.routes.js";
+import tareaRoutes from "./routes/tarea.routes.js";
 import { iniciarRecordatoriosEventos } from "./services/recordatorios.service.js";
 import { iniciarVencimientoCirculares } from "./services/circulares.service.js";
 import { closeBrowser } from "./services/pdf.service.js";
 
 dotenv.config();
 const app = express();
+
+// En Render la API también sirve el frontend: los enlaces de los correos apuntan a la misma URL.
+// Una FRONTEND_URL local (copiada del .env al panel) se ignora, si no los correos llevarían a localhost.
+const esUrlLocal = (url?: string) => !url || /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url);
+if (process.env.RENDER_EXTERNAL_URL && esUrlLocal(process.env.FRONTEND_URL)) {
+  process.env.FRONTEND_URL = process.env.RENDER_EXTERNAL_URL;
+}
 
 const PORT = Number(process.env.PORT) || 8081;
 const HOST = process.env.HOST || "http://localhost";
@@ -50,6 +60,7 @@ const origenesPermitidos = (process.env.CORS_ORIGIN ?? "http://localhost:5173")
   .filter(Boolean);
 
 const origenesPropios = [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
+if (process.env.RENDER_EXTERNAL_URL) origenesPropios.push(process.env.RENDER_EXTERNAL_URL);
 
 const puertosDev = origenesPermitidos
   .map((o) => { try { return new URL(o).port; } catch { return null; } })
@@ -79,6 +90,18 @@ app.post(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Frontend compilado (frontend/dist), si existe. Va antes de "/" para que la raíz sea la página de inicio
+const frontendDist = path.resolve(import.meta.dirname, "../../frontend/dist");
+const hayFrontend = existsSync(frontendDist);
+if (hayFrontend) {
+  app.use(express.static(frontendDist, {
+    setHeaders(res, archivo) {
+      // Los archivos de assets/ llevan hash en el nombre: nunca cambian
+      if (archivo.includes(`${path.sep}assets${path.sep}`)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  }));
+}
 
 app.get("/", (_req, res) => {
   res.json({
@@ -116,6 +139,7 @@ app.use('/api/matriculas', matriculaRoutes);
 app.use('/api/pagos', pagoRoutes);
 app.use('/api/actividades', activityRoutes);
 app.use('/api/notas', notaRoutes);
+app.use('/api/tareas', tareaRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/reportes', reporteRoutes);
@@ -129,6 +153,14 @@ app.use('/api/encargado', encargadoRoutes);
 app.use('/api/portal-alumno', portalAlumnoRoutes);
 app.use('/api/grados', gradoRoutes);
 app.use('/api/circulares', circularRoutes);
+
+// La app solo vive en "/": cualquier otra ruta que no sea de la API muestra la página 404 de React con estado 404
+if (hayFrontend) {
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api")) return next();
+    res.status(404).sendFile(path.join(frontendDist, "index.html"));
+  });
+}
 
 app.listen(PORT, async () => {
   try {

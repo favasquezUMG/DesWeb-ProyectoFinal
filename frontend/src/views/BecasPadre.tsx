@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Award, Send, Users2, GraduationCap, ShieldAlert, History } from "../components/Iconos";
-import { Card, SectionHeader, Btn, Badge, AlertBanner, Select, Textarea, EmptyState, Drawer } from "../components/Ui";
+import { Card, SectionHeader, Btn, Badge, AlertBanner, Select, Textarea, EmptyState, Drawer, ListaSkeleton } from "../components/Ui";
 import HistorialBeca from "../components/HistorialBeca";
 import { getMisBecas, solicitarBeca, type HijoBecasDto, type MisBecasDto } from "../lib/api";
 import { ESTADO_BECA_BADGE, TIPO_PROGRAMA_LABEL, formatFecha, formatQ } from "../lib/becas";
@@ -67,10 +67,7 @@ export default function BecasPadre() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-stone-500">
-        <span className="w-4 h-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-        Cargando becas…
-      </div>
+      <ListaSkeleton />
     );
   }
 
